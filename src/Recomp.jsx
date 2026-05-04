@@ -1,18 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-// ============================================================
-// SUPABASE — cloud sync + auth
-// ============================================================
-// Set these in your Vercel env vars (and locally in .env.local):
-//   VITE_SUPABASE_URL=https://xxxxx.supabase.co
-//   VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : null;
 
 // ============================================================
 // CONSTANTS — colors, styles, programming data
@@ -1567,101 +1553,54 @@ const defaultState = () => ({
   conv: [], // ai coach conversation
 });
 
-// Validate + migrate any incoming state blob (from cloud OR local cache)
-const migrate = (parsed) => {
-  const def = defaultState();
-  const merged = { ...def, ...(parsed || {}) };
-  merged.profile = { ...def.profile, ...((parsed && parsed.profile) || {}) };
-  if (!Array.isArray(merged.profile.schedule) || merged.profile.schedule.length !== 7) {
-    merged.profile.schedule = defaultScheduleForStyle(merged.profile.workoutStyle);
-  }
-  if (!validateSchedule(merged.profile.schedule, merged.profile.workoutStyle)) {
-    merged.profile.schedule = defaultScheduleForStyle(merged.profile.workoutStyle);
-  }
-  if (!merged.profile.weekOverrides || typeof merged.profile.weekOverrides !== 'object') {
-    merged.profile.weekOverrides = {};
-  }
-  if (!Array.isArray(merged.wlog)) merged.wlog = [];
-  if (!Array.isArray(merged.jlog)) merged.jlog = [];
-  if (!Array.isArray(merged.runs)) merged.runs = [];
-  if (!Array.isArray(merged.conv)) merged.conv = [];
-  if (!merged.food || typeof merged.food !== 'object') merged.food = {};
-  if (!merged.sessions || typeof merged.sessions !== 'object') merged.sessions = {};
-  if (!merged.profile.weeks) merged.profile.weeks = 12;
-  if (!merged.profile.workoutStyle) merged.profile.workoutStyle = 'func_bb';
-  if (!merged.profile.startDate) merged.profile.startDate = todayISO();
-  if (!merged.week) merged.week = 1;
-  return merged;
-};
-
-// Local cache key now includes user id so multiple users on the same device
-// don't see each other's data.
-const cacheKey = (userId) => `${STORAGE_KEY}_${userId || 'anon'}`;
-
-// Load state for a given user.
-// Strategy: try cloud first (source of truth). If cloud succeeds, also write
-// to local cache so we have offline fallback. If cloud fails (offline / not
-// configured), fall back to whatever local cache we have.
-const loadState = async (userId) => {
-  // Cloud-first
-  if (supabase && userId) {
-    try {
-      const { data, error } = await supabase
-        .from('recomp_profiles')
-        .select('data')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (!error && data && data.data) {
-        const migrated = migrate(data.data);
-        // Refresh local cache
-        try { localStorage.setItem(cacheKey(userId), JSON.stringify(migrated)); } catch {}
-        return migrated;
-      }
-    } catch (e) {
-      console.warn('Cloud load failed, falling back to local:', e.message);
-    }
-  }
-  // Local fallback
+const loadState = async () => {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return defaultState();
-    const value = localStorage.getItem(cacheKey(userId));
+    const value = localStorage.getItem(STORAGE_KEY);
     if (!value) return defaultState();
-    return migrate(JSON.parse(value));
+    let parsed;
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return defaultState();
+    }
+    // Migrate / validate
+    const def = defaultState();
+    const merged = { ...def, ...parsed };
+    merged.profile = { ...def.profile, ...(parsed.profile || {}) };
+    if (!Array.isArray(merged.profile.schedule) || merged.profile.schedule.length !== 7) {
+      merged.profile.schedule = defaultScheduleForStyle(merged.profile.workoutStyle);
+    }
+    if (!validateSchedule(merged.profile.schedule, merged.profile.workoutStyle)) {
+      merged.profile.schedule = defaultScheduleForStyle(merged.profile.workoutStyle);
+    }
+    if (!merged.profile.weekOverrides || typeof merged.profile.weekOverrides !== 'object') {
+      merged.profile.weekOverrides = {};
+    }
+    if (!Array.isArray(merged.wlog)) merged.wlog = [];
+    if (!Array.isArray(merged.jlog)) merged.jlog = [];
+    if (!Array.isArray(merged.runs)) merged.runs = [];
+    if (!Array.isArray(merged.conv)) merged.conv = [];
+    if (!merged.food || typeof merged.food !== 'object') merged.food = {};
+    if (!merged.sessions || typeof merged.sessions !== 'object') merged.sessions = {};
+    if (!merged.profile.weeks) merged.profile.weeks = 12;
+    if (!merged.profile.workoutStyle) merged.profile.workoutStyle = 'func_bb';
+    if (!merged.profile.startDate) merged.profile.startDate = todayISO();
+    if (!merged.week) merged.week = 1;
+    return merged;
   } catch (e) {
-    console.error('loadState local', e);
+    console.error('loadState', e);
     return defaultState();
   }
 };
 
-// Save state.
-// Always write to local cache immediately (so offline edits aren't lost).
-// Then write to cloud in the background if available.
-const saveState = async (s, userId) => {
-  // Local cache (always)
+const saveState = async (s) => {
   try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.setItem(cacheKey(userId), JSON.stringify(s));
-    }
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
   } catch (e) {
-    console.error('saveState local', e);
+    console.error('saveState', e);
   }
-  // Cloud (best-effort)
-  if (supabase && userId) {
-    try {
-      const { error } = await supabase
-        .from('recomp_profiles')
-        .upsert({ user_id: userId, data: s, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-      if (error) {
-        console.warn('Cloud save error:', error.message);
-        return { ok: false, error: error.message };
-      }
-      return { ok: true };
-    } catch (e) {
-      console.warn('Cloud save failed:', e.message);
-      return { ok: false, error: e.message };
-    }
-  }
-  return { ok: true, local: true };
 };
 
 // ============================================================
@@ -3314,7 +3253,6 @@ const lookupBarcode = async (upc) => {
     if (data.status !== 1 || !data.product) return { ok: false, error: 'Product not found in database' };
     const p = data.product;
     const n = p.nutriments || {};
-    // Prefer per-serving values, fall back to per-100g
     const serving = parseFloat(p.serving_quantity) || 100;
     const per100 = (key) => parseFloat(n[key + '_100g'] || n[key] || 0);
     const perServing = (key) => parseFloat(n[key + '_serving'] || 0) || (per100(key) * serving / 100);
@@ -3339,7 +3277,7 @@ const BarcodeScanner = ({ onResult, onClose }) => {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const readerRef = useRef(null);
-  const [status, setStatus] = useState('starting'); // starting | scanning | found | error
+  const [status, setStatus] = useState('starting');
   const [errorMsg, setErrorMsg] = useState('');
   const [foundCode, setFoundCode] = useState('');
   const [lookingUp, setLookingUp] = useState(false);
@@ -3348,7 +3286,6 @@ const BarcodeScanner = ({ onResult, onClose }) => {
     let cancelled = false;
     (async () => {
       try {
-        // Dynamically load ZXing from CDN
         if (!window.ZXing) {
           await new Promise((resolve, reject) => {
             const s = document.createElement('script');
@@ -3359,8 +3296,6 @@ const BarcodeScanner = ({ onResult, onClose }) => {
           });
         }
         if (cancelled) return;
-
-        // Get camera stream (rear camera preferred)
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         });
@@ -3370,8 +3305,6 @@ const BarcodeScanner = ({ onResult, onClose }) => {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
         }
-
-        // Start scanning
         const hints = new Map();
         const formats = [
           window.ZXing.BarcodeFormat.EAN_13,
@@ -3388,12 +3321,10 @@ const BarcodeScanner = ({ onResult, onClose }) => {
         const reader = new window.ZXing.BrowserMultiFormatReader(hints);
         readerRef.current = reader;
         setStatus('scanning');
-
         reader.decodeFromVideoElement(videoRef.current, async (result, err) => {
           if (cancelled || !result) return;
           const code = result.getText();
           if (!code) return;
-          // Stop scanning immediately on first clean read
           reader.reset();
           setFoundCode(code);
           setStatus('found');
@@ -3411,13 +3342,9 @@ const BarcodeScanner = ({ onResult, onClose }) => {
       } catch (e) {
         if (!cancelled) {
           setStatus('error');
-          if (e.name === 'NotAllowedError') {
-            setErrorMsg('Camera permission denied. Allow camera access in your browser settings.');
-          } else if (e.name === 'NotFoundError') {
-            setErrorMsg('No camera found on this device.');
-          } else {
-            setErrorMsg(e.message || 'Could not start camera');
-          }
+          if (e.name === 'NotAllowedError') setErrorMsg('Camera permission denied. Allow camera access in your browser settings.');
+          else if (e.name === 'NotFoundError') setErrorMsg('No camera found on this device.');
+          else setErrorMsg(e.message || 'Could not start camera');
         }
       }
     })();
@@ -3429,52 +3356,25 @@ const BarcodeScanner = ({ onResult, onClose }) => {
   }, []);
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.97)',
-      zIndex: 300, display: 'flex', flexDirection: 'column',
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '12px 14px', display: 'flex', alignItems: 'center',
-        gap: 10, borderBottom: `1px solid ${BORDER}`,
-      }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.97)', zIndex: 300, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${BORDER}` }}>
         <H size={16} mb={0}>SCAN BARCODE</H>
         <div style={{ flex: 1 }} />
-        <button onClick={onClose} style={{
-          background: 'transparent', color: '#fff', border: 'none',
-          fontSize: 26, cursor: 'pointer', lineHeight: 1,
-        }}>×</button>
+        <button onClick={onClose} style={{ background: 'transparent', color: '#fff', border: 'none', fontSize: 26, cursor: 'pointer', lineHeight: 1 }}>×</button>
       </div>
-
-      {/* Camera viewfinder */}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#000' }}>
-        <video
-          ref={videoRef}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          playsInline
-          muted
-        />
-        {/* Targeting reticle */}
+        <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} playsInline muted />
         {status === 'scanning' && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{
-              width: 260, height: 160,
-              border: `3px solid ${ACCENT}`,
-              borderRadius: 10,
-              boxShadow: `0 0 0 9999px rgba(0,0,0,0.55), 0 0 20px ${ACCENT}66`,
-              position: 'relative',
+              width: 260, height: 160, border: `3px solid ${ACCENT}`, borderRadius: 10,
+              boxShadow: `0 0 0 9999px rgba(0,0,0,0.55), 0 0 20px ${ACCENT}66`, position: 'relative',
             }}>
-              {/* Animated scan line */}
               <div style={{
                 position: 'absolute', left: 0, right: 0, height: 2,
                 background: `linear-gradient(90deg, transparent, ${ACCENT}, transparent)`,
-                top: '50%',
-                animation: 'recomp-stripe 1.8s ease-in-out infinite',
+                top: '50%', animation: 'recomp-stripe 1.8s ease-in-out infinite',
               }} />
-              {/* Corner accents */}
               {[
                 { top: -2, left: -2, borderTop: `3px solid ${ORANGE}`, borderLeft: `3px solid ${ORANGE}` },
                 { top: -2, right: -2, borderTop: `3px solid ${ORANGE}`, borderRight: `3px solid ${ORANGE}` },
@@ -3486,39 +3386,17 @@ const BarcodeScanner = ({ onResult, onClose }) => {
             </div>
           </div>
         )}
-        {/* Status overlay */}
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
           padding: '12px 16px', textAlign: 'center',
           background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
         }}>
-          {status === 'starting' && (
-            <div style={{ color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 12 }}>
-              STARTING CAMERA...
-            </div>
-          )}
-          {status === 'scanning' && (
-            <div style={{ color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 12 }}>
-              POINT AT BARCODE
-            </div>
-          )}
-          {status === 'found' && (
-            <div style={{ color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 12 }}>
-              ✓ SCANNED {foundCode} {lookingUp ? '— LOOKING UP...' : ''}
-            </div>
-          )}
-          {status === 'error' && (
-            <div style={{
-              padding: 10, background: `${RED}22`, border: `1px solid ${RED}55`,
-              borderRadius: 8, color: RED, fontSize: 12,
-            }}>
-              ⚠ {errorMsg}
-            </div>
-          )}
+          {status === 'starting' && <div style={{ color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 12 }}>STARTING CAMERA...</div>}
+          {status === 'scanning' && <div style={{ color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 12 }}>POINT AT BARCODE</div>}
+          {status === 'found' && <div style={{ color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 12 }}>✓ SCANNED {foundCode} {lookingUp ? '— LOOKING UP...' : ''}</div>}
+          {status === 'error' && <div style={{ padding: 10, background: `${RED}22`, border: `1px solid ${RED}55`, borderRadius: 8, color: RED, fontSize: 12 }}>⚠ {errorMsg}</div>}
         </div>
       </div>
-
-      {/* Hint */}
       <div style={{ padding: '10px 14px', fontSize: 11, color: TEXT_MUTED, textAlign: 'center' }}>
         Works with UPC, EAN, and most grocery barcodes · Powered by Open Food Facts
       </div>
@@ -3725,25 +3603,13 @@ const Food = ({ state, setState, onCoachPrompt }) => {
         )}
         {searchError && !searching && (
           <div style={{
-            marginTop: 8,
-            padding: 8,
-            background: `${RED}15`,
-            border: `1px solid ${RED}55`,
-            borderRadius: 6,
-            fontSize: 11,
-            color: RED,
+            marginTop: 8, padding: 8, background: `${RED}15`,
+            border: `1px solid ${RED}55`, borderRadius: 6, fontSize: 11, color: RED,
           }}>⚠ {searchError}</div>
         )}
-
-        {/* Barcode scanner overlay */}
         {scannerOpen && (
           <BarcodeScanner
-            onResult={(item) => {
-              setScannerOpen(false);
-              // Show as a single-item result the user can confirm and add
-              setResults([item]);
-              setSearchError('');
-            }}
+            onResult={(item) => { setScannerOpen(false); setResults([item]); setSearchError(''); }}
             onClose={() => setScannerOpen(false)}
           />
         )}
@@ -4204,7 +4070,7 @@ const ScheduleEditor = ({ profile, onSave }) => {
 // ============================================================
 // BACKUP VIEW
 // ============================================================
-const Backup = ({ state, setState, onShowSummary, user, onSignOut }) => {
+const Backup = ({ state, setState, onShowSummary }) => {
   const { profile } = state;
   const [editing, setEditing] = useState(false);
   const [profileDraft, setProfileDraft] = useState({ ...profile });
@@ -4376,16 +4242,6 @@ const Backup = ({ state, setState, onShowSummary, user, onSignOut }) => {
           <Btn onClick={setWeek}>JUMP</Btn>
         </div>
       </Card>
-
-      {/* Account */}
-      {user && onSignOut && (
-        <Card style={{ marginBottom: 10 }}>
-          <H size={13}>ACCOUNT</H>
-          <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 4 }}>Signed in as</div>
-          <div style={{ fontSize: 12, color: ACCENT, marginBottom: 10, wordBreak: 'break-all' }}>{user.email}</div>
-          <Btn variant="ghost" onClick={onSignOut} style={{ width: '100%' }}>SIGN OUT</Btn>
-        </Card>
-      )}
 
       {/* Reset */}
       <Card style={{ marginBottom: 10, borderColor: RED }}>
@@ -4905,168 +4761,9 @@ const CoachDrawer = ({ open, onClose, state, setState, setActiveTab, pendingProm
 };
 
 // ============================================================
-// AUTH SCREEN — sign in / sign up
-// ============================================================
-const AuthScreen = ({ onAuthed }) => {
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'reset'
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
-
-  const submit = async () => {
-    if (!supabase) {
-      setError('Cloud sync not configured. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY env vars.');
-      return;
-    }
-    if (!email.trim()) { setError('Email required'); return; }
-    if (mode !== 'reset' && !password) { setError('Password required'); return; }
-    setError('');
-    setInfo('');
-    setBusy(true);
-    try {
-      if (mode === 'signin') {
-        const { data, error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-        if (err) throw err;
-        if (data.user) onAuthed(data.user);
-      } else if (mode === 'signup') {
-        const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password });
-        if (err) throw err;
-        if (data.user && data.session) {
-          onAuthed(data.user);
-        } else {
-          setInfo('Check your email to confirm your account, then sign in.');
-          setMode('signin');
-        }
-      } else if (mode === 'reset') {
-        const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim());
-        if (err) throw err;
-        setInfo('Password reset link sent — check your email.');
-        setMode('signin');
-      }
-    } catch (e) {
-      setError(e.message || 'Something went wrong');
-    }
-    setBusy(false);
-  };
-
-  return (
-    <>
-      <GlobalStyles />
-      <div className="recomp-app" style={{
-        minHeight: '100vh',
-        background: BG,
-        color: '#fff',
-        fontFamily: 'Helvetica, Arial, sans-serif',
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        padding: 16,
-      }}>
-        <div style={{ width: '100%', maxWidth: 380, marginTop: 60 }}>
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 42, letterSpacing: 2 }}>
-              <span style={{ color: ACCENT }}>RE</span><span style={{ color: ORANGE }}>COMP</span>
-            </div>
-            <div style={{ fontSize: 11, color: TEXT_DIM, marginTop: 4, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 2 }}>
-              {mode === 'signin' && 'SIGN IN'}
-              {mode === 'signup' && 'CREATE ACCOUNT'}
-              {mode === 'reset' && 'RESET PASSWORD'}
-            </div>
-          </div>
-
-          <Card>
-            <div style={{ display: 'grid', gap: 10 }}>
-              <div>
-                <Label>EMAIL</Label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                />
-              </div>
-              {mode !== 'reset' && (
-                <div>
-                  <Label>PASSWORD</Label>
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && submit()}
-                    placeholder="••••••••"
-                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                  />
-                </div>
-              )}
-              {error && (
-                <div style={{
-                  padding: 8, background: `${RED}15`, border: `1px solid ${RED}55`,
-                  borderRadius: 6, fontSize: 11, color: RED,
-                }}>⚠ {error}</div>
-              )}
-              {info && (
-                <div style={{
-                  padding: 8, background: `${GREEN}15`, border: `1px solid ${GREEN}55`,
-                  borderRadius: 6, fontSize: 11, color: GREEN,
-                }}>✓ {info}</div>
-              )}
-              <Btn onClick={submit} disabled={busy} style={{ width: '100%', marginTop: 4 }}>
-                {busy ? '...' : mode === 'signin' ? 'SIGN IN' : mode === 'signup' ? 'CREATE ACCOUNT' : 'SEND RESET LINK'}
-              </Btn>
-            </div>
-          </Card>
-
-          <div style={{ marginTop: 14, textAlign: 'center', fontSize: 11 }}>
-            {mode === 'signin' && (
-              <>
-                <div style={{ color: TEXT_DIM, marginBottom: 6 }}>
-                  No account?{' '}
-                  <button onClick={() => { setMode('signup'); setError(''); setInfo(''); }} style={{
-                    background: 'transparent', border: 'none', color: ACCENT, cursor: 'pointer',
-                    fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 11,
-                  }}>SIGN UP</button>
-                </div>
-                <button onClick={() => { setMode('reset'); setError(''); setInfo(''); }} style={{
-                  background: 'transparent', border: 'none', color: TEXT_MUTED, cursor: 'pointer',
-                  fontSize: 10, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
-                }}>FORGOT PASSWORD?</button>
-              </>
-            )}
-            {mode === 'signup' && (
-              <div style={{ color: TEXT_DIM }}>
-                Already have an account?{' '}
-                <button onClick={() => { setMode('signin'); setError(''); setInfo(''); }} style={{
-                  background: 'transparent', border: 'none', color: ACCENT, cursor: 'pointer',
-                  fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 11,
-                }}>SIGN IN</button>
-              </div>
-            )}
-            {mode === 'reset' && (
-              <button onClick={() => { setMode('signin'); setError(''); setInfo(''); }} style={{
-                background: 'transparent', border: 'none', color: ACCENT, cursor: 'pointer',
-                fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 11,
-              }}>← BACK TO SIGN IN</button>
-            )}
-          </div>
-
-          <div style={{ marginTop: 30, fontSize: 9, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.5 }}>
-            Your data syncs across all devices. Sign in once, train anywhere.
-          </div>
-        </div>
-      </div>
-    </>
-  );
-};
-
-// ============================================================
 // MAIN APP
 // ============================================================
 const RecompApp = () => {
-  const [user, setUser] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
   const [state, _setState] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -5074,79 +4771,27 @@ const RecompApp = () => {
   const [pendingPrompt, setPendingPrompt] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const [summaryDismissed, setSummaryDismissed] = useState(false);
-  const [syncStatus, setSyncStatus] = useState('idle'); // 'idle' | 'saving' | 'synced' | 'error' | 'offline'
   const saveTimerRef = useRef(null);
   const welcomeFiredRef = useRef(false);
 
-  // Watch Supabase auth state
+  // Load on mount
   useEffect(() => {
-    if (!supabase) {
-      // Cloud not configured — run in local-only mode (still works)
-      setAuthChecked(true);
-      return;
-    }
-    let mounted = true;
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-      setUser(data?.session?.user || null);
-      setAuthChecked(true);
-    })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-    });
-    return () => {
-      mounted = false;
-      sub?.subscription?.unsubscribe?.();
-    };
-  }, []);
-
-  // Load state once auth is settled (and user changes)
-  useEffect(() => {
-    if (!authChecked) return;
-    // If cloud is configured but user is null, don't load app yet (auth screen will show)
-    if (supabase && !user) {
-      _setState(null);
-      setLoaded(false);
-      return;
-    }
-    (async () => {
-      setLoaded(false);
-      welcomeFiredRef.current = false;
-      const s = await loadState(user?.id);
+      const s = await loadState();
       _setState(s);
       setLoaded(true);
     })();
-  }, [user, authChecked]);
+  }, []);
 
   // Wrapped setter with debounced save
   const setState = useCallback((updater) => {
     _setState((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      setSyncStatus('saving');
-      saveTimerRef.current = setTimeout(async () => {
-        const result = await saveState(next, user?.id);
-        if (result?.ok === false) setSyncStatus('error');
-        else if (result?.local) setSyncStatus('offline');
-        else setSyncStatus('synced');
-      }, 1000);
+      saveTimerRef.current = setTimeout(() => saveState(next), 1000);
       return next;
     });
-  }, [user]);
-
-  const signOut = async () => {
-    if (!supabase) return;
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      // Force a final save before sign-out
-      if (state) await saveState(state, user?.id);
-    }
-    await supabase.auth.signOut();
-    _setState(null);
-    setLoaded(false);
-    welcomeFiredRef.current = false;
-  };
+  }, []);
 
   // Auto-show summary when program complete
   useEffect(() => {
@@ -5222,35 +4867,6 @@ const RecompApp = () => {
     setPendingPrompt(text);
     setCoachOpen(true);
   };
-
-  // Pre-auth: still checking whether we have a session
-  if (!authChecked) {
-    return (
-      <ErrorBoundary>
-        <GlobalStyles />
-        <div className="recomp-app" style={{
-          background: BG, minHeight: '100vh', color: '#fff',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'Helvetica, Arial, sans-serif', padding: 20,
-        }}>
-          <div style={{ animation: 'recomp-pulse 2s ease-in-out infinite', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 48, letterSpacing: 2 }}>
-              <span style={{ color: ACCENT }}>RE</span><span style={{ color: ORANGE }}>COMP</span>
-            </div>
-          </div>
-        </div>
-      </ErrorBoundary>
-    );
-  }
-
-  // Cloud configured but not signed in → show auth screen
-  if (supabase && !user) {
-    return (
-      <ErrorBoundary>
-        <AuthScreen onAuthed={(u) => setUser(u)} />
-      </ErrorBoundary>
-    );
-  }
 
   // Loading state
   if (!loaded || !state) {
@@ -5346,20 +4962,6 @@ const RecompApp = () => {
             letterSpacing: 1,
           }}>{phaseName} WK{week}</div>
           <div style={{ flex: 1 }} />
-          {supabase && (
-            <span title={
-              syncStatus === 'saving' ? 'Saving to cloud...' :
-              syncStatus === 'synced' ? 'Synced' :
-              syncStatus === 'error' ? 'Cloud sync error' :
-              syncStatus === 'offline' ? 'Saved locally (offline)' : 'Synced'
-            } style={{
-              fontSize: 11,
-              color: syncStatus === 'error' ? RED : syncStatus === 'offline' ? '#fbbf24' : syncStatus === 'saving' ? TEXT_DIM : GREEN,
-              marginRight: 4,
-            }}>
-              {syncStatus === 'saving' ? '⟳' : syncStatus === 'error' ? '⚠' : syncStatus === 'offline' ? '⚡' : '☁'}
-            </span>
-          )}
           <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: TEXT_DIM, letterSpacing: 1 }}>
             {currentWeight}<span style={{ fontSize: 9 }}>LBS</span>
           </div>
@@ -5411,7 +5013,7 @@ const RecompApp = () => {
           {activeTab === 'metrics' && <Metrics state={state} setState={setState} />}
           {activeTab === 'food' && <Food state={state} setState={setState} onCoachPrompt={handleCoachPrompt} />}
           {activeTab === 'journal' && <Journal state={state} setState={setState} />}
-          {activeTab === 'backup' && <Backup state={state} setState={setState} onShowSummary={() => setShowSummary(true)} user={user} onSignOut={signOut} />}
+          {activeTab === 'backup' && <Backup state={state} setState={setState} onShowSummary={() => setShowSummary(true)} />}
         </div>
 
         {/* Coach FAB */}
