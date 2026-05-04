@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 // ============================================================
@@ -1556,12 +1555,12 @@ const defaultState = () => ({
 
 const loadState = async () => {
   try {
-    if (typeof window === 'undefined' || !window.storage) return defaultState();
-    const result = await window.storage.get(STORAGE_KEY);
-    if (!result || !result.value) return defaultState();
+    if (typeof window === 'undefined' || !window.localStorage) return defaultState();
+    const value = localStorage.getItem(STORAGE_KEY);
+    if (!value) return defaultState();
     let parsed;
     try {
-      parsed = JSON.parse(result.value);
+      parsed = JSON.parse(value);
     } catch {
       return defaultState();
     }
@@ -1597,8 +1596,8 @@ const loadState = async () => {
 
 const saveState = async (s) => {
   try {
-    if (typeof window === 'undefined' || !window.storage) return;
-    await window.storage.set(STORAGE_KEY, JSON.stringify(s));
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
   } catch (e) {
     console.error('saveState', e);
   }
@@ -1621,8 +1620,7 @@ class ErrorBoundary extends React.Component {
   reset = () => this.setState({ error: null });
   resetData = async () => {
     try {
-      if (window.storage) await window.storage.delete(STORAGE_KEY);
-      if (typeof localStorage !== 'undefined') localStorage.clear();
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY);
     } catch (e) {}
     if (typeof window !== 'undefined') window.location.reload();
   };
@@ -3247,7 +3245,7 @@ const searchFoodDB = async (query) => {
   const sysPrompt = `You are a nutrition database. Return a JSON array of 4-8 matching food items for the user's query. Cover USDA whole foods (eggs, chicken, rice, oats, milk, banana, etc.) and major US chains: Chipotle, Chick-fil-A, Starbucks, Subway, McDonald's, Burger King, Wendy's, Taco Bell, Domino's, Pizza Hut, Cava, Panera, Dunkin', Texas Roadhouse, Olive Garden, Five Guys, In-N-Out, Whataburger, Shake Shack, Sonic, Panda Express, Jersey Mike's, Jimmy John's, Raising Cane's, Popeyes. Each item must include: name (string, with restaurant prefix if applicable like "Chipotle Chicken Burrito Bowl"), serving (string like "1 bowl" or "100g"), cal (number), p (number), c (number), f (number). Return ONLY a raw JSON array starting with [ and ending with ]. No preamble, no markdown fences, no explanation.`;
   let response;
   try {
-    response = await fetch('https://api.anthropic.com/v1/messages', {
+    response = await fetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3968,7 +3966,7 @@ const Backup = ({ state, setState, onShowSummary }) => {
   };
 
   const resetAll = async () => {
-    if (window.storage) await window.storage.delete(STORAGE_KEY).catch(() => {});
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
     setState(defaultState());
     setConfirmReset(false);
   };
@@ -4371,7 +4369,7 @@ const CoachDrawer = ({ open, onClose, state, setState, setActiveTab, pendingProm
 
       while (iter < 5) {
         iter++;
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
+        const response = await fetch('/api/claude', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
