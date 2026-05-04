@@ -451,6 +451,193 @@ const KB_SIZING = {
 };
 
 // Restaurant chains for food quick-pick chips
+// ============================================================
+// EXERCISE LIBRARY — comprehensive, organized by muscle group
+// Used for swap and add-exercise features in workout view
+// ============================================================
+const EXERCISE_LIBRARY = {
+  Chest: [
+    { name: 'Barbell Bench Press', equipment: 'Barbell', type: 'Compound', note: 'Retract scapula, drive heels. King of chest mass.' },
+    { name: 'Incline Barbell Press', equipment: 'Barbell', type: 'Compound', note: 'Upper chest emphasis. 30-45° incline.' },
+    { name: 'Decline Barbell Press', equipment: 'Barbell', type: 'Compound', note: 'Lower pec sweep. Feet elevated or locked.' },
+    { name: 'DB Flat Press', equipment: 'Dumbbells', type: 'Compound', note: 'Greater ROM than barbell. Squeeze at top.' },
+    { name: 'DB Incline Press', equipment: 'Dumbbells', type: 'Compound', note: '30° bench. Neutral grip option reduces shoulder stress.' },
+    { name: 'DB Decline Press', equipment: 'Dumbbells', type: 'Compound', note: 'Lower pec isolation. Control the descent.' },
+    { name: 'Cable Fly', equipment: 'Cable', type: 'Isolation', note: 'Constant tension through full ROM. Slight elbow bend.' },
+    { name: 'Incline Cable Fly', equipment: 'Cable', type: 'Isolation', note: 'Upper chest peak contraction. Cables set low.' },
+    { name: 'Decline Cable Fly', equipment: 'Cable', type: 'Isolation', note: 'Lower chest sweep. Cables set high.' },
+    { name: 'Pec Deck', equipment: 'Machine', type: 'Isolation', note: 'Constant tension. Hold 1s at peak contraction.' },
+    { name: 'Machine Chest Press', equipment: 'Machine', type: 'Compound', note: 'Safe for heavy solo work. Great for dropsets.' },
+    { name: 'Push-Up', equipment: 'Bodyweight', type: 'Compound', note: 'Scapula protraction at top. Slow eccentric.' },
+    { name: 'Weighted Push-Up', equipment: 'Bodyweight', type: 'Compound', note: 'Plate on back or weighted vest.' },
+    { name: 'Dip (Chest)', equipment: 'Bodyweight', type: 'Compound', note: 'Lean forward 30°. Full depth for chest.' },
+    { name: 'Landmine Press', equipment: 'Barbell', type: 'Compound', note: 'Shoulder-friendly pressing arc. Unilateral option.' },
+  ],
+  Back: [
+    { name: 'Barbell Row', equipment: 'Barbell', type: 'Compound', note: 'Hinge to 45°, drive elbows to ceiling. Back mass builder.' },
+    { name: 'Pendlay Row', equipment: 'Barbell', type: 'Compound', note: 'Dead-stop from floor each rep. Explosive pull.' },
+    { name: 'T-Bar Row', equipment: 'Barbell', type: 'Compound', note: 'Mid-back thickness. Neutral grip.' },
+    { name: 'Dumbbell Row', equipment: 'Dumbbells', type: 'Compound', note: 'Drive elbow up, no rotation. Full stretch at bottom.' },
+    { name: 'Chest-Supported DB Row', equipment: 'Dumbbells', type: 'Compound', note: 'Removes lower back. Pure lat/mid-back focus.' },
+    { name: 'Seated Cable Row', equipment: 'Cable', type: 'Compound', note: 'Full stretch on the way out. Squeeze scaps at end.' },
+    { name: 'Cable Row (wide grip)', equipment: 'Cable', type: 'Compound', note: 'Upper back/rear delt emphasis.' },
+    { name: 'Lat Pulldown', equipment: 'Cable', type: 'Compound', note: 'Pull to upper chest. Lead with elbows.' },
+    { name: 'Close-Grip Pulldown', equipment: 'Cable', type: 'Compound', note: 'Neutral grip, higher lat activation.' },
+    { name: 'Straight-Arm Pulldown', equipment: 'Cable', type: 'Isolation', note: 'Lats only, no elbow bend. Great for mind-muscle.' },
+    { name: 'Pull-Up', equipment: 'Bodyweight', type: 'Compound', note: 'Full hang to chin over bar. Gold standard.' },
+    { name: 'Chin-Up', equipment: 'Bodyweight', type: 'Compound', note: 'Underhand grip. More bicep involvement.' },
+    { name: 'Weighted Pull-Up', equipment: 'Bodyweight', type: 'Compound', note: 'Belt or vest. 5+ bodyweight reps needed first.' },
+    { name: 'Inverted Row', equipment: 'Bodyweight', type: 'Compound', note: 'Feet elevated = harder. Full ROM scap retraction.' },
+    { name: 'Face Pull', equipment: 'Cable', type: 'Isolation', note: 'External rotation finish. Rear delts + health.' },
+    { name: 'Rack Pull', equipment: 'Barbell', type: 'Compound', note: 'Partial deadlift from pins. Upper back overload.' },
+    { name: 'Shrug', equipment: 'Barbell', type: 'Isolation', note: 'Trap thickness. Full ROM, no rolling.' },
+    { name: 'DB Shrug', equipment: 'Dumbbells', type: 'Isolation', note: 'Greater ROM at sides. Pause at top.' },
+  ],
+  Shoulders: [
+    { name: 'Overhead Press (Barbell)', equipment: 'Barbell', type: 'Compound', note: 'Core tight, glutes squeezed. Drive bar overhead.' },
+    { name: 'Push Press', equipment: 'Barbell', type: 'Compound', note: 'Leg drive to initiate. Power through sticking point.' },
+    { name: 'Seated DB Press', equipment: 'Dumbbells', type: 'Compound', note: 'Strict. Eliminates leg drive.' },
+    { name: 'Arnold Press', equipment: 'Dumbbells', type: 'Compound', note: 'Rotation hits all three delt heads.' },
+    { name: 'Lateral Raise (DB)', equipment: 'Dumbbells', type: 'Isolation', note: 'Lead with elbow. Slight forward lean. 15-30 reps.' },
+    { name: 'Cable Lateral Raise', equipment: 'Cable', type: 'Isolation', note: 'Constant tension vs. DB. Single arm.' },
+    { name: 'Machine Lateral Raise', equipment: 'Machine', type: 'Isolation', note: 'Bilateral, consistent tension. Great for dropsets.' },
+    { name: 'Rear Delt Fly (DB)', equipment: 'Dumbbells', type: 'Isolation', note: 'Bent over or face-down. Slight elbow bend.' },
+    { name: 'Cable Y-Raise', equipment: 'Cable', type: 'Isolation', note: 'Lower trap + rear delt. Cables set low.' },
+    { name: 'Front Raise', equipment: 'Dumbbells', type: 'Isolation', note: 'Anterior delt. Avoid if lots of pressing.' },
+    { name: 'Upright Row', equipment: 'Barbell', type: 'Compound', note: 'Wide grip = less impingement. Elbows lead.' },
+    { name: 'Landmine Lateral Raise', equipment: 'Barbell', type: 'Isolation', note: 'Arc motion. Easier on joints than DB.' },
+  ],
+  Biceps: [
+    { name: 'Barbell Curl', equipment: 'Barbell', type: 'Compound', note: 'No swing. EZ-bar reduces wrist stress.' },
+    { name: 'EZ-Bar Curl', equipment: 'Barbell', type: 'Compound', note: 'Semi-supinated. Joint-friendly.' },
+    { name: 'DB Curl', equipment: 'Dumbbells', type: 'Isolation', note: 'Supinate at top. Full stretch at bottom.' },
+    { name: 'Hammer Curl', equipment: 'Dumbbells', type: 'Isolation', note: 'Neutral grip. Brachialis + brachioradialis.' },
+    { name: 'Incline DB Curl', equipment: 'Dumbbells', type: 'Isolation', note: 'Long head stretch. Best bicep peak exercise.' },
+    { name: 'Cable Curl', equipment: 'Cable', type: 'Isolation', note: 'Constant tension. Great as finisher.' },
+    { name: 'Preacher Curl', equipment: 'Barbell', type: 'Isolation', note: 'Eliminates swing. Short head emphasis.' },
+    { name: 'Concentration Curl', equipment: 'Dumbbells', type: 'Isolation', note: 'Peak isolation. Slow controlled reps.' },
+    { name: 'Chin-Up', equipment: 'Bodyweight', type: 'Compound', note: 'Best compound bicep movement.' },
+    { name: 'Reverse Curl', equipment: 'Barbell', type: 'Isolation', note: 'Brachialis + brachioradialis. Overhand grip.' },
+    { name: 'Spider Curl', equipment: 'Dumbbells', type: 'Isolation', note: 'Over the edge of incline bench. Max stretch.' },
+  ],
+  Triceps: [
+    { name: 'Close-Grip Bench Press', equipment: 'Barbell', type: 'Compound', note: 'Shoulder-width grip. Best tricep mass builder.' },
+    { name: 'Skull Crusher', equipment: 'Barbell', type: 'Isolation', note: 'Elbows still. EZ-bar option. Slow eccentric.' },
+    { name: 'Tricep Dip', equipment: 'Bodyweight', type: 'Compound', note: 'Upright torso. Full lockout at top.' },
+    { name: 'Weighted Dip', equipment: 'Bodyweight', type: 'Compound', note: 'Belt or chain. Upright torso.' },
+    { name: 'Rope Pushdown', equipment: 'Cable', type: 'Isolation', note: 'Spread rope at bottom. Squeeze lockout.' },
+    { name: 'Bar Pushdown', equipment: 'Cable', type: 'Isolation', note: 'Straight bar or V-bar. Strict form.' },
+    { name: 'Overhead Tricep Extension (Cable)', equipment: 'Cable', type: 'Isolation', note: 'Long head stretch. Rope or bar.' },
+    { name: 'DB Overhead Extension', equipment: 'Dumbbells', type: 'Isolation', note: 'Long head. Bilateral or unilateral.' },
+    { name: 'JM Press', equipment: 'Barbell', type: 'Compound', note: 'Hybrid press/extension. Powerlifter favorite.' },
+    { name: 'Tate Press', equipment: 'Dumbbells', type: 'Isolation', note: 'Elbows flared, DBs tap each other at chest.' },
+    { name: 'Kickback', equipment: 'Dumbbells', type: 'Isolation', note: 'Full extension, hold 1s. Isolation finisher.' },
+  ],
+  Quads: [
+    { name: 'Back Squat', equipment: 'Barbell', type: 'Compound', note: 'King of leg exercises. Depth at parallel.' },
+    { name: 'Front Squat', equipment: 'Barbell', type: 'Compound', note: 'More quad focus. Upright torso required.' },
+    { name: 'Hack Squat', equipment: 'Machine', type: 'Compound', note: 'Heel-elevated position nails quads. Safe.' },
+    { name: 'Leg Press', equipment: 'Machine', type: 'Compound', note: 'Foot position shifts emphasis. High volume.' },
+    { name: 'Bulgarian Split Squat', equipment: 'Dumbbells', type: 'Compound', note: 'Front foot forward. Sit straight down.' },
+    { name: 'Lunge', equipment: 'Dumbbells', type: 'Compound', note: 'Walking or stationary. Knee tracks toe.' },
+    { name: 'Reverse Lunge', equipment: 'Dumbbells', type: 'Compound', note: 'Less knee stress than forward lunge.' },
+    { name: 'Step-Up', equipment: 'Dumbbells', type: 'Compound', note: 'Box height = 90° knee bend. Drive through heel.' },
+    { name: 'Leg Extension', equipment: 'Machine', type: 'Isolation', note: 'Squeeze at top. Slow eccentric. High rep.' },
+    { name: 'Sissy Squat', equipment: 'Bodyweight', type: 'Isolation', note: 'Advanced. Heel elevated, lean back.' },
+    { name: 'Goblet Squat', equipment: 'Dumbbells', type: 'Compound', note: 'Great teaching tool. Elbows inside knees.' },
+    { name: 'Wall Sit', equipment: 'Bodyweight', type: 'Isolation', note: 'Isometric. 90° knee angle. Timed.' },
+  ],
+  Hamstrings: [
+    { name: 'Romanian Deadlift', equipment: 'Barbell', type: 'Compound', note: 'Hinge. Soft knees. Feel hamstring stretch.' },
+    { name: 'Stiff-Leg Deadlift', equipment: 'Barbell', type: 'Compound', note: 'Straighter legs than RDL. More lower back.' },
+    { name: 'Trap Bar Deadlift', equipment: 'Barbell', type: 'Compound', note: 'Hips down. Neutral spine. Back-friendly.' },
+    { name: 'Conventional Deadlift', equipment: 'Barbell', type: 'Compound', note: 'Full posterior chain. Lock hips and knees together at top.' },
+    { name: 'Sumo Deadlift', equipment: 'Barbell', type: 'Compound', note: 'Wide stance, vertical torso. Hips closer to bar.' },
+    { name: 'Seated Leg Curl', equipment: 'Machine', type: 'Isolation', note: 'Slow eccentric 3-4s. Knee flexion isolation.' },
+    { name: 'Lying Leg Curl', equipment: 'Machine', type: 'Isolation', note: 'Full stretch important. Squeeze at top.' },
+    { name: 'Nordic Curl', equipment: 'Bodyweight', type: 'Isolation', note: 'Eccentric only at first. Injury prevention.' },
+    { name: 'Good Morning', equipment: 'Barbell', type: 'Compound', note: 'Hip hinge. Bar on traps. Hamstring + lower back.' },
+    { name: 'Glute-Ham Raise', equipment: 'Machine', type: 'Compound', note: 'Full ROM hip extension to knee flexion.' },
+    { name: 'Single-Leg RDL', equipment: 'Dumbbells', type: 'Compound', note: 'Balance + posterior chain. Hip hinge.' },
+  ],
+  Glutes: [
+    { name: 'Hip Thrust', equipment: 'Barbell', type: 'Compound', note: 'Squeeze hard at top. Chin tucked. Best glute builder.' },
+    { name: 'DB Hip Thrust', equipment: 'Dumbbells', type: 'Compound', note: 'DB on hip crease. Same cue as barbell.' },
+    { name: 'Cable Pull-Through', equipment: 'Cable', type: 'Compound', note: 'Hip hinge into cable. Glute squeeze at lockout.' },
+    { name: 'Glute Bridge', equipment: 'Bodyweight', type: 'Compound', note: 'Floor version of hip thrust. Activation work.' },
+    { name: 'Sumo Deadlift', equipment: 'Barbell', type: 'Compound', note: 'Wide stance shifts load to glutes.' },
+    { name: 'Bulgarian Split Squat', equipment: 'Dumbbells', type: 'Compound', note: 'Rear foot elevated. More glute when upright.' },
+    { name: 'Kickback (Cable)', equipment: 'Cable', type: 'Isolation', note: 'Ankle attachment. Hip extension. Slow.' },
+    { name: 'Abduction Machine', equipment: 'Machine', type: 'Isolation', note: 'Glute med. Slow controlled. 15-25 reps.' },
+    { name: 'Romanian Deadlift', equipment: 'Barbell', type: 'Compound', note: 'Hip hinge. Glutes + hamstrings.' },
+    { name: 'Step-Up', equipment: 'Dumbbells', type: 'Compound', note: 'Drive through glute at top.' },
+  ],
+  Calves: [
+    { name: 'Standing Calf Raise', equipment: 'Machine', type: 'Isolation', note: 'Full ROM essential. Pause at top AND bottom.' },
+    { name: 'Seated Calf Raise', equipment: 'Machine', type: 'Isolation', note: 'Soleus focus. Knee bent = different head.' },
+    { name: 'Donkey Calf Raise', equipment: 'Machine', type: 'Isolation', note: 'Greatest stretch. Bend at hips.' },
+    { name: 'Single-Leg Calf Raise', equipment: 'Bodyweight', type: 'Isolation', note: 'Bodyweight. Full ROM. Progression to weighted.' },
+    { name: 'Leg Press Calf Raise', equipment: 'Machine', type: 'Isolation', note: 'On leg press platform. High rep finisher.' },
+    { name: 'Jump Rope', equipment: 'Other', type: 'Cardio', note: 'Calf conditioning. 2 min on / 30s off.' },
+  ],
+  Core: [
+    { name: 'Plank', equipment: 'Bodyweight', type: 'Isometric', note: 'Posterior pelvic tilt. Brace like a punch coming.' },
+    { name: 'Side Plank', equipment: 'Bodyweight', type: 'Isometric', note: 'Hip lifted. Oblique + QL. Timed.' },
+    { name: 'Ab Wheel Rollout', equipment: 'Other', type: 'Compound', note: 'Start from knees. Full hollow body.' },
+    { name: 'Hanging Leg Raise', equipment: 'Bodyweight', type: 'Compound', note: 'Straight legs. Posterior pelvic tilt at top.' },
+    { name: 'Cable Crunch', equipment: 'Cable', type: 'Isolation', note: 'Kneeling. Curl spine. Not a hip flex.' },
+    { name: 'Decline Sit-Up', equipment: 'Bodyweight', type: 'Isolation', note: 'Full ROM. Weighted option with plate.' },
+    { name: 'Russian Twist', equipment: 'Bodyweight', type: 'Isolation', note: 'Feet up. Rotate fully each side.' },
+    { name: 'Landmine Rotation', equipment: 'Barbell', type: 'Compound', note: 'Rotational power. Arms straight.' },
+    { name: 'Pallof Press', equipment: 'Cable', type: 'Isometric', note: 'Anti-rotation. Brace against cable.' },
+    { name: 'Dead Bug', equipment: 'Bodyweight', type: 'Compound', note: 'Lower back flat. Opposite arm/leg.' },
+    { name: 'Dragon Flag', equipment: 'Bodyweight', type: 'Compound', note: 'Advanced. Full body hollow hold.' },
+    { name: 'L-Sit', equipment: 'Bodyweight', type: 'Isometric', note: 'Rings or parallettes. Timed.' },
+  ],
+  Olympic: [
+    { name: 'Power Clean', equipment: 'Barbell', type: 'Olympic', note: 'Triple extension. Explosive. Build to heavy singles.' },
+    { name: 'Hang Clean', equipment: 'Barbell', type: 'Olympic', note: 'From above knee. Hip snap.' },
+    { name: 'Power Snatch', equipment: 'Barbell', type: 'Olympic', note: 'Wide grip. Bar stays close. Overhead lockout.' },
+    { name: 'Hang Snatch', equipment: 'Barbell', type: 'Olympic', note: 'From mid-thigh. Good for learning pull.' },
+    { name: 'Clean & Jerk', equipment: 'Barbell', type: 'Olympic', note: 'Two-phase lift. Full competition movement.' },
+    { name: 'Snatch', equipment: 'Barbell', type: 'Olympic', note: 'Full Olympic movement. Technique-demanding.' },
+    { name: 'Clean Pull', equipment: 'Barbell', type: 'Olympic', note: 'Accessory. Triple ext. without catch.' },
+    { name: 'Snatch Pull', equipment: 'Barbell', type: 'Olympic', note: 'Wide grip pull. Accessory for snatch.' },
+  ],
+  Kettlebell: [
+    { name: 'KB Swing', equipment: 'Kettlebell', type: 'Compound', note: 'Hip hinge — not a squat. Explode hips.' },
+    { name: 'KB Clean', equipment: 'Kettlebell', type: 'Compound', note: 'Bell stays close. Elbow drives high.' },
+    { name: 'KB Snatch', equipment: 'Kettlebell', type: 'Compound', note: 'One-motion. Poke hand through at top.' },
+    { name: 'KB Press', equipment: 'Kettlebell', type: 'Compound', note: 'Clean first. Full lockout overhead.' },
+    { name: 'Turkish Get-Up', equipment: 'Kettlebell', type: 'Compound', note: 'Slow and deliberate. Eye on bell.' },
+    { name: 'KB Goblet Squat', equipment: 'Kettlebell', type: 'Compound', note: 'Elbows inside knees. Sit tall.' },
+    { name: 'KB Row', equipment: 'Kettlebell', type: 'Compound', note: 'Same as DB row. Drive elbow up.' },
+    { name: 'KB Deadlift', equipment: 'Kettlebell', type: 'Compound', note: 'Double KB between feet. Hinge.' },
+    { name: 'KB Push Press', equipment: 'Kettlebell', type: 'Compound', note: 'Leg drive. Lockout overhead.' },
+    { name: 'KB Front Rack Lunge', equipment: 'Kettlebell', type: 'Compound', note: 'Bell in rack. Core braced.' },
+  ],
+  Cardio: [
+    { name: 'Treadmill Run', equipment: 'Cardio Machine', type: 'Cardio', note: 'Zone 2: conversational pace.' },
+    { name: 'Rowing Machine', equipment: 'Cardio Machine', type: 'Cardio', note: 'Push legs first, then pull arms.' },
+    { name: 'SkiErg', equipment: 'Cardio Machine', type: 'Cardio', note: 'Hip drive, full extension.' },
+    { name: 'Assault Bike', equipment: 'Cardio Machine', type: 'Cardio', note: 'Full body. Push + pull arms simultaneously.' },
+    { name: 'Jump Rope', equipment: 'Other', type: 'Cardio', note: 'Calf intensive. Great HIIT option.' },
+    { name: 'Sled Push', equipment: 'Other', type: 'Cardio', note: 'Low hips, drive through legs.' },
+    { name: 'Farmer Carry', equipment: 'Other', type: 'Cardio', note: 'Grip + core + conditioning.' },
+    { name: 'Battle Ropes', equipment: 'Other', type: 'Cardio', note: 'Alternate or simultaneous. Arms + conditioning.' },
+    { name: 'Box Jump', equipment: 'Bodyweight', type: 'Power', note: 'Land soft. Step down. Full hip extension.' },
+    { name: 'Burpee', equipment: 'Bodyweight', type: 'Cardio', note: 'Full lockout at top. Chest to floor on way down.' },
+  ],
+};
+
+// Flat list for search
+const EXERCISE_LIBRARY_FLAT = Object.entries(EXERCISE_LIBRARY).flatMap(([muscle, exes]) =>
+  exes.map((e) => ({ ...e, muscle }))
+);
+
+const EQUIPMENT_TYPES = ['All', 'Barbell', 'Dumbbells', 'Cable', 'Machine', 'Bodyweight', 'Kettlebell', 'Other', 'Cardio Machine'];
+const MUSCLE_GROUPS = ['All', ...Object.keys(EXERCISE_LIBRARY)];
+
 const RESTAURANT_CHIPS = [
   { emoji: '🌯', name: 'Chipotle' },
   { emoji: '🐔', name: 'Chick-fil-A' },
@@ -2315,11 +2502,119 @@ const Dashboard = ({ state, onTab, onCoachPrompt }) => {
 // ============================================================
 // WORKOUTS VIEW
 // ============================================================
+// ============================================================
+// EXERCISE LIBRARY MODAL
+// ============================================================
+const ExerciseLibraryModal = ({ onSelect, onClose, filterMuscle = 'All', title = 'EXERCISE LIBRARY' }) => {
+  const [search, setSearch] = useState('');
+  const [muscle, setMuscle] = useState(filterMuscle);
+  const [equipment, setEquipment] = useState('All');
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    setTimeout(() => searchRef.current?.focus(), 100);
+  }, []);
+
+  const filtered = EXERCISE_LIBRARY_FLAT.filter((ex) => {
+    const matchSearch = !search || ex.name.toLowerCase().includes(search.toLowerCase()) ||
+      ex.note.toLowerCase().includes(search.toLowerCase()) ||
+      ex.muscle.toLowerCase().includes(search.toLowerCase());
+    const matchMuscle = muscle === 'All' || ex.muscle === muscle;
+    const matchEquip = equipment === 'All' || ex.equipment === equipment;
+    return matchSearch && matchMuscle && matchEquip;
+  });
+
+  // Group by muscle for display
+  const grouped = {};
+  filtered.forEach((ex) => {
+    if (!grouped[ex.muscle]) grouped[ex.muscle] = [];
+    grouped[ex.muscle].push(ex);
+  });
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)',
+      zIndex: 200, display: 'flex', flexDirection: 'column',
+      maxWidth: 480, margin: '0 auto',
+    }}>
+      {/* Header */}
+      <div style={{ padding: '12px 14px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <H size={15} mb={0}>{title}</H>
+        <div style={{ flex: 1 }} />
+        <button onClick={onClose} style={{ background: 'transparent', color: '#fff', border: 'none', fontSize: 26, cursor: 'pointer', lineHeight: 1 }}>×</button>
+      </div>
+
+      {/* Filters */}
+      <div style={{ padding: '8px 12px', borderBottom: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <Input
+          ref={searchRef}
+          placeholder="Search exercises..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ fontSize: 13 }}
+        />
+        <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ flex: 1 }}>
+            <Select value={muscle} onChange={(e) => setMuscle(e.target.value)} style={{ fontSize: 12 }}>
+              {MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{m}</option>)}
+            </Select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <Select value={equipment} onChange={(e) => setEquipment(e.target.value)} style={{ fontSize: 12 }}>
+              {EQUIPMENT_TYPES.map((e) => <option key={e} value={e}>{e}</option>)}
+            </Select>
+          </div>
+        </div>
+        <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+          {filtered.length} EXERCISE{filtered.length === 1 ? '' : 'S'}
+        </div>
+      </div>
+
+      {/* Exercise list */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
+        {Object.entries(grouped).map(([group, exes]) => (
+          <div key={group} style={{ marginBottom: 16 }}>
+            <H size={12} color={ORANGE} mb={6}>{group.toUpperCase()}</H>
+            {exes.map((ex) => (
+              <button
+                key={ex.name}
+                onClick={() => onSelect(ex)}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left',
+                  background: CARD, border: `1px solid ${BORDER}`,
+                  borderRadius: 6, padding: '9px 11px', marginBottom: 5,
+                  cursor: 'pointer', color: '#fff',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 13, fontFamily: 'Helvetica, Arial, sans-serif' }}>{ex.name}</span>
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                    <Pill color={TEXT_DIM} bg={CARD2}>{ex.equipment}</Pill>
+                    <Pill color={ex.type === 'Compound' ? ACCENT : ex.type === 'Olympic' ? ORANGE : BLUE}>{ex.type}</Pill>
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 3, fontFamily: 'Helvetica, Arial, sans-serif' }}>{ex.note}</div>
+              </button>
+            ))}
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div style={{ textAlign: 'center', color: TEXT_DIM, fontSize: 12, padding: 40 }}>
+            No exercises match. Try a different filter.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Workouts = ({ state, setState }) => {
   const { profile, sessions, week, wlog } = state;
   const [viewISO, setViewISO] = useState(todayISO());
   const [viewWeek, setViewWeek] = useState(week);
   const [showMoveMenu, setShowMoveMenu] = useState(false);
+  // Library modal state: null = closed, { mode: 'swap', exIdx, muscle } or { mode: 'add' }
+  const [libraryModal, setLibraryModal] = useState(null);
 
   const currentWeight = wlog.length ? wlog[wlog.length - 1].weight : profile.weight;
 
@@ -2424,6 +2719,60 @@ const Workouts = ({ state, setState }) => {
 
   const markDone = () => {
     updateSession({ done: true, skipped: false, completedAt: new Date().toISOString() });
+  };
+
+  // Get current exercises for this session (custom overrides + base program)
+  const getSessionExercises = () => {
+    const base = exData?.exercises || [];
+    const overrides = session?.customExercises || [];
+    const swaps = session?.swappedExercises || {}; // { exIndex: newExObj }
+    return base
+      .map((ex, i) => swaps[i] ? { ...swaps[i], sets: ex.sets, reps: ex.reps, tempo: ex.tempo, progressionNote: ex.progressionNote, ssLabel: ex.ssLabel } : ex)
+      .concat(overrides);
+  };
+
+  const handleSwapExercise = (exIdx, muscle) => {
+    setLibraryModal({ mode: 'swap', exIdx, muscle: muscle || 'All' });
+  };
+
+  const handleSelectSwap = (libraryEx) => {
+    const modal = libraryModal;
+    setLibraryModal(null);
+    if (!modal || modal.mode !== 'swap') return;
+    setState((prev) => {
+      const sk = sessKey;
+      const existing = prev.sessions[sk] || { iso: viewISO, dayType, exercises: exData?.exercises || [], setLogs: {}, feedback: {}, done: false, skipped: false };
+      const swaps = { ...(existing.swappedExercises || {}), [modal.exIdx]: libraryEx };
+      return { ...prev, sessions: { ...prev.sessions, [sk]: { ...existing, swappedExercises: swaps } } };
+    });
+  };
+
+  const handleAddExercise = (libraryEx) => {
+    setLibraryModal(null);
+    const newEx = {
+      ...libraryEx,
+      sets: '3',
+      reps: '8-12',
+      tempo: '20X1',
+      progressionNote: '',
+      isCustom: true,
+    };
+    setState((prev) => {
+      const sk = sessKey;
+      const existing = prev.sessions[sk] || { iso: viewISO, dayType, exercises: exData?.exercises || [], setLogs: {}, feedback: {}, done: false, skipped: false };
+      const customs = [...(existing.customExercises || []), newEx];
+      return { ...prev, sessions: { ...prev.sessions, [sk]: { ...existing, customExercises: customs } } };
+    });
+  };
+
+  const handleRemoveCustom = (idx) => {
+    setState((prev) => {
+      const sk = sessKey;
+      const existing = prev.sessions[sk];
+      if (!existing) return prev;
+      const customs = (existing.customExercises || []).filter((_, i) => i !== idx);
+      return { ...prev, sessions: { ...prev.sessions, [sk]: { ...existing, customExercises: customs } } };
+    });
   };
 
   const moveToToday = (fromISO) => {
@@ -2677,20 +3026,24 @@ const Workouts = ({ state, setState }) => {
           {exData.isRP ? (
             // RP — group by muscle
             (() => {
+              const sessionExes = getSessionExercises();
               const byMuscle = {};
-              exData.exercises.forEach((ex) => {
-                if (!byMuscle[ex.muscle]) byMuscle[ex.muscle] = [];
-                byMuscle[ex.muscle].push(ex);
+              sessionExes.forEach((ex, i) => {
+                const m = ex.muscle || 'Other';
+                if (!byMuscle[m]) byMuscle[m] = [];
+                byMuscle[m].push({ ex, i });
               });
-              return Object.entries(byMuscle).map(([muscle, exs]) => (
+              return Object.entries(byMuscle).map(([muscle, items]) => (
                 <div key={muscle} style={{ marginBottom: 14 }}>
                   <H size={14} color={ORANGE} mb={6}>{muscle.toUpperCase()}</H>
-                  <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 8 }}>
-                    MEV {RP_LANDMARKS[muscle].MEV} · MAV {RP_LANDMARKS[muscle].MAV} · MRV {RP_LANDMARKS[muscle].MRV} sets/wk
-                  </div>
-                  {exs.map((ex, ei) => (
+                  {RP_LANDMARKS[muscle] && (
+                    <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 8 }}>
+                      MEV {RP_LANDMARKS[muscle].MEV} · MAV {RP_LANDMARKS[muscle].MAV} · MRV {RP_LANDMARKS[muscle].MRV} sets/wk
+                    </div>
+                  )}
+                  {items.map(({ ex, i }) => (
                     <ExerciseBlock
-                      key={ei}
+                      key={i}
                       ex={ex}
                       session={session}
                       sessions={sessions}
@@ -2698,6 +3051,7 @@ const Workouts = ({ state, setState }) => {
                       goal={profile.goal}
                       onSetUpdate={updateSet}
                       rpFeedback={(session?.feedback || {})[muscle]}
+                      onSwap={() => handleSwapExercise(i, muscle)}
                     />
                   ))}
                   <RPMuscleFeedback muscle={muscle} feedback={(session?.feedback || {})[muscle]} onUpdate={updateMuscleFeedback} />
@@ -2705,7 +3059,7 @@ const Workouts = ({ state, setState }) => {
               ));
             })()
           ) : (
-            exData.exercises.map((ex, ei) => (
+            getSessionExercises().map((ex, ei) => (
               <ExerciseBlock
                 key={ei}
                 ex={ex}
@@ -2715,6 +3069,7 @@ const Workouts = ({ state, setState }) => {
                 goal={profile.goal}
                 onSetUpdate={updateSet}
                 showSuperset={exData.isSuperset}
+                onSwap={() => handleSwapExercise(ei, ex.muscle || 'All')}
               />
             ))
           )}
@@ -2726,6 +3081,15 @@ const Workouts = ({ state, setState }) => {
               <div style={{ fontSize: 12, color: '#fff' }}>{exData.finisher}</div>
             </Card>
           )}
+
+          {/* Add Exercise */}
+          <Card style={{ marginTop: 10, background: CARD2, borderStyle: 'dashed' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <H size={13} mb={0}>ADD EXERCISE</H>
+              <Btn size="sm" onClick={() => setLibraryModal({ mode: 'add' })}>+ FROM LIBRARY</Btn>
+            </div>
+            <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>Add any exercise from the full library to this session</div>
+          </Card>
 
           {/* Session notes + complete */}
           <Card style={{ marginTop: 10 }}>
@@ -2743,30 +3107,50 @@ const Workouts = ({ state, setState }) => {
               <span style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>AUTO-SAVED</span>
             </div>
           </Card>
+
+          {/* Library Modal */}
+          {libraryModal && (
+            <ExerciseLibraryModal
+              title={libraryModal.mode === 'swap' ? 'SWAP EXERCISE' : 'ADD EXERCISE'}
+              filterMuscle={libraryModal.muscle || 'All'}
+              onSelect={libraryModal.mode === 'swap' ? handleSelectSwap : handleAddExercise}
+              onClose={() => setLibraryModal(null)}
+            />
+          )}
         </>
       )}
     </div>
   );
 };
 
-const ExerciseBlock = ({ ex, session, sessions, currentISO, goal, onSetUpdate, rpFeedback, showSuperset }) => {
+const ExerciseBlock = ({ ex, session, sessions, currentISO, goal, onSetUpdate, rpFeedback, showSuperset, onSwap }) => {
   const setCount = parseInt(ex.sets, 10) || 3;
   const prev = findPreviousLog(sessions, ex.name, currentISO);
   const suggestion = suggestNextSet(prev, ex.reps, goal, rpFeedback);
 
   return (
     <Card style={{ marginBottom: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-        <H size={14} mb={2}>
-          {ex.ssLabel && <span style={{ color: ACCENT, marginRight: 6 }}>{ex.ssLabel}</span>}
-          {ex.name}
-        </H>
-        <div style={{ display: 'flex', gap: 4, fontSize: 10, fontFamily: 'Impact, Arial Black, sans-serif' }}>
-          <Pill color={TEXT_DIM} bg={CARD2}>{ex.sets}×{ex.reps}</Pill>
-          {ex.tempo && ex.tempo !== '-' && <Pill color={PURPLE}>{ex.tempo}</Pill>}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
+        <div style={{ flex: 1 }}>
+          <H size={14} mb={2}>
+            {ex.ssLabel && <span style={{ color: ACCENT, marginRight: 6 }}>{ex.ssLabel}</span>}
+            {ex.name}
+          </H>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
+            <Pill color={TEXT_DIM} bg={CARD2}>{ex.sets}×{ex.reps}</Pill>
+            {ex.tempo && ex.tempo !== '-' && <Pill color={PURPLE}>{ex.tempo}</Pill>}
+          </div>
         </div>
+        {onSwap && (
+          <button onClick={onSwap} style={{
+            background: CARD2, color: TEXT_DIM, border: `1px solid ${BORDER}`,
+            borderRadius: 6, padding: '5px 9px', cursor: 'pointer',
+            fontSize: 10, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+            flexShrink: 0, marginTop: 2,
+          }}>⇄ SWAP</button>
+        )}
       </div>
-      <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 8 }}>{ex.note}</div>
+      <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 6 }}>{ex.note}</div>
       {ex.progressionNote && (
         <div style={{ fontSize: 10, color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 8 }}>
           📈 {ex.progressionNote.toUpperCase()}
@@ -2790,34 +3174,19 @@ const ExerciseBlock = ({ ex, session, sessions, currentISO, goal, onSetUpdate, r
         return (
           <div key={si} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr 32px', gap: 6, marginBottom: 4, alignItems: 'center' }}>
             <div style={{
-              background: done ? ACCENT : CARD2,
-              color: done ? '#000' : TEXT_DIM,
-              borderRadius: 4,
-              padding: '7px 0',
-              textAlign: 'center',
-              fontSize: 11,
-              fontFamily: 'Impact, Arial Black, sans-serif',
+              background: done ? ACCENT : CARD2, color: done ? '#000' : TEXT_DIM,
+              borderRadius: 4, padding: '7px 0', textAlign: 'center',
+              fontSize: 11, fontFamily: 'Impact, Arial Black, sans-serif',
             }}>{si + 1}</div>
-            <Input
-              type="number"
-              placeholder="lbs"
-              value={cur.weight || ''}
+            <Input type="number" placeholder="lbs" value={cur.weight || ''}
               onChange={(e) => onSetUpdate(ex.name, si, { weight: e.target.value })}
-              style={{ borderColor: done ? ACCENT : BORDER, padding: '7px 9px', fontSize: 13 }}
-            />
-            <Input
-              type="number"
-              placeholder="reps"
-              value={cur.reps || ''}
+              style={{ borderColor: done ? ACCENT : BORDER, padding: '7px 9px', fontSize: 13 }} />
+            <Input type="number" placeholder="reps" value={cur.reps || ''}
               onChange={(e) => onSetUpdate(ex.name, si, { reps: e.target.value })}
-              style={{ borderColor: done ? ACCENT : BORDER, padding: '7px 9px', fontSize: 13 }}
-            />
-            <input
-              type="checkbox"
-              checked={done || false}
+              style={{ borderColor: done ? ACCENT : BORDER, padding: '7px 9px', fontSize: 13 }} />
+            <input type="checkbox" checked={done || false}
               onChange={(e) => onSetUpdate(ex.name, si, { done: e.target.checked })}
-              style={{ width: 18, height: 18, cursor: 'pointer' }}
-            />
+              style={{ width: 18, height: 18, cursor: 'pointer' }} />
           </div>
         );
       })}
@@ -3691,7 +4060,9 @@ const Food = ({ state, setState, onCoachPrompt }) => {
           <Btn size="sm" variant="ghost" onClick={() => setManualMode(!manualMode)}>
             {manualMode ? 'HIDE MANUAL' : '+ MANUAL ENTRY'}
           </Btn>
-          <Btn size="sm" variant="accent2" onClick={() => onCoachPrompt(`Suggest foods to fill: ${Math.round(remaining.cal)}cal, ${Math.round(remaining.p)}p, ${Math.round(remaining.c)}c, ${Math.round(remaining.f)}f remaining today and add them`)}>FILL MACROS</Btn>
+          <Btn size="sm" variant="accent2" onClick={() => onCoachPrompt(
+            `Fill my remaining macros for today. I have exactly ${Math.round(remaining.cal)} calories, ${Math.round(remaining.p)}g protein, ${Math.round(remaining.c)}g carbs, and ${Math.round(remaining.f)}g fat left. Suggest 2-4 real foods and add them using add_food. CRITICAL: the combined macros of everything you add must NOT exceed these remaining amounts. Prioritize hitting protein first. If a food would push any macro over the limit, choose a smaller serving or skip it. Do the math before adding each food.`
+          )}>FILL MACROS</Btn>
         </div>
 
         {manualMode && (
@@ -4390,15 +4761,52 @@ const handleToolCall = (name, input, state, setState, setActiveTab) => {
     }
     if (name === 'add_food') {
       const date = input.date || todayISO();
+      const qty = input.qty || 1;
+      const addCal = Math.round((+input.cal || 0) * qty);
+      const addP   = Math.round((+input.p   || 0) * qty * 10) / 10;
+      const addC   = Math.round((+input.c   || 0) * qty * 10) / 10;
+      const addF   = Math.round((+input.f   || 0) * qty * 10) / 10;
+
+      // Compute current totals BEFORE adding (read from live state)
+      const currentFood = state.food[date] || [];
+      const curTotals = currentFood.reduce((acc, f) => ({
+        cal: acc.cal + (+f.cal || 0) * (f.qty || 1),
+        p:   acc.p   + (+f.p   || 0) * (f.qty || 1),
+        c:   acc.c   + (+f.c   || 0) * (f.qty || 1),
+        f:   acc.f   + (+f.f   || 0) * (f.qty || 1),
+      }), { cal: 0, p: 0, c: 0, f: 0 });
+
+      // Compute current macros for the date (use state profile)
+      const cw = (state.wlog.length ? [...state.wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : state.profile.weight);
+      const m = calcMacros(state.profile, cw);
+
+      // Check caps — hard refuse if ANY macro would go over by more than 5% tolerance
+      const tol = 0.05;
+      const wouldCal = curTotals.cal + addCal;
+      const wouldP   = curTotals.p   + addP;
+      const wouldC   = curTotals.c   + addC;
+      const wouldF   = curTotals.f   + addF;
+      const overages = [];
+      if (wouldCal > m.calories * (1 + tol)) overages.push(`calories (${Math.round(wouldCal)}/${m.calories})`);
+      if (wouldP   > m.protein  * (1 + tol)) overages.push(`protein (${wouldP}/${m.protein}g)`);
+      if (wouldC   > m.carbs    * (1 + tol)) overages.push(`carbs (${wouldC}/${m.carbs}g)`);
+      if (wouldF   > m.fat      * (1 + tol)) overages.push(`fat (${wouldF}/${m.fat}g)`);
+
+      if (overages.length > 0) {
+        return `✗ Refused to add ${input.name} — would exceed: ${overages.join(', ')}. Remaining: ${Math.max(0, Math.round(m.calories - curTotals.cal))}cal / ${Math.max(0, Math.round(m.protein - curTotals.p))}p / ${Math.max(0, Math.round(m.carbs - curTotals.c))}c / ${Math.max(0, Math.round(m.fat - curTotals.f))}f. Choose a smaller portion or different food.`;
+      }
+
       const item = {
         id: 'f_' + Date.now() + Math.random(),
-        name: input.name, cal: input.cal || 0, p: input.p || 0, c: input.c || 0, f: input.f || 0, qty: input.qty || 1,
+        name: input.name, cal: input.cal || 0, p: input.p || 0, c: input.c || 0, f: input.f || 0, qty,
       };
-      setState((p) => {
-        const day = p.food[date] || [];
-        return { ...p, food: { ...p.food, [date]: [...day, item] } };
+      setState((prev) => {
+        const day = prev.food[date] || [];
+        return { ...prev, food: { ...prev.food, [date]: [...day, item] } };
       });
-      return `✓ Added ${input.name} to ${date}`;
+      const newCal = Math.round(wouldCal);
+      const remCal = Math.max(0, Math.round(m.calories - wouldCal));
+      return `✓ Added ${input.name}: ${addCal}cal / ${addP}p / ${addC}c / ${addF}f. Running total: ${newCal}/${m.calories}cal. Remaining: ${remCal}cal / ${Math.max(0,Math.round(m.protein-wouldP))}p / ${Math.max(0,Math.round(m.carbs-wouldC))}c / ${Math.max(0,Math.round(m.fat-wouldF))}f.`;
     }
     if (name === 'clear_food_day') {
       setState((p) => ({ ...p, food: { ...p.food, [input.date]: [] } }));
@@ -4521,13 +4929,20 @@ const buildSystemPrompt = (state) => {
   // Weight history (last 5)
   const recentW = [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 5).map((w) => `${w.date}: ${w.weight}lbs`);
 
-  // Today's nutrition
+  // Today's nutrition — precise remaining with hard caps for AI
   const todaysFood = food[todayISO()] || [];
   const totals = todaysFood.reduce((acc, f) => ({
     cal: acc.cal + (+f.cal || 0) * (f.qty || 1), p: acc.p + (+f.p || 0) * (f.qty || 1),
     c: acc.c + (+f.c || 0) * (f.qty || 1), f: acc.f + (+f.f || 0) * (f.qty || 1),
   }), { cal: 0, p: 0, c: 0, f: 0 });
-  const remaining = `${Math.round(macros.calories - totals.cal)}cal, ${Math.round(macros.protein - totals.p)}p, ${Math.round(macros.carbs - totals.c)}c, ${Math.round(macros.fat - totals.f)}f remaining`;
+  const remCal = Math.max(0, Math.round(macros.calories - totals.cal));
+  const remP   = Math.max(0, Math.round(macros.protein - totals.p));
+  const remC   = Math.max(0, Math.round(macros.carbs - totals.c));
+  const remF   = Math.max(0, Math.round(macros.fat - totals.f));
+  const nutritionBlock = `TODAY LOGGED: ${Math.round(totals.cal)}cal / ${Math.round(totals.p)}g protein / ${Math.round(totals.c)}g carbs / ${Math.round(totals.f)}g fat
+DAILY TARGETS: ${macros.calories}cal / ${macros.protein}g protein / ${macros.carbs}g carbs / ${macros.fat}g fat
+REMAINING (HARD CAPS): ${remCal}cal / ${remP}g protein / ${remC}g carbs / ${remF}g fat
+FOODS LOGGED TODAY: ${todaysFood.length > 0 ? todaysFood.map(f => `${f.name} (${Math.round((+f.cal||0)*(f.qty||1))}cal)`).join(', ') : '(none)'}`;
 
   // Recent journal (last 3)
   const recentJ = [...jlog].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 3)
@@ -4555,13 +4970,22 @@ ${recentSessions.join('\n') || '(none yet)'}
 
 WEIGHT HISTORY: ${recentW.join(' · ') || '(none)'}
 
-TODAY: ${Math.round(totals.cal)}cal / ${Math.round(totals.p)}p / ${Math.round(totals.c)}c / ${Math.round(totals.f)}f logged · ${remaining}
+${nutritionBlock}
 
 RECENT JOURNAL: ${recentJ.join(' · ') || '(none)'}
 
 RUNS: total ${runs.length} runs / ${totalMi.toFixed(1)}mi · recent: ${recentRuns.join(' · ') || '(none)'}
 
 CAPABILITIES: You can call tools to update profile, log weight, add foods, mark sessions done, save journals, set schedule, swap days, skip days, log runs, switch tabs, set week, reset overrides. When the user says "do X", actually do it via tools rather than describing it.
+
+FOOD RULES — CRITICAL: When adding foods (FILL MACROS or any food suggestion):
+1. The REMAINING values above are your HARD CAPS. You must NEVER add foods that push any macro over the daily target.
+2. Before calling add_food, mentally sum ALL foods you are about to add. Their combined totals must fit within the remaining cal/protein/carbs/fat caps.
+3. If you cannot fill all macros exactly, prioritize protein first, then calories. It is always better to be slightly under than over.
+4. Choose real, simple foods (chicken breast, rice, eggs, Greek yogurt, oats, banana, etc.) with known macros. Keep serving sizes realistic.
+5. If remaining calories < 100, tell the user they're essentially at their target and suggest nothing — do not add tiny foods just to fill the gap.
+6. Never add the same food twice in one session.
+7. After adding all foods, confirm the total added (e.g. "Added 450cal / 45p / 35c / 12f — you're now at 2180/2252 cal").
 
 IMPORTANT: Distinguish between *temporary* week-only changes (use swap_days) vs *permanent* schedule changes (use set_schedule). Always confirm what you did with a 1-line summary. Use **bold** for emphasis.`;
 };
