@@ -3275,18 +3275,18 @@ const lookupBarcode = async (upc) => {
 
 const BarcodeScanner = ({ onResult, onClose }) => {
   const videoRef = useRef(null);
-  const streamRef = useRef(null);
   const readerRef = useRef(null);
   const [status, setStatus] = useState('starting');
   const [errorMsg, setErrorMsg] = useState('');
   const [foundCode, setFoundCode] = useState('');
   const [lookingUp, setLookingUp] = useState(false);
+  const doneRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        if (!window.ZXing) {
+    const start = async () => {
+      if (!window.ZXing) {
+        try {
           await new Promise((resolve, reject) => {
             const s = document.createElement('script');
             s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
@@ -3294,39 +3294,35 @@ const BarcodeScanner = ({ onResult, onClose }) => {
             s.onerror = () => reject(new Error('Could not load barcode library'));
             document.head.appendChild(s);
           });
-          // jsDelivr exposes it as window.ZXingLibrary
-          if (!window.ZXing && window.ZXingLibrary) window.ZXing = window.ZXingLibrary;
+        } catch (e) {
+          if (!cancelled) { setStatus('error'); setErrorMsg(e.message); }
+          return;
         }
-        if (cancelled) return;
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
-        });
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-        }
+      }
+      if (cancelled) return;
+      const ZXing = window.ZXing;
+      if (!ZXing || !ZXing.BrowserMultiFormatReader) {
+        if (!cancelled) { setStatus('error'); setErrorMsg('Barcode library failed to initialize'); }
+        return;
+      }
+      try {
         const hints = new Map();
-        const formats = [
-          window.ZXing.BarcodeFormat.EAN_13,
-          window.ZXing.BarcodeFormat.EAN_8,
-          window.ZXing.BarcodeFormat.UPC_A,
-          window.ZXing.BarcodeFormat.UPC_E,
-          window.ZXing.BarcodeFormat.CODE_128,
-          window.ZXing.BarcodeFormat.CODE_39,
-          window.ZXing.BarcodeFormat.DATA_MATRIX,
-          window.ZXing.BarcodeFormat.QR_CODE,
-        ];
-        hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-        hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
-        const reader = new window.ZXing.BrowserMultiFormatReader(hints);
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+        const reader = new ZXing.BrowserMultiFormatReader(hints, 500);
         readerRef.current = reader;
-        setStatus('scanning');
-        reader.decodeFromVideoElement(videoRef.current, async (result, err) => {
-          if (cancelled || !result) return;
+        // decodeFromVideoDevice(null) auto-selects rear camera
+        await reader.decodeFromVideoDevice(null, videoRef.current, async (result, err) => {
+          if (cancelled || doneRef.current) return;
+          if (err) {
+            // NotFoundException fires constantly when no barcode visible — ignore it
+            if (err.name === 'NotFoundException') return;
+            if (!cancelled) { setStatus('error'); setErrorMsg(err.message || 'Scan error'); }
+            return;
+          }
+          if (!result) return;
           const code = result.getText();
           if (!code) return;
+          doneRef.current = true;
           reader.reset();
           setFoundCode(code);
           setStatus('found');
@@ -3341,19 +3337,21 @@ const BarcodeScanner = ({ onResult, onClose }) => {
             setStatus('error');
           }
         });
+        if (!cancelled) setStatus('scanning');
       } catch (e) {
         if (!cancelled) {
           setStatus('error');
           if (e.name === 'NotAllowedError') setErrorMsg('Camera permission denied. Allow camera access in your browser settings.');
           else if (e.name === 'NotFoundError') setErrorMsg('No camera found on this device.');
+          else if (e.name === 'NotReadableError') setErrorMsg('Camera is in use by another app. Close other apps and try again.');
           else setErrorMsg(e.message || 'Could not start camera');
         }
       }
-    })();
+    };
+    start();
     return () => {
       cancelled = true;
       if (readerRef.current) { try { readerRef.current.reset(); } catch {} }
-      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     };
   }, []);
 
@@ -3367,40 +3365,27 @@ const BarcodeScanner = ({ onResult, onClose }) => {
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#000' }}>
         <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} playsInline muted />
         {status === 'scanning' && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{
-              width: 260, height: 160, border: `3px solid ${ACCENT}`, borderRadius: 10,
-              boxShadow: `0 0 0 9999px rgba(0,0,0,0.55), 0 0 20px ${ACCENT}66`, position: 'relative',
-            }}>
-              <div style={{
-                position: 'absolute', left: 0, right: 0, height: 2,
-                background: `linear-gradient(90deg, transparent, ${ACCENT}, transparent)`,
-                top: '50%', animation: 'recomp-stripe 1.8s ease-in-out infinite',
-              }} />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+            <div style={{ width: 260, height: 160, border: `3px solid ${ACCENT}`, borderRadius: 10, boxShadow: `0 0 0 9999px rgba(0,0,0,0.5), 0 0 20px ${ACCENT}66`, position: 'relative' }}>
+              <div style={{ position: 'absolute', left: 8, right: 8, height: 2, background: `linear-gradient(90deg, transparent, ${ACCENT}, transparent)`, top: '50%', animation: 'recomp-stripe 1.8s ease-in-out infinite' }} />
               {[
                 { top: -2, left: -2, borderTop: `3px solid ${ORANGE}`, borderLeft: `3px solid ${ORANGE}` },
                 { top: -2, right: -2, borderTop: `3px solid ${ORANGE}`, borderRight: `3px solid ${ORANGE}` },
                 { bottom: -2, left: -2, borderBottom: `3px solid ${ORANGE}`, borderLeft: `3px solid ${ORANGE}` },
                 { bottom: -2, right: -2, borderBottom: `3px solid ${ORANGE}`, borderRight: `3px solid ${ORANGE}` },
-              ].map((s, i) => (
-                <div key={i} style={{ position: 'absolute', width: 18, height: 18, borderRadius: 2, ...s }} />
-              ))}
+              ].map((s, i) => <div key={i} style={{ position: 'absolute', width: 18, height: 18, borderRadius: 2, ...s }} />)}
             </div>
           </div>
         )}
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0,
-          padding: '12px 16px', textAlign: 'center',
-          background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-        }}>
-          {status === 'starting' && <div style={{ color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 12 }}>STARTING CAMERA...</div>}
-          {status === 'scanning' && <div style={{ color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 12 }}>POINT AT BARCODE</div>}
-          {status === 'found' && <div style={{ color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 12 }}>✓ SCANNED {foundCode} {lookingUp ? '— LOOKING UP...' : ''}</div>}
-          {status === 'error' && <div style={{ padding: 10, background: `${RED}22`, border: `1px solid ${RED}55`, borderRadius: 8, color: RED, fontSize: 12 }}>⚠ {errorMsg}</div>}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '14px 16px', textAlign: 'center', background: 'linear-gradient(transparent, rgba(0,0,0,0.85))' }}>
+          {status === 'starting' && <div style={{ color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 13 }}>STARTING CAMERA...</div>}
+          {status === 'scanning' && <div style={{ color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 13 }}>POINT AT BARCODE · HOLD STEADY</div>}
+          {status === 'found' && <div style={{ color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 13 }}>✓ {foundCode} {lookingUp ? '— LOOKING UP...' : '— FOUND'}</div>}
+          {status === 'error' && <div style={{ padding: 10, background: `${RED}33`, border: `1px solid ${RED}66`, borderRadius: 8, color: '#fff', fontSize: 12, lineHeight: 1.4 }}>⚠ {errorMsg}</div>}
         </div>
       </div>
-      <div style={{ padding: '10px 14px', fontSize: 11, color: TEXT_MUTED, textAlign: 'center' }}>
-        Works with UPC, EAN, and most grocery barcodes · Powered by Open Food Facts
+      <div style={{ padding: '10px 14px', fontSize: 10, color: TEXT_MUTED, textAlign: 'center', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+        UPC · EAN · CODE 128 · 3M+ PRODUCTS VIA OPEN FOOD FACTS
       </div>
     </div>
   );
