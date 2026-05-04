@@ -3249,7 +3249,7 @@ const searchFoodDB = async (query) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 2000,
         system: sysPrompt,
         messages: [{ role: 'user', content: `Search: ${query}` }],
@@ -4373,7 +4373,7 @@ const CoachDrawer = ({ open, onClose, state, setState, setActiveTab, pendingProm
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-sonnet-4-5',
             max_tokens: 1500,
             system: sysPrompt,
             tools: COACH_TOOLS,
