@@ -1,2697 +1,1357 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
-const KEY = "recomp_data";
-async function save(d) { try { await window.storage.set(KEY, JSON.stringify(d)); } catch {} }
-async function load() { try { const r = await window.storage.get(KEY); return r?.value ? JSON.parse(r.value) : null; } catch { return null; } }
-async function clear() { try { await window.storage.delete(KEY); } catch {} }
+// ============================================================
+// CONSTANTS — colors, styles, programming data
+// ============================================================
+const BG = '#09090b';
+const ACCENT = '#e8ff47';
+const ORANGE = '#ff6b35';
+const CARD = '#18181b';
+const CARD2 = '#27272a';
+const BORDER = '#3f3f46';
+const TEXT_DIM = '#a1a1aa';
+const TEXT_MUTED = '#71717a';
+const RED = '#ef4444';
+const GREEN = '#22c55e';
+const BLUE = '#3b82f6';
+const PURPLE = '#a855f7';
+const YELLOW = '#eab308';
 
-const C = { bg:"#09090b",s1:"#111115",s2:"#17171c",s3:"#1e1e26",bd:"#25252f",acc:"#e8ff47",a2:"#ff6b35",a3:"#60a5fa",a4:"#4ade80",a5:"#a78bfa",a6:"#fbbf24",tx:"#eff0f4",mu:"#5a5a6e",mu2:"#7a7a8e" };
+const STORAGE_KEY = 'recomp_data';
+const SCHEMA_VERSION = 9;
 
-const PHASES = {
-  4: [
-    {sets:3,reps:"12-15",rpe:"RPE 6-7",tempo:"20X1",rest:"90s",ph:"ACCUMULATION",note:""},
-    {sets:4,reps:"8-12",rpe:"RPE 7-8",tempo:"31X1",rest:"2min",ph:"HYPERTROPHY",note:"Wk 2: Add 5-10 lbs. Eccentric slows to 3s."},
-    {sets:4,reps:"6-8",rpe:"RPE 8",tempo:"31X1",rest:"2min",ph:"HYPERTROPHY",note:"Wk 3: Add 5 more lbs. 2-3 reps in reserve."},
-    {sets:3,reps:"8-10",rpe:"RPE 5-6",tempo:"20X1",rest:"90s",ph:"DELOAD",note:"Wk 4: Drop to 60% of Wk 3. Recovery only."}
-  ],
-  def: [
-    {sets:3,reps:"12-15",rpe:"RPE 6",tempo:"20X1",rest:"90s",ph:"ACCUMULATION",note:""},
-    {sets:4,reps:"12-15",rpe:"RPE 6-7",tempo:"21X1",rest:"90s",ph:"ACCUMULATION",note:"Wk 2: Add 1 set. Same load — own the volume."},
-    {sets:4,reps:"10-12",rpe:"RPE 7",tempo:"21X1",rest:"2min",ph:"ACCUMULATION",note:"Wk 3: Add 5 lbs. Reps tighten to 10-12."},
-    {sets:4,reps:"8-12",rpe:"RPE 7-8",tempo:"31X1",rest:"2min",ph:"HYPERTROPHY",note:"NEW PHASE: Hypertrophy. Eccentric 3s. Add 5-10 lbs."},
-    {sets:4,reps:"8-10",rpe:"RPE 7-8",tempo:"31X1",rest:"2min",ph:"HYPERTROPHY",note:"Wk 5: Add 5 lbs. Rep range 8-10."},
-    {sets:5,reps:"8-10",rpe:"RPE 8",tempo:"31X1",rest:"2min",ph:"HYPERTROPHY",note:"Wk 6: Peak volume — 5 sets A1/A2. Same load as Wk 5."},
-    {sets:4,reps:"4-6",rpe:"RPE 8-9",tempo:"21X0",rest:"3min",ph:"INTENSIFICATION",note:"NEW PHASE: Intensification. Add 10-15 lbs over Wk 6."},
-    {sets:5,reps:"4-6",rpe:"RPE 8-9",tempo:"21X0",rest:"3min",ph:"INTENSIFICATION",note:"Wk 8: Heaviest week. Add 5 lbs from Wk 7."},
-    {sets:4,reps:"2-4",rpe:"RPE 9-10",tempo:"10X0",rest:"4min",ph:"REALIZATION",note:"NEW PHASE: Realization. Max load. Add 5-10 lbs."},
-    {sets:3,reps:"8-10",rpe:"RPE 5-6",tempo:"20X1",rest:"90s",ph:"DELOAD",note:"DELOAD: 60% of Wk 9. Recovery — not a workout."},
-    {sets:4,reps:"12-15",rpe:"RPE 6-7",tempo:"21X1",rest:"90s",ph:"ACCUMULATION",note:"Block 2: Start 10 lbs heavier than Wk 1."},
-    {sets:4,reps:"8-12",rpe:"RPE 7-8",tempo:"31X1",rest:"2min",ph:"HYPERTROPHY",note:"Wk 12: Add 10-15 lbs over Wk 4 weights."}
-  ]
-};
-
-const PC = {ACCUMULATION:C.a4,HYPERTROPHY:C.a3,INTENSIFICATION:C.a6,REALIZATION:C.a2,DELOAD:C.a5};
-const DEFAULT_DAYS = [{day:"MON",type:"PUSH",col:C.a2},{day:"TUE",type:"PULL",col:C.a3},{day:"WED",type:"CARDIO",col:C.a6},{day:"THU",type:"LEGS",col:C.a4},{day:"FRI",type:"FULL",col:C.a5},{day:"SAT",type:"REST",col:C.mu},{day:"SUN",type:"REST",col:C.mu}];
-const DAYS = DEFAULT_DAYS; // legacy alias
-const WORKOUT_TYPES = [
-  {type:"PUSH",col:C.a2,label:"Push"},
-  {type:"PULL",col:C.a3,label:"Pull"},
-  {type:"LEGS",col:C.a4,label:"Legs"},
-  {type:"FULL",col:C.a5,label:"Full Body"},
-  {type:"CARDIO",col:C.a6,label:"Cardio"},
-  {type:"REST",col:C.mu,label:"Rest"}
+const WORKOUT_STYLES = [
+  { id: 'rp_hyp', name: 'RP Hypertrophy', desc: 'MEV/MAV/MRV mesocycle, RIR drops 3→0' },
+  { id: 'hyrox', name: 'HYROX', desc: '8 stations + run blocks, periodized' },
+  { id: 'hyrox_hybrid', name: 'HYROX Hybrid', desc: 'Heavy lifts + race prep + KB' },
+  { id: 'func_bb', name: 'Functional Bodybuilding', desc: 'Supersets A1/A2, RPE-based' },
+  { id: 'trad_bb', name: 'Traditional Bodybuilding', desc: 'Bro split, isolation, hypertrophy' },
+  { id: 'powerlifting', name: 'Powerlifting', desc: 'SBD focus, max strength' },
+  { id: 'crossfit', name: 'CrossFit', desc: 'WODs, AMRAP, EMOM, Oly' },
+  { id: 'athletic', name: 'Athletic Performance', desc: 'Speed, power, agility' },
+  { id: 'hiit', name: 'HIIT/Circuit', desc: 'High intensity intervals' },
 ];
-const DAY_LABELS = ["MON","TUE","WED","THU","FRI","SAT","SUN"];
 
-// Get the user's schedule, falling back to default
-function getSchedule(profile){
-  if(profile?.schedule&&Array.isArray(profile.schedule)&&profile.schedule.length===7){
-    return profile.schedule.map((type,i)=>{
-      const wt=WORKOUT_TYPES.find(w=>w.type===type)||WORKOUT_TYPES[5];
-      return {day:DAY_LABELS[i],type:wt.type,col:wt.col};
-    });
-  }
-  return DEFAULT_DAYS;
-}
-const MOODS = ["😤","😴","😐","💪","🔥"];
-
-const EX = {
-  pushA:[["Barbell Bench Press","Controlled descent, drive full ROM"],["DB Incline Press","3s down, pause, explode up"],["Cable Lateral Raise","Lead with elbow, slight lean"],["Tricep Rope Pushdown","Full extension, elbows pinned"],["Cable Chest Fly","Wide arc, squeeze at center"],["Overhead Tricep Ext","Elbows forward, full stretch"]],
-  pushB:[["Overhead Press","Brace hard, slight arc overhead"],["DB Flat Press","3s eccentric, control stretch"],["Cable Front Raise","Smooth arc, no momentum"],["EZ Bar Skull Crusher","Elbows fixed, lower to forehead"],["DB Lateral Raise","Lead with elbows, slight lean"],["Tricep Dip","Upright torso, full ROM"]],
-  pullA:[["BB Bent-Over Row","45° hinge, pull to lower chest, 2s squeeze"],["Lat Pulldown Wide","Initiate with lats, full ROM"],["Seated Cable Row","Full extension, pause, row to navel"],["DB Hammer Curl","Strict, no swing"],["Cable Rear Delt Fly","Lead with elbows wide"],["DB Preacher Curl","Full stretch at bottom"]],
-  pullB:[["Pull-Up","Dead hang, full ROM, 3s lowering"],["Single-Arm DB Row","Row to hip, 2s hold"],["Face Pull Cable","Pull to forehead, external rotate"],["Incline DB Curl","Full stretch, 3s eccentric"],["Straight-Arm Pulldown","Sweep to hips, squeeze lats"],["Reverse Curl","Overhand grip, elbows fixed"]],
-  legsA:[["Back Squat","Brace, drive knees out, 3s down"],["Romanian Deadlift","Hinge deep, 3s eccentric"],["Leg Press","Full ROM, mid-platform, 3s down"],["Nordic Hamstring Curl","Slow eccentric, minimal hands"],["Walking Lunge","Long stride, upright torso"],["Leg Extension","Pause 1s at top"]],
-  legsB:[["Bulgarian Split Squat","Front foot out, 3s down"],["Hex Bar Deadlift","Flat back, drive hips through"],["Seated Leg Curl","Full ROM, 3s eccentric"],["Leg Press","High wide stance, glute focus"],["Hip Thrust","Full extension, squeeze at top"],["Standing Calf Raise","Full stretch, pause at top"]],
-  full:[["Goblet Squat","Elbows up, deep squat"],["DB Push Press","Dip, explosive press, control down"],["Trap Bar Deadlift","Neutral spine, drive hips through"],["Chin-Up","Supinated grip, full ROM, 3s down"],["DB Walking Lunge","Long stride, alternating legs"],["Plank to Push-Up","Hips level throughout"]]
+const DAY_TYPES_BY_STYLE = {
+  rp_hyp: ['PUSH', 'PULL', 'LEGS', 'UPPER', 'LOWER', 'FULL', 'CARDIO', 'REST'],
+  hyrox: ['STRENGTH_LOWER', 'STRENGTH_UPPER', 'RUN_INTERVALS', 'Z2_RUN', 'RACE_SIM', 'CARDIO', 'REST'],
+  hyrox_hybrid: ['STRENGTH_LOWER', 'KB_RUN', 'STRENGTH_UPPER', 'Z2_RUN', 'RACE_SIM', 'CARDIO', 'REST'],
+  powerlifting: ['SQUAT', 'BENCH', 'DEADLIFT', 'ACCESSORY', 'CARDIO', 'REST'],
+  crossfit: ['WOD', 'STRENGTH', 'OLY', 'GYMNASTICS', 'CARDIO', 'REST'],
+  athletic: ['SPEED', 'POWER', 'STRENGTH', 'CONDITIONING', 'CARDIO', 'REST'],
+  hiit: ['HIIT', 'STRENGTH', 'FULL', 'CARDIO', 'REST'],
+  trad_bb: ['CHEST', 'BACK', 'SHOULDERS', 'ARMS', 'LEGS', 'PUSH', 'PULL', 'CARDIO', 'REST'],
+  func_bb: ['PUSH', 'PULL', 'LEGS', 'UPPER', 'LOWER', 'FULL', 'CARDIO', 'REST'],
 };
 
-function getPhase(w,tot){const a=parseInt(tot)===4?PHASES[4]:PHASES.def;return a[Math.max(0,Math.min(parseInt(w),a.length)-1)];}
-function getEx(t,w){const o=parseInt(w)%2===1;if(t==="PUSH")return o?EX.pushA:EX.pushB;if(t==="PULL")return o?EX.pullA:EX.pullB;if(t==="LEGS")return o?EX.legsA:EX.legsB;if(t==="FULL")return EX.full;return EX.full;}
+const SPLIT_PRESETS = {
+  rp_hyp: [
+    { name: 'PPL 6-Day', days: ['PUSH', 'PULL', 'LEGS', 'PUSH', 'PULL', 'LEGS', 'REST'] },
+    { name: 'Upper/Lower 4-Day', days: ['UPPER', 'LOWER', 'REST', 'UPPER', 'LOWER', 'REST', 'REST'] },
+    { name: 'Full Body 3-Day', days: ['FULL', 'REST', 'FULL', 'REST', 'FULL', 'REST', 'REST'] },
+    { name: 'PPL + Cardio', days: ['PUSH', 'PULL', 'LEGS', 'CARDIO', 'PUSH', 'PULL', 'REST'] },
+  ],
+  hyrox: [
+    { name: 'Standard 5-Day', days: ['STRENGTH_LOWER', 'RUN_INTERVALS', 'STRENGTH_UPPER', 'Z2_RUN', 'RACE_SIM', 'REST', 'REST'] },
+    { name: '6-Day Race Prep', days: ['STRENGTH_LOWER', 'RUN_INTERVALS', 'STRENGTH_UPPER', 'Z2_RUN', 'RACE_SIM', 'CARDIO', 'REST'] },
+  ],
+  hyrox_hybrid: [
+    { name: 'Standard 5-Day', days: ['STRENGTH_LOWER', 'KB_RUN', 'Z2_RUN', 'STRENGTH_UPPER', 'RACE_SIM', 'REST', 'REST'] },
+    { name: '6-Day Hybrid', days: ['STRENGTH_LOWER', 'KB_RUN', 'Z2_RUN', 'STRENGTH_UPPER', 'RACE_SIM', 'CARDIO', 'REST'] },
+  ],
+  powerlifting: [
+    { name: '4-Day SBD+Acc', days: ['SQUAT', 'BENCH', 'REST', 'DEADLIFT', 'ACCESSORY', 'REST', 'REST'] },
+    { name: '3-Day SBD', days: ['SQUAT', 'REST', 'BENCH', 'REST', 'DEADLIFT', 'REST', 'REST'] },
+    { name: '5-Day', days: ['SQUAT', 'BENCH', 'DEADLIFT', 'ACCESSORY', 'ACCESSORY', 'REST', 'REST'] },
+  ],
+  crossfit: [
+    { name: '5-Day Standard', days: ['WOD', 'STRENGTH', 'OLY', 'WOD', 'GYMNASTICS', 'REST', 'REST'] },
+    { name: '3-on-1-off', days: ['WOD', 'STRENGTH', 'WOD', 'REST', 'OLY', 'WOD', 'REST'] },
+  ],
+  athletic: [
+    { name: '4-Day Athletic', days: ['SPEED', 'STRENGTH', 'POWER', 'CONDITIONING', 'REST', 'REST', 'REST'] },
+    { name: 'In-Season', days: ['SPEED', 'STRENGTH', 'REST', 'CONDITIONING', 'REST', 'REST', 'REST'] },
+  ],
+  hiit: [
+    { name: '5-Day HIIT', days: ['HIIT', 'STRENGTH', 'HIIT', 'FULL', 'STRENGTH', 'REST', 'REST'] },
+    { name: '3-Day HIIT', days: ['HIIT', 'REST', 'STRENGTH', 'REST', 'HIIT', 'REST', 'REST'] },
+  ],
+  trad_bb: [
+    { name: 'Bro Split 5-Day', days: ['CHEST', 'BACK', 'SHOULDERS', 'ARMS', 'LEGS', 'REST', 'REST'] },
+    { name: 'PPL 6-Day', days: ['PUSH', 'PULL', 'LEGS', 'PUSH', 'PULL', 'LEGS', 'REST'] },
+    { name: 'PPL + Arms', days: ['PUSH', 'PULL', 'LEGS', 'ARMS', 'PUSH', 'PULL', 'REST'] },
+  ],
+  func_bb: [
+    { name: 'PPL + Full', days: ['PUSH', 'PULL', 'LEGS', 'FULL', 'CARDIO', 'REST', 'REST'] },
+    { name: 'Upper/Lower', days: ['UPPER', 'LOWER', 'REST', 'UPPER', 'LOWER', 'REST', 'REST'] },
+    { name: '3-Day Full Body', days: ['FULL', 'REST', 'FULL', 'REST', 'FULL', 'REST', 'REST'] },
+  ],
+};
 
-// RP Hypertrophy methodology - volume landmarks per muscle group (sets per week)
-// MV=Maintenance, MEV=Min Effective, MAV=Max Adaptive, MRV=Max Recoverable
+const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+// Day type abbreviations for compact preview
+const DAY_TYPE_ABBR = {
+  PUSH: 'PSH', PULL: 'PUL', LEGS: 'LEG', UPPER: 'UPR', LOWER: 'LWR', FULL: 'FUL',
+  CHEST: 'CHS', BACK: 'BCK', SHOULDERS: 'SHO', ARMS: 'ARM',
+  SQUAT: 'SQT', BENCH: 'BNC', DEADLIFT: 'DL', ACCESSORY: 'ACC',
+  WOD: 'WOD', STRENGTH: 'STR', OLY: 'OLY', GYMNASTICS: 'GYM',
+  SPEED: 'SPD', POWER: 'POW', CONDITIONING: 'CON',
+  HIIT: 'HIT',
+  STRENGTH_LOWER: 'S-L', STRENGTH_UPPER: 'S-U', RUN_INTERVALS: 'INT', Z2_RUN: 'Z2', RACE_SIM: 'SIM', KB_RUN: 'KB',
+  CARDIO: 'CAR', REST: '—',
+};
+
+// Day type colors
+const DAY_TYPE_COLOR = {
+  PUSH: ORANGE, PULL: BLUE, LEGS: PURPLE, UPPER: ORANGE, LOWER: PURPLE, FULL: ACCENT,
+  CHEST: ORANGE, BACK: BLUE, SHOULDERS: '#fbbf24', ARMS: '#f97316',
+  SQUAT: PURPLE, BENCH: ORANGE, DEADLIFT: BLUE, ACCESSORY: ACCENT,
+  WOD: ORANGE, STRENGTH: ACCENT, OLY: PURPLE, GYMNASTICS: BLUE,
+  SPEED: ORANGE, POWER: '#fbbf24', CONDITIONING: BLUE,
+  HIIT: ORANGE,
+  STRENGTH_LOWER: PURPLE, STRENGTH_UPPER: ORANGE, RUN_INTERVALS: ORANGE, Z2_RUN: BLUE, RACE_SIM: RED, KB_RUN: '#fbbf24',
+  CARDIO: BLUE, REST: TEXT_MUTED,
+};
+
+// ============================================================
+// RP HYPERTROPHY — Volume landmarks per muscle (sets/week)
+// ============================================================
 const RP_LANDMARKS = {
-  Chest: {MV:6,MEV:10,MAV:14,MRV:22},
-  Back: {MV:8,MEV:10,MAV:16,MRV:25},
-  Shoulders: {MV:8,MEV:8,MAV:16,MRV:26},
-  Biceps: {MV:5,MEV:8,MAV:14,MRV:20},
-  Triceps: {MV:4,MEV:6,MAV:12,MRV:18},
-  Quads: {MV:6,MEV:8,MAV:14,MRV:20},
-  Hamstrings: {MV:3,MEV:6,MAV:12,MRV:16},
-  Glutes: {MV:0,MEV:0,MAV:8,MRV:16},
-  Calves: {MV:6,MEV:8,MAV:14,MRV:20}
+  Chest:     { MV: 6,  MEV: 10, MAV: 14, MRV: 22 },
+  Back:      { MV: 8,  MEV: 10, MAV: 16, MRV: 25 },
+  Shoulders: { MV: 8,  MEV: 8,  MAV: 16, MRV: 26 },
+  Biceps:    { MV: 5,  MEV: 8,  MAV: 14, MRV: 20 },
+  Triceps:   { MV: 4,  MEV: 6,  MAV: 12, MRV: 18 },
+  Quads:     { MV: 6,  MEV: 8,  MAV: 14, MRV: 20 },
+  Hamstrings:{ MV: 3,  MEV: 6,  MAV: 12, MRV: 16 },
+  Glutes:    { MV: 0,  MEV: 0,  MAV: 8,  MRV: 16 },
+  Calves:    { MV: 6,  MEV: 8,  MAV: 14, MRV: 20 },
 };
 
-// RP mesocycle: 4-6 weeks accumulation + deload. Sets ramp from MEV→MRV. RIR drops 3→0.
-function getRPWeek(w, mesoLen) {
-  const ml = parseInt(mesoLen) || 5;
-  const wn = parseInt(w);
-  const deloadWeek = ml; // last week is deload
-  const accumWeeks = ml - 1;
-  if (wn >= deloadWeek) return {week:wn, type:"DELOAD", rir:"4-5 RIR", setMult:0.5, repRange:"8-10", note:"Deload — 50% sets, light loads. Recover for next meso."};
-  // Linear progression across accumulation
-  const progress = (wn - 1) / Math.max(1, accumWeeks - 1); // 0 to 1
-  const rir = Math.max(0, Math.round(3 - progress * 3));
-  const setMult = 1 + progress * 0.5; // 1x MEV → 1.5x MEV (toward MRV)
-  return {week:wn, type:"ACCUMULATION", rir:`${rir} RIR`, setMult, repRange:wn<=2?"8-12":wn<=4?"6-10":"5-8", note:wn===1?"Week 1: Establish baseline. Track pump, soreness, workload.":`Week ${wn}: Add ${wn-1} set${wn>2?"s":""} per muscle from week 1. Drop RIR to ${rir}.`};
-}
-
-// RP Push/Pull/Legs split with muscle groups
-const RP_SPLIT = {
-  PUSH: [
-    {muscle:"Chest", exercises:["Barbell Bench Press","DB Incline Press","Cable Chest Fly"]},
-    {muscle:"Shoulders", exercises:["Overhead Press","Cable Lateral Raise","DB Lateral Raise"]},
-    {muscle:"Triceps", exercises:["Tricep Rope Pushdown","Overhead Tricep Extension"]}
-  ],
-  PULL: [
-    {muscle:"Back", exercises:["Lat Pulldown Wide","Barbell Row","Seated Cable Row","Face Pull Cable"]},
-    {muscle:"Biceps", exercises:["DB Hammer Curl","Incline DB Curl"]}
-  ],
-  LEGS: [
-    {muscle:"Quads", exercises:["Back Squat","Leg Press","Leg Extension"]},
-    {muscle:"Hamstrings", exercises:["Romanian Deadlift","Seated Leg Curl"]},
-    {muscle:"Glutes", exercises:["Hip Thrust"]},
-    {muscle:"Calves", exercises:["Standing Calf Raise"]}
-  ],
-  FULL: [
-    {muscle:"Chest", exercises:["DB Flat Press"]},
-    {muscle:"Back", exercises:["Pull-Up","Single-Arm DB Row"]},
-    {muscle:"Quads", exercises:["Goblet Squat"]},
-    {muscle:"Hamstrings", exercises:["Hex Bar Deadlift"]},
-    {muscle:"Shoulders", exercises:["DB Push Press"]}
-  ]
+const RP_EXERCISES = {
+  Chest:     [ 'BB Bench Press', 'DB Incline Press', 'Cable Fly' ],
+  Back:      [ 'Lat Pulldown', 'Barbell Row', 'Seated Cable Row', 'Face Pull' ],
+  Shoulders: [ 'Overhead Press', 'Cable Lateral Raise', 'DB Lateral Raise' ],
+  Biceps:    [ 'DB Hammer Curl', 'Incline DB Curl' ],
+  Triceps:   [ 'Rope Pushdown', 'Overhead Tricep Extension' ],
+  Quads:     [ 'Back Squat', 'Leg Press', 'Leg Extension' ],
+  Hamstrings:[ 'Romanian Deadlift', 'Seated Leg Curl' ],
+  Glutes:    [ 'Hip Thrust' ],
+  Calves:    [ 'Standing Calf Raise' ],
 };
 
-// Calculate sets per exercise for RP based on muscle landmarks and week progression
-function getRPSets(muscle, weekData, exerciseCount) {
-  const landmark = RP_LANDMARKS[muscle];
-  if (!landmark) return 3;
-  if (weekData.type === "DELOAD") return Math.max(2, Math.round(landmark.MEV / exerciseCount * 0.5));
-  // Distribute weekly volume across sessions (assume muscle hit 1-2x/week, exercises split that volume)
-  const weeklyVolume = Math.round(landmark.MEV * weekData.setMult);
-  const perExercise = Math.max(2, Math.round(weeklyVolume / exerciseCount / 1.5));
-  return Math.min(perExercise, 5);
-}
+// RP feedback emoji scales (5-point each)
+const RP_PUMP = ['💀 None', '😐 Low', '💪 Mod', '🔥 Great', '🌋 Insane'];
+const RP_WORKLOAD = ['🐌 Easy', '😎 Pretty', '😅 Avg', '😤 Pushed', '💀 Too Much'];
+const RP_SORENESS = ['😴 None', '😌 Healed', '😬 A Bit', '🥵 Sore', '🪦 Crushed'];
 
-function calcMacros(p,cw){
-  const w=parseFloat(cw)||parseFloat(p.weight);
-  const wt=parseFloat(p.targetWeight)||w;
-  const wp=Math.max(w,wt);
-  const h=(parseFloat((p.height||"69").replace(/[^0-9.]/g,"").substring(0,3))||69)*2.54;
-  const bmr=p.sex==="male"?10*w*0.453592+6.25*h-5*parseFloat(p.age)+5:10*w*0.453592+6.25*h-5*parseFloat(p.age)-161;
-  const m={sedentary:1.2,lightly_active:1.375,moderately_active:1.55,very_active:1.725};
-  const tdee=Math.round(bmr*(m[p.activity]||1.55));
-  let tc=tdee;if(p.goal==="fat_loss")tc=tdee-500;else if(p.goal==="muscle_gain")tc=tdee+300;
-  const protein=Math.round(wp);const fat=Math.round((tc*.25)/9);const carbs=Math.round((tc-protein*4-fat*9)/4);
-  const lbs=parseFloat((w-wt).toFixed(1));
-  const pct=wt!==parseFloat(p.weight)?Math.min(100,Math.max(0,Math.round((parseFloat(p.weight)-w)/(parseFloat(p.weight)-wt)*100))):w<=wt?100:0;
-  return {tdee,targetCals:tc,protein,fat,carbs,lbsToGo:lbs,pctToGoal:pct};
-}
+// ============================================================
+// A/B EXERCISE VARIATION — non-RP styles
+// Form note included with each exercise
+// ============================================================
+const AB_EXERCISES = {
+  PUSH: {
+    A: [
+      { name: 'Barbell Bench Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Drive heels, retract scapula' },
+      { name: 'DB Incline Press', sets: '3', reps: '8-12', tempo: '20X1', note: '30-degree bench, full ROM' },
+      { name: 'Cable Lateral Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Lead with elbow' },
+      { name: 'Tricep Rope Pushdown', sets: '3', reps: '10-15', tempo: '20X1', note: 'Spread rope at bottom' },
+      { name: 'Cable Fly', sets: '3', reps: '12-15', tempo: '21X1', note: 'Slight elbow bend' },
+      { name: 'Overhead Tricep Extension', sets: '3', reps: '10-12', tempo: '31X0', note: 'Elbows tight' },
+    ],
+    B: [
+      { name: 'Overhead Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Glutes tight, full lockout' },
+      { name: 'DB Flat Press', sets: '3', reps: '8-12', tempo: '20X1', note: 'Squeeze chest at top' },
+      { name: 'Cable Front Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lead with elbow' },
+      { name: 'Skull Crusher', sets: '3', reps: '8-12', tempo: '31X0', note: 'Elbows still' },
+      { name: 'DB Lateral Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Slight forward lean' },
+      { name: 'Tricep Dip', sets: '3', reps: '8-12', tempo: '20X1', note: 'Slight forward lean for chest assist' },
+    ],
+  },
+  PULL: {
+    A: [
+      { name: 'Barbell Row', sets: '4', reps: '6-10', tempo: '20X1', note: 'Hinge to 45°, drive elbows' },
+      { name: 'Lat Pulldown', sets: '3', reps: '8-12', tempo: '20X1', note: 'Pull to upper chest' },
+      { name: 'Seated Cable Row', sets: '3', reps: '10-12', tempo: '20X1', note: 'Squeeze scaps at end range' },
+      { name: 'Hammer Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Neutral grip, no swing' },
+      { name: 'Rear Delt Fly', sets: '4', reps: '12-15', tempo: '20X1', note: 'Slight elbow bend' },
+      { name: 'Preacher Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric' },
+    ],
+    B: [
+      { name: 'Pull-Up', sets: '4', reps: '5-10', tempo: '20X1', note: 'Chin over bar, full hang' },
+      { name: 'Single-Arm DB Row', sets: '3', reps: '8-12', tempo: '20X1', note: 'Drive elbow up, no twist' },
+      { name: 'Face Pull', sets: '4', reps: '12-15', tempo: '20X1', note: 'External rotation at end' },
+      { name: 'Incline DB Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Stretch at bottom' },
+      { name: 'Straight-Arm Pulldown', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lats only, no elbow bend' },
+      { name: 'Reverse Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Knuckles up, brachialis focus' },
+    ],
+  },
+  LEGS: {
+    A: [
+      { name: 'Back Squat', sets: '4', reps: '6-10', tempo: '20X1', note: 'Brace core, depth at parallel' },
+      { name: 'Romanian Deadlift', sets: '3', reps: '8-12', tempo: '31X0', note: 'Soft knees, hinge at hips' },
+      { name: 'Leg Press', sets: '3', reps: '10-12', tempo: '20X1', note: 'Feet shoulder width' },
+      { name: 'Nordic Curl', sets: '3', reps: '6-10', tempo: '40X0', note: 'Slow descent, eccentric focus' },
+      { name: 'Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Knee tracks toe' },
+      { name: 'Leg Extension', sets: '3', reps: '12-15', tempo: '20X1', note: 'Squeeze top, slow eccentric' },
+    ],
+    B: [
+      { name: 'Bulgarian Split Squat', sets: '3', reps: '8-10/leg', tempo: '20X1', note: 'Front foot forward, sit straight down' },
+      { name: 'Hex Bar Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
+      { name: 'Seated Leg Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric' },
+      { name: 'Leg Press (high & wide)', sets: '3', reps: '10-12', tempo: '20X1', note: 'Glute focus' },
+      { name: 'Hip Thrust', sets: '3', reps: '8-12', tempo: '20X1', note: 'Squeeze glutes hard at top' },
+      { name: 'Standing Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Pause at top + bottom' },
+    ],
+  },
+  UPPER: {
+    A: [
+      { name: 'Barbell Bench Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Drive heels, retract scapula' },
+      { name: 'Barbell Row', sets: '4', reps: '6-10', tempo: '20X1', note: 'Hinge to 45°' },
+      { name: 'DB Incline Press', sets: '3', reps: '8-12', tempo: '20X1', note: '30-degree bench' },
+      { name: 'Lat Pulldown', sets: '3', reps: '10-12', tempo: '20X1', note: 'Pull to upper chest' },
+      { name: 'DB Lateral Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Slight forward lean' },
+      { name: 'Hammer Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'No swing' },
+    ],
+    B: [
+      { name: 'Overhead Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Glutes tight' },
+      { name: 'Pull-Up', sets: '4', reps: '5-10', tempo: '20X1', note: 'Full hang to chin over' },
+      { name: 'DB Flat Press', sets: '3', reps: '8-12', tempo: '20X1', note: 'Squeeze chest at top' },
+      { name: 'Single-Arm DB Row', sets: '3', reps: '8-12', tempo: '20X1', note: 'Drive elbow up' },
+      { name: 'Face Pull', sets: '3', reps: '12-15', tempo: '20X1', note: 'External rotation' },
+      { name: 'Tricep Rope Pushdown', sets: '3', reps: '10-15', tempo: '20X1', note: 'Spread at bottom' },
+    ],
+  },
+  LOWER: {
+    A: [
+      { name: 'Back Squat', sets: '4', reps: '6-10', tempo: '20X1', note: 'Brace core' },
+      { name: 'Romanian Deadlift', sets: '3', reps: '8-12', tempo: '31X0', note: 'Soft knees' },
+      { name: 'Leg Press', sets: '3', reps: '10-12', tempo: '20X1', note: 'Feet shoulder width' },
+      { name: 'Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Knee tracks toe' },
+      { name: 'Standing Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Pause top + bottom' },
+    ],
+    B: [
+      { name: 'Hex Bar Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
+      { name: 'Bulgarian Split Squat', sets: '3', reps: '8-10/leg', tempo: '20X1', note: 'Sit straight down' },
+      { name: 'Seated Leg Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric' },
+      { name: 'Hip Thrust', sets: '3', reps: '8-12', tempo: '20X1', note: 'Squeeze glutes hard' },
+      { name: 'Seated Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Soleus focus' },
+    ],
+  },
+  FULL: {
+    A: [
+      { name: 'Goblet Squat', sets: '3', reps: '8-12', tempo: '20X1', note: 'Elbows inside knees' },
+      { name: 'DB Push Press', sets: '3', reps: '6-10', tempo: '20X1', note: 'Use leg drive' },
+      { name: 'Trap Bar Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
+      { name: 'Chin-Up', sets: '3', reps: '5-10', tempo: '20X1', note: 'Full hang to chin over' },
+      { name: 'DB Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Heavy DBs at sides' },
+      { name: 'Plank to Push-Up', sets: '3', reps: '8-10', tempo: '20X1', note: 'Hips stay square' },
+    ],
+    B: [
+      { name: 'Front Squat', sets: '3', reps: '6-10', tempo: '20X1', note: 'Elbows up, chest tall' },
+      { name: 'DB Strict Press', sets: '3', reps: '8-10', tempo: '20X1', note: 'No leg drive' },
+      { name: 'Sumo Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Wide stance, knees out' },
+      { name: 'Inverted Row', sets: '3', reps: '8-12', tempo: '21X1', note: 'Squeeze scaps at top' },
+      { name: 'Reverse Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Step back, knee to ground' },
+      { name: 'Hollow Hold', sets: '3', reps: '20-30s', tempo: '-', note: 'Lower back pressed flat' },
+    ],
+  },
+};
 
-function wtGuide(goal,ph){
-  const c=goal==="fat_loss",r=goal==="recomp";
-  if(ph==="ACCUMULATION")return c?"65-70% 1RM — retention focus, not max load":r?"60-70% 1RM — add weight only with 2+ reps in reserve":"65-75% 1RM — add 5 lbs when all reps feel controlled";
-  if(ph==="HYPERTROPHY")return c?"70-75% 1RM — hold load steady, stimulus over max weight":r?"70-78% 1RM — small jumps if RPE stays in range":"70-80% 1RM — add 5-10 lbs/week when top of rep range is easy";
-  if(ph==="INTENSIFICATION")return c?"78-82% 1RM — controlled jumps, recovery is limited":"82-90% 1RM — push hard, add 5-10 lbs/week";
-  if(ph==="REALIZATION")return"88-95% 1RM — max effort, near-max singles on primary lifts";
-  return"60% of last heavy week — quality reps only, true recovery";
-}
+// Body-part split for trad BB (no A/B variation)
+const TRADBB_EXERCISES = {
+  CHEST: [
+    { name: 'BB Bench Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Retract scapula' },
+    { name: 'Incline DB Press', sets: '4', reps: '8-12', tempo: '20X1', note: '30-degree bench' },
+    { name: 'Cable Fly', sets: '3', reps: '12-15', tempo: '21X1', note: 'Slight bend in elbows' },
+    { name: 'Push-Up', sets: '3', reps: 'AMRAP', tempo: '20X1', note: 'Burnout finisher' },
+  ],
+  BACK: [
+    { name: 'Pull-Up', sets: '4', reps: '6-10', tempo: '20X1', note: 'Full hang' },
+    { name: 'Barbell Row', sets: '4', reps: '6-10', tempo: '20X1', note: 'Hinge to 45°' },
+    { name: 'Lat Pulldown', sets: '3', reps: '10-12', tempo: '20X1', note: 'Pull to upper chest' },
+    { name: 'Seated Cable Row', sets: '3', reps: '10-12', tempo: '20X1', note: 'Squeeze scaps' },
+  ],
+  SHOULDERS: [
+    { name: 'Overhead Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Glutes tight' },
+    { name: 'DB Lateral Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Slight forward lean' },
+    { name: 'Cable Front Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Controlled tempo' },
+    { name: 'Face Pull', sets: '3', reps: '12-15', tempo: '20X1', note: 'External rotation' },
+  ],
+  ARMS: [
+    { name: 'EZ-Bar Curl', sets: '4', reps: '8-12', tempo: '20X1', note: 'No swing' },
+    { name: 'Skull Crusher', sets: '4', reps: '8-12', tempo: '31X0', note: 'Elbows still' },
+    { name: 'Hammer Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Neutral grip' },
+    { name: 'Tricep Pushdown', sets: '3', reps: '10-15', tempo: '20X1', note: 'Squeeze at lockout' },
+    { name: 'Preacher Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric' },
+    { name: 'Overhead Tricep Ext', sets: '3', reps: '10-12', tempo: '31X0', note: 'Elbows tight' },
+  ],
+  // LEGS uses LEGS A/B from AB_EXERCISES
+};
 
-const IMP = {fontFamily:"Impact,Arial,sans-serif"};
-const card = {background:C.s1,border:`1px solid ${C.bd}`,borderRadius:8,overflow:"hidden"};
-const hbtn = {background:"transparent",border:`1px solid ${C.bd}`,color:C.mu,padding:"3px 9px",borderRadius:3,...IMP,fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"};
-const abtn = (col)=>({background:col||C.acc,color:"#000",border:"none",padding:"6px 14px",borderRadius:4,...IMP,fontSize:11,fontWeight:900,letterSpacing:"1.5px",textTransform:"uppercase",cursor:"pointer"});
-const inp = {background:C.s2,border:`1px solid ${C.bd}`,color:C.tx,padding:"6px 10px",borderRadius:4,fontSize:13,outline:"none"};
-const lbl9 = {display:"block",...IMP,fontSize:9,letterSpacing:2,textTransform:"uppercase",color:C.mu,marginBottom:4};
-const imp = (sz,col)=>({...IMP,fontSize:sz||11,letterSpacing:2,textTransform:"uppercase",color:col||C.mu2});
+// Powerlifting exercises by day
+const PL_EXERCISES = {
+  SQUAT: [
+    { name: 'Back Squat', sets: '5', reps: '3-5', tempo: '20X1', note: 'Heavy primary, work to top set' },
+    { name: 'Pause Squat', sets: '3', reps: '4-6', tempo: '21X1', note: '1s pause at depth' },
+    { name: 'Bulgarian Split Squat', sets: '3', reps: '8/leg', tempo: '20X1', note: 'Quad accessory' },
+    { name: 'Leg Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Hamstring health' },
+    { name: 'Plank', sets: '3', reps: '45s', tempo: '-', note: 'Brace, neutral spine' },
+  ],
+  BENCH: [
+    { name: 'Bench Press', sets: '5', reps: '3-5', tempo: '20X1', note: 'Heavy primary' },
+    { name: 'Close-Grip Bench', sets: '3', reps: '6-8', tempo: '20X1', note: 'Tricep + lockout' },
+    { name: 'DB Press', sets: '3', reps: '8-12', tempo: '20X1', note: 'Hypertrophy work' },
+    { name: 'Tricep Pushdown', sets: '3', reps: '10-12', tempo: '20X1', note: 'Lockout strength' },
+    { name: 'Face Pull', sets: '3', reps: '12-15', tempo: '20X1', note: 'Shoulder health' },
+  ],
+  DEADLIFT: [
+    { name: 'Deadlift', sets: '5', reps: '1-3', tempo: '20X1', note: 'Heavy primary, RPE 8-9' },
+    { name: 'Deficit Deadlift', sets: '3', reps: '4-6', tempo: '20X1', note: 'Off 2" plate' },
+    { name: 'Barbell Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Back strength' },
+    { name: 'Hip Thrust', sets: '3', reps: '8-10', tempo: '20X1', note: 'Glute primer' },
+  ],
+  ACCESSORY: [
+    { name: 'Pause Bench', sets: '4', reps: '5-6', tempo: '21X1', note: '2s pause on chest' },
+    { name: 'Front Squat', sets: '3', reps: '5-8', tempo: '20X1', note: 'Quads + core' },
+    { name: 'Pull-Up', sets: '3', reps: '6-10', tempo: '20X1', note: 'Lats + grip' },
+    { name: 'Overhead Press', sets: '3', reps: '6-8', tempo: '20X1', note: 'Shoulders' },
+    { name: 'Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Biceps' },
+  ],
+};
 
-function Setup({onStart}){
-  const [f,setF]=useState({name:"",age:"",sex:"male",height:"",weight:"",targetWeight:"",goal:"fat_loss",activity:"very_active",weeks:"8",experience:"advanced",equipment:"full_gym",workoutStyle:"functional_bb"});
-  const [sched,setSched]=useState(()=>{
-    try{return [...(DEFAULT_SCHEDULES?.functional_bb||["PUSH","PULL","CARDIO","LEGS","FULL","REST","REST"])];}
-    catch(e){return ["PUSH","PULL","CARDIO","LEGS","FULL","REST","REST"];}
-  });
-  const [showSchedEdit,setShowSchedEdit]=useState(false);
-  const [stylePicked,setStylePicked]=useState(false);
-
-  // When workout style changes, update the schedule to that style's default
-  useEffect(()=>{
-    if(!stylePicked){
-      try{
-        const def=(DEFAULT_SCHEDULES&&DEFAULT_SCHEDULES[f.workoutStyle])||DEFAULT_SCHEDULES?.functional_bb||["PUSH","PULL","CARDIO","LEGS","FULL","REST","REST"];
-        setSched([...def]);
-      }catch(e){}
-    }
-  },[f.workoutStyle]);
-
-  const s=k=>e=>setF(p=>({...p,[k]:e.target.value}));
-  const fi=(id,lbl,type="text",ph="")=><div style={{marginBottom:10}}><label style={lbl9}>{lbl}</label><input type={type} value={f[id]} onChange={s(id)} placeholder={ph} style={{width:"100%",...inp}}/></div>;
-  const fs=(id,lbl,opts)=><div style={{marginBottom:10}}><label style={lbl9}>{lbl}</label><select value={f[id]} onChange={s(id)} style={{width:"100%",...inp}}>{opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>;
-  const go=()=>{
-    try{
-      const mac=calcMacros(f,f.weight);
-      onStart({...f,...mac,schedule:sched});
-    }catch(e){
-      alert("Error creating profile: "+e.message);
-    }
-  };
-  const g2=(a,b)=><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{a}{b}</div>;
-  const styleTypes=(STYLE_DAY_TYPES&&STYLE_DAY_TYPES[f.workoutStyle])||STYLE_DAY_TYPES?.functional_bb||[
-    {type:"PUSH",col:C.a2,label:"Push"},{type:"PULL",col:C.a3,label:"Pull"},
-    {type:"LEGS",col:C.a4,label:"Legs"},{type:"FULL",col:C.a5,label:"Full Body"},
-    {type:"CARDIO",col:C.a6,label:"Cardio"},{type:"REST",col:C.mu,label:"Rest"}
-  ];
-  const presets=(SPLIT_PRESETS&&SPLIT_PRESETS[f.workoutStyle])||[];
-  const setDayType=(idx,type)=>{const next=[...sched];next[idx]=type;setSched(next);setStylePicked(true);};
-  const applyPreset=(preset)=>{setSched([...preset.schedule]);setStylePicked(true);};
-  const workoutDayCount=sched.filter(t=>t!=="REST").length;
-  return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.93)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:14}}>
-      <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderTop:`3px solid ${C.acc}`,borderRadius:6,padding:22,width:"100%",maxWidth:430,maxHeight:"92vh",overflowY:"auto"}}>
-        <div style={{...IMP,fontSize:26,letterSpacing:4,color:C.acc,marginBottom:3}}>RECOMP</div>
-        <div style={{fontSize:12,color:C.mu,marginBottom:16}}>Functional Bodybuilding AI Coach</div>
-        {fi("name","Your Name","text","First name")}
-        {g2(fi("age","Age","number","30"),fs("sex","Sex",[["male","Male"],["female","Female"]]))}
-        {fi("height","Height","text","5ft 9in")}
-        {g2(fi("weight","Current Weight (lbs)","number","185"),fi("targetWeight","Target Weight (lbs)","number","170"))}
-        {fs("goal","Primary Goal",[["fat_loss","Fat Loss / Cut"],["muscle_gain","Muscle Gain"],["recomp","Body Recomposition"],["performance","Athletic Performance"]])}
-        {g2(fs("activity","Activity Level",[["sedentary","Sedentary"],["lightly_active","Lightly Active"],["moderately_active","Moderately Active"],["very_active","Very Active"]]),fs("weeks","Program Length",[["4","4 Weeks"],["8","8 Weeks"],["10","10 Weeks"],["12","12 Weeks"],["16","16 Weeks"]]))}
-        {fs("workoutStyle","Workout Style",[
-          ["rp_hypertrophy","RP Hypertrophy — Mesocycle, MEV/MAV/MRV, RIR progression, auto-volume"],
-          ["hyrox_hybrid","HYROX Hybrid — Race prep + heavy lifting + kettlebell complexes"],
-          ["functional_bb","Functional Bodybuilding — Supersets, RPE, aesthetics + performance"],
-          ["traditional_bb","Traditional Bodybuilding — Isolation, hypertrophy, physique focus"],
-          ["crossfit","CrossFit — WODs, AMRAP, EMOM, Olympic lifting, conditioning"],
-          ["hyrox","HYROX — Race prep, functional strength + cardio endurance"],
-          ["powerlifting","Powerlifting — Squat, bench, deadlift focus, max strength"],
-          ["athletic","Athletic Performance — Sport conditioning, speed, power, agility"],
-          ["hiit","HIIT / Circuit — High intensity, minimal rest, full body circuits"]
-        ])}
-        {g2(fs("experience","Experience",[["beginner","Beginner"],["intermediate","Intermediate"],["advanced","Advanced"]]),fs("equipment","Equipment",[["full_gym","Full Gym"],["home_dumbbells","Home Dumbbells"],["bodyweight","Bodyweight Only"]]))}
-
-        <div style={{marginBottom:12,marginTop:6}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-            <label style={lbl9}>Weekly Schedule</label>
-            <button type="button" onClick={()=>setShowSchedEdit(s=>!s)} style={{...hbtn,fontSize:9,padding:"3px 8px"}}>{showSchedEdit?"DONE":"CUSTOMIZE"}</button>
-          </div>
-          {!showSchedEdit?(
-            <div style={{padding:"8px 6px",background:C.s2,border:`1px solid ${C.bd}`,borderRadius:5}}>
-              <div style={{display:"flex",gap:3}}>
-                {sched.map((t,i)=>{
-                  const wt=styleTypes.find(w=>w.type===t)||{type:"REST",col:C.mu,label:"Rest"};
-                  return(
-                    <div key={i} style={{flex:1,textAlign:"center"}}>
-                      <div style={{...IMP,fontSize:9,color:C.tx,letterSpacing:.5,marginBottom:2}}>{DAY_LABELS[i].slice(0,1)}</div>
-                      <div style={{...IMP,fontSize:7,color:wt.col,letterSpacing:.3,padding:"2px 0",lineHeight:1.2}}>{wt.label.toUpperCase().replace(/[()].*/,"").trim().slice(0,8)}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ):(
-            <div style={{padding:"8px",background:C.s2,border:`1px solid ${C.bd}`,borderRadius:5}}>
-              {presets.length>0&&(
-                <div style={{marginBottom:8}}>
-                  <div style={{...imp(8,C.mu),marginBottom:4}}>QUICK PRESETS</div>
-                  <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                    {presets.map(p=>(
-                      <button key={p.name} type="button" onClick={()=>applyPreset(p)} style={{...hbtn,fontSize:9,padding:"3px 7px"}}>{p.name}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                {DAY_LABELS.map((dl,i)=>(
-                  <div key={i}>
-                    <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
-                      <div style={{...IMP,fontSize:11,fontWeight:900,color:C.tx,letterSpacing:1,width:32,flexShrink:0}}>{dl}</div>
-                      <div style={{...IMP,fontSize:9,color:(styleTypes.find(t=>t.type===sched[i])||{}).col||C.mu,letterSpacing:.3}}>{((styleTypes.find(t=>t.type===sched[i])||{}).label||"Rest").toUpperCase()}</div>
-                    </div>
-                    <div style={{display:"flex",gap:2,flexWrap:"wrap",paddingLeft:37}}>
-                      {styleTypes.map(t=>{
-                        const sel=sched[i]===t.type;
-                        return(
-                          <button key={t.type} type="button" onClick={()=>setDayType(i,t.type)} style={{flex:"1 1 auto",minWidth:50,background:sel?t.col:"transparent",color:sel?(t.type==="REST"?C.tx:"#000"):t.col,border:`1px solid ${sel?t.col:C.bd}`,padding:"3px 4px",borderRadius:3,...IMP,fontSize:8,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{t.label.toUpperCase().slice(0,12)}</button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div style={{fontSize:10,color:C.mu,marginTop:4}}>{workoutDayCount} workout day{workoutDayCount!==1?"s":""} per week</div>
-        </div>
-
-        <button onClick={go} style={{width:"100%",background:C.acc,color:"#000",border:"none",padding:11,borderRadius:4,...IMP,fontSize:13,fontWeight:900,letterSpacing:3,textTransform:"uppercase",cursor:"pointer",marginTop:6}}>BUILD MY PROGRAM</button>
-      </div>
-    </div>
-  );
-}
-
-// RP Hypertrophy session renderer with pump/soreness/workload feedback
-function RPSession({week, dayType, mesoLen, sessions, setSessions, coachMsg, sk}){
-  const wd = getRPWeek(week, mesoLen);
-  const muscles = RP_SPLIT[dayType] || [];
-  const saved = sessions[sk] || {};
-  const [setLogs, setSetLogs] = useState(saved.setLogs || {});
-  const [feedback, setFeedback] = useState(saved.feedback || {});
-  const [notes, setNotes] = useState(saved.notes || "");
-  const [done, setDone] = useState(saved.done || false);
-  const go = useRef(false);
-
-  useEffect(()=>{
-    go.current = false;
-    const s = sessions[sk] || {};
-    setSetLogs(s.setLogs || {});
-    setFeedback(s.feedback || {});
-    setNotes(s.notes || "");
-    setDone(s.done || false);
-  }, [sk]);
-
-  useEffect(()=>{
-    if(!go.current){go.current=true;return;}
-    setSessions(prev=>({...prev, [sk]:{...(prev[sk]||{}), setLogs, feedback, notes, done, savedAt:new Date().toISOString(), rp:true}}));
-  }, [setLogs, feedback, notes, done]);
-
-  const updSet = (n,i,f,v)=>{const k=`${n}__${i}`;setSetLogs(p=>({...p,[k]:{...(p[k]||{}),[f]:v}}));};
-  const togSet = (n,i)=>{const k=`${n}__${i}`;setSetLogs(p=>({...p,[k]:{...(p[k]||{}),done:!(p[k]?.done)}}));};
-  const updFb = (muscle, field, val) => setFeedback(p=>({...p, [muscle]:{...(p[muscle]||{}), [field]:val}}));
-
-  return (
-    <>
-      <div style={{...card, marginBottom:10}}>
-        <div style={{padding:"11px 13px", borderBottom:`1px solid ${C.bd}`, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
-          <div style={{flex:1}}>
-            <div style={{...IMP, fontSize:16, fontWeight:900, color:C.acc}}>RP — {dayType} (Week {wd.week})</div>
-            <div style={{fontSize:10, color:C.mu, marginTop:2}}>RP Hypertrophy · Mesocycle Week {wd.week}/{mesoLen}</div>
-          </div>
-          <div style={{...imp(10, wd.type==="DELOAD"?C.a5:C.acc), padding:"3px 9px", border:`1px solid ${wd.type==="DELOAD"?C.a5:C.acc}`, borderRadius:4}}>{wd.type}</div>
-        </div>
-        <div style={{padding:"8px 13px", borderBottom:`1px solid ${C.bd}`, display:"flex", gap:14, fontSize:11, color:C.mu2, flexWrap:"wrap"}}>
-          <span><strong style={{color:C.tx}}>Reps:</strong> {wd.repRange}</span>
-          <span><strong style={{color:C.tx}}>Intensity:</strong> <span style={{color:C.acc}}>{wd.rir}</span></span>
-          <span><strong style={{color:C.tx}}>Volume:</strong> {Math.round(wd.setMult*100)}% of MEV</span>
-        </div>
-        {wd.note && (
-          <div style={{background:"rgba(232,255,71,.06)", border:"1px solid rgba(232,255,71,.2)", borderRadius:5, padding:"7px 11px", margin:"8px 13px", fontSize:11, color:C.acc, lineHeight:1.5}}>
-            <strong>WK {wd.week}:</strong> {wd.note}
-          </div>
-        )}
-
-        {muscles.map((m, mi) => {
-          const setsPerEx = getRPSets(m.muscle, wd, m.exercises.length);
-          const land = RP_LANDMARKS[m.muscle];
-          return (
-            <div key={mi} style={{borderTop:`1px solid ${C.bd}`, padding:"10px 13px"}}>
-              <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8}}>
-                <div>
-                  <div style={{...IMP, fontSize:13, fontWeight:800, color:C.a3, letterSpacing:1}}>{m.muscle.toUpperCase()}</div>
-                  {land && <div style={{fontSize:9, color:C.mu, marginTop:1}}>MEV {land.MEV} · MAV {land.MAV} · MRV {land.MRV} sets/wk</div>}
-                </div>
-                <div style={{...imp(10, C.acc), padding:"2px 8px", borderRadius:3, background:"rgba(232,255,71,.08)", border:"1px solid rgba(232,255,71,.2)"}}>{setsPerEx} × {wd.repRange}</div>
-              </div>
-              {m.exercises.map((ex, ei) => {
-                const prev = getPrevLog(sessions, ex, sk);
-                const sugg = getSuggestedWeight(prev, wd, "performance", wd.repRange, true, m.muscle);
-                const indCol = sugg?.indicator==="up"?C.a4:sugg?.indicator==="down"?"#f87171":sugg?.indicator==="deload"?C.a5:C.acc;
-                const indIcon = sugg?.indicator==="up"?"↑":sugg?.indicator==="down"?"↓":sugg?.indicator==="deload"?"↓":"→";
-                return (
-                  <div key={ei} style={{padding:"8px 0", borderTop: ei>0 ? `1px solid rgba(255,255,255,.04)`:"none"}}>
-                    <div style={{display:"flex", alignItems:"flex-start", gap:9}}>
-                      <div style={{flex:1, fontSize:13, fontWeight:600}}>{ex}</div>
-                      <button onClick={()=>coachMsg(`Swap ${ex} for ${m.muscle} in my RP Hypertrophy ${dayType} workout. Week ${wd.week}, ${wd.rir}, ${setsPerEx}×${wd.repRange}. Give 3 alternatives that hit the same muscle.`)} style={{...hbtn, fontSize:9, padding:"2px 7px", flexShrink:0}}>SWAP</button>
-                    </div>
-                    {sugg && (
-                      <div style={{display:"flex", alignItems:"center", gap:8, padding:"5px 8px", background:`rgba(${indCol===C.a4?"74,222,128":indCol==="#f87171"?"248,113,113":indCol===C.a5?"167,139,250":"232,255,71"},.06)`, border:`1px solid rgba(${indCol===C.a4?"74,222,128":indCol==="#f87171"?"248,113,113":indCol===C.a5?"167,139,250":"232,255,71"},.18)`, borderRadius:4, margin:"6px 0"}}>
-                        <div style={{...IMP, fontSize:14, fontWeight:900, color:indCol, flexShrink:0}}>{indIcon} {sugg.weight}</div>
-                        <div style={{fontSize:9, color:C.mu, lineHeight:1.4, flex:1}}>{sugg.note}</div>
-                      </div>
-                    )}
-                    <div style={{marginTop:4, display:"flex", flexDirection:"column", gap:4}}>
-                      {Array.from({length:setsPerEx},(_,i)=>{
-                        const k = `${ex}__${i}`; const lg = setLogs[k] || {};
-                        return (
-                          <div key={i} style={{display:"flex", gap:6, alignItems:"center"}}>
-                            <div style={{width:30, height:26, background:lg.done?C.acc:C.s3, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", ...IMP, fontSize:11, fontWeight:900, color:lg.done?"#000":C.mu, border:`1px solid ${lg.done?C.acc:C.bd}`, flexShrink:0}}>{i+1}</div>
-                            <input type="number" value={lg.weight||""} onChange={e=>updSet(ex,i,"weight",e.target.value)} placeholder={sugg?`${sugg.weight}`:"lbs"} style={{flex:1, height:26, ...inp, padding:"0 8px", ...IMP, fontWeight:700, fontSize:12, border:`1px solid ${lg.done?"rgba(232,255,71,.4)":C.bd}`}}/>
-                            <input type="number" value={lg.reps||""} onChange={e=>updSet(ex,i,"reps",e.target.value)} placeholder="reps" style={{width:50, height:26, ...inp, padding:"0 8px", ...IMP, fontWeight:700, fontSize:12, border:`1px solid ${lg.done?"rgba(232,255,71,.4)":C.bd}`}}/>
-                            <button onClick={()=>togSet(ex,i)} style={{width:26, height:26, borderRadius:4, border:`1px solid ${lg.done?C.acc:C.bd}`, background:lg.done?C.acc:"transparent", color:lg.done?"#000":C.mu, cursor:"pointer", fontSize:11, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>✓</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Per-muscle RP feedback */}
-              <div style={{marginTop:10, padding:"8px 10px", background:C.s2, border:`1px solid ${C.bd}`, borderRadius:5}}>
-                <div style={{...imp(9, C.mu), marginBottom:6}}>POST-{m.muscle.toUpperCase()} FEEDBACK</div>
-                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6}}>
-                  {[
-                    {key:"pump", label:"PUMP", emojis:["💀","😐","💪","🔥","🌋"], desc:["None","Low","Mod","Great","Insane"]},
-                    {key:"workload", label:"WORKLOAD", emojis:["🐌","😎","😅","😤","💀"], desc:["Easy","Pretty","Avg","Pushed","Too much"]},
-                    {key:"soreness", label:"SORENESS", emojis:["😴","😌","😬","🥵","🪦"], desc:["None","Healed","A bit","Sore","Crushed"]}
-                  ].map(({key, label, emojis, desc})=>(
-                    <div key={key}>
-                      <div style={{fontSize:9, color:C.mu, marginBottom:3, letterSpacing:1, textAlign:"center"}}>{label}</div>
-                      <div style={{display:"flex", gap:2, justifyContent:"center"}}>
-                        {emojis.map((em,i)=>{
-                          const sel = feedback[m.muscle]?.[key] === i;
-                          return (
-                            <button key={i} onClick={()=>updFb(m.muscle, key, i)} style={{background:sel?"rgba(232,255,71,.15)":"transparent", border:`1px solid ${sel?C.acc:C.bd}`, borderRadius:4, padding:"3px 0", flex:1, cursor:"pointer", fontSize:13}} title={desc[i]}>{em}</button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {feedback[m.muscle] && Object.keys(feedback[m.muscle]).length === 3 && (
-                  <div style={{marginTop:6, fontSize:10, color:C.a4, textAlign:"center"}}>✓ Feedback logged — will adjust next session</div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-
-        <div style={{padding:"10px 13px", borderTop:`1px solid ${C.bd}`, display:"flex", gap:8, flexWrap:"wrap"}}>
-          <button onClick={()=>coachMsg(`Explain RP methodology for week ${wd.week} of my mesocycle. ${dayType} day. Why ${wd.rir}? When should I add a set vs hold volume?`)} style={hbtn}>EXPLAIN RP</button>
-          <button onClick={()=>coachMsg(`Based on my pump/workload/soreness feedback for this ${dayType} session, what should I adjust next session?`)} style={hbtn}>ANALYZE FEEDBACK</button>
-        </div>
-      </div>
-
-      <div style={card}>
-        <div style={{padding:"9px 13px", borderBottom:`1px solid ${C.bd}`, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-          <div style={imp(12,C.mu2)}>SESSION LOG</div>
-          {done && <div style={{...imp(10,C.a4), border:`1px solid ${C.a4}`, padding:"2px 8px", borderRadius:3}}>✓ DONE</div>}
-        </div>
-        <div style={{padding:"12px 13px"}}>
-          <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Notes — overall pump, mind-muscle, technique cues, what to adjust..." style={{width:"100%", background:C.s2, border:`1px solid ${C.bd}`, color:C.tx, padding:"8px 10px", borderRadius:4, fontSize:12, resize:"none", minHeight:60, outline:"none", lineHeight:1.6, fontFamily:"inherit"}}/>
-          <label style={{display:"flex", alignItems:"center", gap:6, fontSize:12, color:C.mu2, cursor:"pointer", marginTop:8}}>
-            <input type="checkbox" checked={done} onChange={e=>setDone(e.target.checked)} style={{accentColor:C.acc, width:14, height:14}}/>Mark Complete
-            <span style={{...imp(10,C.mu), marginLeft:8}}>AUTO-SAVED</span>
-          </label>
-        </div>
-      </div>
-    </>
-  );
-}
-
-// HYROX programming - 8 stations + 8x 1km runs. Race-specific periodization.
-// Standards: Open Men sled push 152kg/sled pull 103kg, Open Women sled push 102kg/sled pull 78kg
-// Sandbag lunges: M 20kg / W 10kg. Wall balls: M 6kg/10ft / W 4kg/9ft (75 reps M / 75 reps W in pairs, 100 in singles)
-
+// ============================================================
+// HYROX RACE STATIONS (full programming)
+// ============================================================
 const HYROX_STATIONS = [
-  {name:"SkiErg", distance:"1000m", focus:"Lats + posterior chain", note:"Hip drive, full extension, finish at hips"},
-  {name:"Sled Push", distance:"50m", focus:"Quads + drive", note:"M: 152kg / W: 102kg. Low hips, drive through legs"},
-  {name:"Sled Pull", distance:"50m", focus:"Back + arms", note:"M: 103kg / W: 78kg. Wide stance, pull hand-over-hand"},
-  {name:"Burpee Broad Jumps", distance:"80m", focus:"Full body conditioning", note:"~20-25 reps. Pace yourself — this kills people"},
-  {name:"Rowing", distance:"1000m", focus:"Full body conditioning", note:"Legs-back-arms. Target 1:50-2:10 /500m pace"},
-  {name:"Farmers Carry", distance:"200m", focus:"Grip + core", note:"M: 24kg KB each / W: 16kg KB each. No drops if possible"},
-  {name:"Sandbag Lunges", distance:"100m", focus:"Quads + glutes", note:"M: 20kg / W: 10kg. Knee taps ground, alternate legs"},
-  {name:"Wall Balls", distance:"75-100 reps", focus:"Legs + shoulders", note:"M: 6kg/10ft / W: 4kg/9ft. Squat depth, ball above target line"}
+  { name: 'SkiErg', dist: '1000m', m: '', w: '', note: 'Hip drive, full extension, finish at hips' },
+  { name: 'Sled Push', dist: '50m', m: '152kg', w: '102kg', note: 'Low hips, drive through legs' },
+  { name: 'Sled Pull', dist: '50m', m: '103kg', w: '78kg', note: 'Wide stance, pull hand-over-hand' },
+  { name: 'Burpee Broad Jumps', dist: '80m', m: '~20-25 reps', w: '~20-25 reps', note: 'Pace yourself, full extension' },
+  { name: 'Row', dist: '1000m', m: '', w: '', note: 'Target 1:50-2:10/500m pace' },
+  { name: 'Farmer Carry', dist: '200m', m: '24kg KB each', w: '16kg KB each', note: 'No drops if possible' },
+  { name: 'Sandbag Lunges', dist: '100m', m: '20kg', w: '10kg', note: 'Knee taps ground each rep' },
+  { name: 'Wall Balls', dist: '75-100 reps', m: '6kg / 10ft', w: '4kg / 9ft', note: 'Squat depth, ball above target line' },
 ];
 
-// HYROX weekly programming by phase
-function getHyroxWorkout(week, dayType, totalWeeks) {
-  const tw = parseInt(totalWeeks) || 8;
-  const wk = parseInt(week);
-  // Phase: Base (weeks 1 to ~40%), Build (next 40%), Race-specific (last 20%)
-  const phasePct = wk / tw;
-  const phase = phasePct <= 0.4 ? "BASE" : phasePct <= 0.8 ? "BUILD" : phasePct < 1 ? "RACE PREP" : "TAPER";
-  const isDeload = wk === tw;
+// HYROX division targets
+const HYROX_TARGETS = [
+  { div: 'Open M', target: 'sub-1:25:00' },
+  { div: 'Open W', target: 'sub-1:35:00' },
+  { div: 'Pro M', target: 'sub-1:00:00' },
+  { div: 'Pro W', target: 'sub-1:10:00' },
+];
 
-  if (isDeload) {
-    return {
-      phase: "TAPER",
-      title: dayType==="PUSH"?"Easy Strength":dayType==="PULL"?"Pull Recovery":dayType==="LEGS"?"Light Legs":dayType==="FULL"?"Race Sim Light":"Recovery",
-      blocks: [
-        {label:"DELOAD WEEK", items:[
-          {name:"All movements at 50-60% intensity", sets:"2-3", reps:"6-8", note:"Quality reps, no fatigue"},
-          {name:"Z2 run 20-25 min", sets:"-", reps:"-", note:"Easy pace, conversational"}
-        ]}
-      ]
+// HYROX Hybrid KB sizing
+const KB_SIZING = {
+  standard: { m: '24kg', w: '16kg', use: 'Clean, snatch, press, complex' },
+  heavy: { m: '32kg', w: '24kg', use: 'Swings, EMOM finishers' },
+};
+
+// Restaurant chains for food quick-pick chips
+const RESTAURANT_CHIPS = [
+  { emoji: '🌯', name: 'Chipotle' },
+  { emoji: '🐔', name: 'Chick-fil-A' },
+  { emoji: '☕', name: 'Starbucks' },
+  { emoji: '🥪', name: 'Subway' },
+  { emoji: '🍔', name: "McDonald's" },
+  { emoji: '🥗', name: 'Cava' },
+  { emoji: '🥙', name: 'Panera' },
+  { emoji: '🌮', name: 'Taco Bell' },
+  { emoji: '🍕', name: "Domino's" },
+  { emoji: '🍩', name: "Dunkin'" },
+  { emoji: '🥩', name: 'Texas Roadhouse' },
+  { emoji: '🍳', name: 'Eggs' },
+  { emoji: '🍗', name: 'Chicken' },
+  { emoji: '🍚', name: 'Rice' },
+];
+
+const RUN_TYPES = [
+  { id: 'easy', name: 'Easy / Z2', color: GREEN },
+  { id: 'intervals', name: 'Intervals', color: ORANGE },
+  { id: 'tempo', name: 'Tempo', color: YELLOW },
+  { id: 'long', name: 'Long Run', color: BLUE },
+  { id: 'race', name: 'Race', color: PURPLE },
+  { id: 'trail', name: 'Trail', color: '#84cc16' },
+  { id: 'recovery', name: 'Recovery', color: TEXT_DIM },
+];
+
+const PR_DISTANCES = [
+  { id: '1mi', name: '1 Mile', miles: 1.0, tol: 0.05 },
+  { id: '5k', name: '5K', miles: 3.107, tol: 0.05 },
+  { id: '10k', name: '10K', miles: 6.214, tol: 0.05 },
+  { id: 'half', name: 'Half Marathon', miles: 13.109, tol: 0.04 },
+  { id: 'full', name: 'Marathon', miles: 26.219, tol: 0.04 },
+];
+
+const MOOD_OPTIONS = ['😤', '😴', '😐', '💪', '🔥'];
+const MOOD_LABELS = ['Frustrated', 'Tired', 'Neutral', 'Strong', 'Great'];
+
+const ACTIVITY_LEVELS = [
+  { id: 'sedentary', name: 'Sedentary', mult: 1.2, desc: 'Little exercise' },
+  { id: 'light', name: 'Lightly Active', mult: 1.375, desc: '1-3 days/wk' },
+  { id: 'moderate', name: 'Moderately Active', mult: 1.55, desc: '3-5 days/wk' },
+  { id: 'very', name: 'Very Active', mult: 1.725, desc: '6-7 days/wk' },
+];
+
+const GOAL_OPTIONS = [
+  { id: 'fatloss', name: 'Fat Loss', adj: -500, desc: '-500 cal/day' },
+  { id: 'muscle', name: 'Muscle Gain', adj: 300, desc: '+300 cal/day' },
+  { id: 'recomp', name: 'Recomp', adj: 0, desc: 'Maintenance' },
+  { id: 'performance', name: 'Performance', adj: 0, desc: 'Maintenance' },
+];
+
+const PROGRAM_LENGTHS = [4, 8, 10, 12, 16];
+
+const TABS = [
+  { id: 'dashboard', label: 'DASH' },
+  { id: 'workouts', label: 'WORKOUTS' },
+  { id: 'runs', label: 'RUNS' },
+  { id: 'metrics', label: 'METRICS' },
+  { id: 'food', label: 'FOOD' },
+  { id: 'journal', label: 'JOURNAL' },
+  { id: 'backup', label: 'BACKUP' },
+];
+
+// ============================================================
+// HELPERS — date, macros, BMR, race math, exercise resolution
+// ============================================================
+// All ISO strings are LOCAL calendar dates (YYYY-MM-DD), not UTC.
+// Avoid toISOString() which converts to UTC and can flip the date for users
+// outside UTC near midnight.
+const dateToISO = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+const todayISO = () => dateToISO(new Date());
+const dateOffsetISO = (offset) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return dateToISO(d);
+};
+const formatDate = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+};
+const formatDateLong = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+};
+const isoToDate = (iso) => new Date(iso + 'T00:00:00');
+
+// Height parsing — handles "5ft 9in", "69", "175", "5'9", "5 9", "5-9"
+const parseHeight = (input) => {
+  if (!input) return null;
+  const s = String(input).trim().toLowerCase();
+  // Try cm first (just 3 digits, value 100-250)
+  const cmMatch = s.match(/^(\d{3})(?:\s*cm)?$/);
+  if (cmMatch) {
+    const cm = parseInt(cmMatch[1], 10);
+    if (cm >= 100 && cm <= 250) return cm;
+  }
+  // Try ft/in patterns
+  const ftIn = s.match(/(\d+)\s*(?:ft|'|\s|-)\s*(\d+)/);
+  if (ftIn) {
+    const ft = parseInt(ftIn[1], 10);
+    const inches = parseInt(ftIn[2], 10);
+    return Math.round((ft * 12 + inches) * 2.54);
+  }
+  // Just inches (60-90)
+  const just = parseInt(s.replace(/\D/g, '').slice(0, 3), 10);
+  if (just >= 50 && just <= 90) return Math.round(just * 2.54);
+  if (just >= 100 && just <= 250) return just;
+  return null;
+};
+
+// Mifflin-St Jeor BMR
+const calcBMR = (weightLb, heightCm, age, sex) => {
+  const kg = weightLb * 0.453592;
+  if (sex === 'female') return 10 * kg + 6.25 * heightCm - 5 * age - 161;
+  return 10 * kg + 6.25 * heightCm - 5 * age + 5;
+};
+
+// Macros from profile (uses currentWeight = most recent weight log)
+const calcMacros = (profile, currentWeight) => {
+  const w = currentWeight || profile.weight;
+  const heightCm = parseHeight(profile.height) || 175;
+  const bmr = calcBMR(w, heightCm, profile.age || 30, profile.sex || 'male');
+  const actLevel = ACTIVITY_LEVELS.find((a) => a.id === profile.activity) || ACTIVITY_LEVELS[2];
+  const tdee = bmr * actLevel.mult;
+  const goal = GOAL_OPTIONS.find((g) => g.id === profile.goal) || GOAL_OPTIONS[2];
+  const calories = Math.round(tdee + goal.adj);
+  // Protein: max(current, target) lbs in grams
+  const proteinAnchor = Math.max(w, profile.target || w);
+  const protein = Math.round(proteinAnchor);
+  const fat = Math.round((calories * 0.25) / 9);
+  const carbsCal = calories - protein * 4 - fat * 9;
+  const carbs = Math.max(0, Math.round(carbsCal / 4));
+  return { calories, protein, carbs, fat, bmr: Math.round(bmr), tdee: Math.round(tdee) };
+};
+
+// Brzycki 1RM
+const est1RM = (weight, reps) => {
+  if (!weight || !reps || reps <= 0) return 0;
+  const r = Math.min(reps, 15);
+  return Math.round(weight * (36 / (37 - r)));
+};
+
+// Race math
+const daysUntil = (iso) => {
+  if (!iso) return null;
+  const t = new Date();
+  t.setHours(0, 0, 0, 0);
+  const r = new Date(iso + 'T00:00:00');
+  return Math.round((r - t) / 86400000);
+};
+
+const racePhase = (days) => {
+  if (days == null) return null;
+  if (days < 0) return { label: 'RACE COMPLETE — TIME TO RECOVER', emoji: '✓', color: TEXT_DIM };
+  if (days === 0) return { label: 'GO TIME — TRUST YOUR PREP', emoji: '🏁', color: ORANGE };
+  if (days <= 7) return { label: 'RACE WEEK — RECOVER', emoji: '⚡', color: ORANGE };
+  if (days <= 21) return { label: 'TAPER ZONE — RECOVERY MATTERS', emoji: '⚡', color: ORANGE };
+  if (days <= 56) return { label: 'PEAK PHASE — PUSH HARD', emoji: '🔥', color: '#fbbf24' };
+  if (days <= 84) return { label: 'BUILD BLOCK — CONSISTENCY', emoji: '🔥', color: ACCENT };
+  return { label: 'BASE BUILDING — STAY THE COURSE', emoji: '🏗️', color: BLUE };
+};
+
+const raceColor = (days) => {
+  if (days == null || days < 0) return TEXT_DIM;
+  if (days === 0 || days <= 7) return ORANGE;
+  if (days <= 21) return '#fb923c';
+  if (days <= 56) return '#fbbf24';
+  if (days <= 84) return ACCENT;
+  return BLUE;
+};
+
+// HYROX phase by week (BASE 40% → BUILD 40% → PEAK 20%, last week TAPER)
+const hyroxPhase = (week, totalWeeks) => {
+  if (week >= totalWeeks) return { name: 'TAPER', color: PURPLE, emoji: '⚡' };
+  const pct = week / totalWeeks;
+  if (pct <= 0.4) return { name: 'BASE', color: BLUE, emoji: '🏗️' };
+  if (pct <= 0.8) return { name: 'BUILD', color: '#fbbf24', emoji: '🔥' };
+  return { name: 'RACE PREP', color: ORANGE, emoji: '🔥' };
+};
+
+const HYROX_INTERVALS_BY_PHASE = {
+  BASE: { run: '6 × 400m at 5K pace', erg: '5 × 500m row/ski at 1:55/500m', rest: '90s rest' },
+  BUILD: { run: '5 × 800m at 10K pace', erg: '4 × 750m row/ski at race pace', rest: '2:00 rest' },
+  'RACE PREP': { run: '4 × 1km at race pace', erg: '3 × 1000m row/ski at race pace', rest: '2:30 rest' },
+  TAPER: { run: '3 × 400m easy', erg: '2 × 500m moderate', rest: 'Full rest' },
+};
+
+// ============================================================
+// PHASE PROGRAMMING — non-RP/HYROX styles
+// ============================================================
+const PHASE_BY_WEEK_12 = [
+  { week: 1, phase: 'ACCUMULATION', sets: '3', reps: '12-15', rpe: '6-7', tempo: '20X1', note: 'Establish baseline. Easy weight, perfect form.' },
+  { week: 2, phase: 'ACCUMULATION', sets: '4', reps: '12-15', rpe: '6-7', tempo: '21X1', note: '+1 set, same load' },
+  { week: 3, phase: 'ACCUMULATION', sets: '4', reps: '10-12', rpe: '7', tempo: '20X1', note: '+5 lbs, drop reps' },
+  { week: 4, phase: 'HYPERTROPHY', sets: '4', reps: '8-12', rpe: '7-8', tempo: '31X1', note: 'Eccentric 3s, +5-10 lbs' },
+  { week: 5, phase: 'HYPERTROPHY', sets: '4', reps: '8-10', rpe: '7-8', tempo: '20X1', note: '+5 lbs' },
+  { week: 6, phase: 'HYPERTROPHY', sets: '5', reps: '8-10', rpe: '8', tempo: '20X1', note: 'Peak volume — 5 sets A1/A2' },
+  { week: 7, phase: 'INTENSIFICATION', sets: '4', reps: '4-6', rpe: '8-9', tempo: '21X0', note: '+10-15 lbs, 3min rest' },
+  { week: 8, phase: 'INTENSIFICATION', sets: '5', reps: '4-6', rpe: '8-9', tempo: '20X0', note: 'Heaviest set, +5 lbs' },
+  { week: 9, phase: 'REALIZATION', sets: '4', reps: '2-4', rpe: '9-10', tempo: '10X0', note: 'Max load, 4min rest' },
+  { week: 10, phase: 'DELOAD', sets: '3', reps: '8-10', rpe: '5-6', tempo: '20X1', note: '60% of Wk 9' },
+  { week: 11, phase: 'NEW BLOCK', sets: '4', reps: '12-15', rpe: '6-7', tempo: '20X1', note: 'Start +10 lbs heavier than Wk 1' },
+  { week: 12, phase: 'NEW BLOCK', sets: '4', reps: '8-12', rpe: '7-8', tempo: '31X1', note: '+10-15 lbs over Wk 4' },
+];
+
+const PHASE_BY_WEEK_4 = [
+  { week: 1, phase: 'ACCUMULATION', sets: '3', reps: '10-12', rpe: '7', tempo: '20X1', note: 'Build volume' },
+  { week: 2, phase: 'HYPERTROPHY', sets: '4', reps: '8-10', rpe: '7-8', tempo: '20X1', note: '+5-10 lbs' },
+  { week: 3, phase: 'HYPERTROPHY', sets: '4', reps: '6-8', rpe: '8', tempo: '20X1', note: 'Heavy work' },
+  { week: 4, phase: 'DELOAD', sets: '3', reps: '8-10', rpe: '5-6', tempo: '20X1', note: '60% load, recover' },
+];
+
+const phaseForWeek = (week, totalWeeks) => {
+  if (totalWeeks <= 4) {
+    return PHASE_BY_WEEK_4[Math.min(week - 1, 3)] || PHASE_BY_WEEK_4[0];
+  }
+  if (totalWeeks <= 8) {
+    // Compress 12-week into 8 by skipping some weeks
+    const idx = Math.min(Math.floor((week - 1) * (12 / totalWeeks)), 11);
+    return PHASE_BY_WEEK_12[idx];
+  }
+  // 10, 12, 16 weeks: scale the 12-week pattern
+  const idx = Math.min(Math.floor((week - 1) * (12 / totalWeeks)), 11);
+  return PHASE_BY_WEEK_12[idx];
+};
+
+const PHASE_COLORS = {
+  ACCUMULATION: GREEN,
+  HYPERTROPHY: BLUE,
+  INTENSIFICATION: '#fbbf24',
+  REALIZATION: ORANGE,
+  DELOAD: PURPLE,
+  'NEW BLOCK': GREEN,
+  BASE: BLUE,
+  BUILD: '#fbbf24',
+  'RACE PREP': ORANGE,
+  PEAK: ORANGE,
+  TAPER: PURPLE,
+  'RP DELOAD': PURPLE,
+};
+
+// RP mesocycle math
+const rpWeekData = (week, totalWeeks) => {
+  // Final week = deload
+  if (week >= totalWeeks) {
+    return { phase: 'RP DELOAD', rir: '4-5', setMult: 0.5, repRange: '8-10', note: 'Deload — 50% of MEV, RIR 4-5' };
+  }
+  const accumulationWeeks = totalWeeks - 1;
+  // RIR: 3 → 0 across accumulation weeks
+  const rir = Math.max(0, 3 - Math.floor((week - 1) / accumulationWeeks * 4));
+  // Set multiplier: 1.0 → 1.5
+  const setMult = 1.0 + (week - 1) / accumulationWeeks * 0.5;
+  // Reps shift
+  let repRange;
+  if (week <= 2) repRange = '8-12';
+  else if (week <= 4) repRange = '6-10';
+  else repRange = '5-8';
+  return {
+    phase: 'RP ACCUMULATION',
+    rir: `${rir}`,
+    setMult,
+    repRange,
+    note: `RIR ${rir}, ${(setMult * 100).toFixed(0)}% of MEV target`,
+  };
+};
+
+// Compute RP target sets per muscle for current week
+const rpTargetSets = (muscle, week, totalWeeks) => {
+  const lm = RP_LANDMARKS[muscle];
+  if (!lm) return 0;
+  const { setMult } = rpWeekData(week, totalWeeks);
+  if (week >= totalWeeks) return Math.round(lm.MEV * 0.5);
+  return Math.round(lm.MEV * setMult);
+};
+
+// ============================================================
+// CARDIO PROTOCOLS by goal + week
+// ============================================================
+const cardioProtocol = (goal, week, totalWeeks) => {
+  const pct = (week - 1) / Math.max(1, totalWeeks - 1);
+  if (goal === 'fatloss') {
+    if (pct < 0.25) return { name: 'Zone 2 Steady State', desc: '35 min, HR 130-140 bpm', duration: 35 };
+    if (pct < 0.5) return { name: 'Zone 2 + HIIT', desc: '25 min Z2 + 8 rounds 20s/40s', duration: 30 };
+    if (pct < 0.75) return { name: 'HIIT + Cool-Down', desc: '10 rounds 30s/90s + 15 min Z2', duration: 30 };
+    return { name: 'Zone 2 Deload', desc: '30 min easy', duration: 30 };
+  }
+  if (goal === 'performance') {
+    if (pct < 0.25) return { name: 'Aerobic Base', desc: '30 min at 70% HR', duration: 30 };
+    if (pct < 0.5) return { name: 'Tempo Intervals', desc: '4×5 min at 80-85% HR', duration: 30 };
+    if (pct < 0.75) return { name: 'VO2 Max Intervals', desc: '6×3 min at 90-95% HR', duration: 30 };
+    return { name: 'Recovery Cardio', desc: '25 min easy', duration: 25 };
+  }
+  // recomp / muscle / default
+  if (pct < 0.25) return { name: 'Low-Impact Zone 2', desc: '25 min', duration: 25 };
+  if (pct < 0.5) return { name: 'Moderate Zone 2', desc: '30 min', duration: 30 };
+  if (pct < 0.75) return { name: 'Zone 2 + Intervals', desc: '20 min Z2 + 4×30s sprints', duration: 25 };
+  return { name: 'Recovery Cardio', desc: '20 min easy', duration: 20 };
+};
+
+// ============================================================
+// CONDITIONING FINISHERS by week
+// ============================================================
+const conditioningFinisher = (week, totalWeeks) => {
+  const pct = (week - 1) / Math.max(1, totalWeeks - 1);
+  if (pct < 0.33) return '3 rounds for time: 200m run, 15 KB swings, 10 push-ups';
+  if (pct < 0.66) return 'EMOM 10 min: odd = 12 KB swings, even = 10 burpees';
+  return 'AMRAP 8 min: 10 wall balls, 10 box jumps, 200m row';
+};
+
+// ============================================================
+// WARM-UP per day type
+// ============================================================
+const warmupForDayType = (dayType) => {
+  const t = String(dayType).toUpperCase();
+  if (t.includes('PUSH') || t.includes('CHEST') || t.includes('SHOULDERS') || t.includes('BENCH'))
+    return 'Band Pull-Apart 2×15 · Scapular Push-Up 2×10 · Light Press 2×10';
+  if (t.includes('PULL') || t.includes('BACK') || t.includes('DEADLIFT'))
+    return 'Dead Hang 2×30s · Band Row 2×15 · Cat-Cow 2×10';
+  if (t.includes('LEG') || t.includes('SQUAT') || t.includes('LOWER'))
+    return 'Hip Flexor Stretch 2×30s/side · Goblet Squat 2×10 · Glute Bridge 2×15';
+  if (t.includes('FULL') || t.includes('UPPER'))
+    return 'Thoracic Rotation 2×8/side · World\'s Greatest Stretch 2×5/side · Inchworm 2×6';
+  if (t.includes('RUN') || t.includes('Z2') || t.includes('SIM'))
+    return '5 min easy jog · Leg Swings · A-Skips 30m · B-Skips 30m';
+  if (t.includes('KB'))
+    return 'Halo 2×10 · Goblet Squat 2×10 · Hip Hinge 2×10';
+  return 'Dynamic stretch · Mobility · Activation 5 min';
+};
+
+// ============================================================
+// EXERCISES FOR DAY (style + week aware)
+// ============================================================
+const isAWeek = (week) => week % 2 === 1;
+
+const getExercisesForDay = (style, dayType, week, totalWeeks) => {
+  const t = String(dayType).toUpperCase();
+  // Rest day
+  if (t === 'REST') return null;
+
+  // RP Hypertrophy — by muscle landmarks
+  if (style === 'rp_hyp') {
+    if (t === 'CARDIO') {
+      const c = cardioProtocol('recomp', week, totalWeeks);
+      return { exercises: [{ name: c.name, sets: '1', reps: c.desc, tempo: '-', note: '' }], finisher: null };
+    }
+    const muscleMap = {
+      PUSH: ['Chest', 'Shoulders', 'Triceps'],
+      PULL: ['Back', 'Biceps'],
+      LEGS: ['Quads', 'Hamstrings', 'Glutes', 'Calves'],
+      UPPER: ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps'],
+      LOWER: ['Quads', 'Hamstrings', 'Glutes', 'Calves'],
+      FULL: ['Chest', 'Back', 'Quads', 'Hamstrings'],
     };
+    const muscles = muscleMap[t] || [];
+    const wd = rpWeekData(week, totalWeeks);
+    const exes = [];
+    muscles.forEach((m) => {
+      RP_EXERCISES[m].forEach((ex) => {
+        const targetWeekly = rpTargetSets(m, week, totalWeeks);
+        const sessionsPerWeek = 2; // typical PPL
+        const setsPerSession = Math.max(2, Math.round(targetWeekly / sessionsPerWeek / RP_EXERCISES[m].length));
+        exes.push({
+          name: ex,
+          muscle: m,
+          sets: String(setsPerSession),
+          reps: wd.repRange,
+          tempo: '20X1',
+          note: `${m} — MEV ${RP_LANDMARKS[m].MEV} / MAV ${RP_LANDMARKS[m].MAV} / MRV ${RP_LANDMARKS[m].MRV} sets/wk · RIR ${wd.rir}`,
+        });
+      });
+    });
+    return { exercises: exes, finisher: null, isRP: true, wd };
   }
 
-  // PUSH = Strength (Lower) + Sled work / Heavy carries
-  if (dayType === "PUSH") {
-    return {
-      phase, title:"Strength (Lower) + Sled",
-      blocks: [
-        {label:"STRENGTH BLOCK — 25 min", items:[
-          {name:"Back Squat", sets:phase==="BASE"?"4":phase==="BUILD"?"5":"4", reps:phase==="BASE"?"6-8":phase==="BUILD"?"4-6":"3-5", note:`${phase==="BASE"?"75-80%":phase==="BUILD"?"82-87%":"85-90%"} 1RM. Foundation for sled push.`},
-          {name:"Romanian Deadlift", sets:"4", reps:"8-10", note:"Hamstring/glute strength for compromised running"},
-          {name:"Bulgarian Split Squat", sets:"3", reps:"8 each leg", note:"Single-leg stability for lunges"}
-        ]},
-        {label:"SLED CONDITIONING — 20 min", items:[
-          {name:"Sled Push", sets:phase==="BASE"?"4":phase==="BUILD"?"5":"6", reps:"50m heavy", note:"M: 152kg / W: 102kg race weight. 1:1 work:rest"},
-          {name:"Sled Pull", sets:"4", reps:"50m heavy", note:"M: 103kg / W: 78kg. Hand-over-hand technique"},
-          {name:"Farmer Carry", sets:"3", reps:"100m", note:"Heavy KBs. Grip work for race day"}
-        ]}
-      ]
-    };
-  }
-
-  // PULL = Run intervals + SkiErg/Row threshold
-  if (dayType === "PULL") {
-    const interval = phase==="BASE" ? "6×400m @ 5K pace, 90s rest" : phase==="BUILD" ? "5×800m @ 10K pace, 2min rest" : "4×1km @ race pace, 2min rest";
-    const ski = phase==="BASE" ? "5×500m SkiErg, 90s rest" : phase==="BUILD" ? "4×750m SkiErg, 2min rest" : "3×1000m SkiErg @ race pace";
-    const row = phase==="BASE" ? "5×500m Row, 90s rest" : phase==="BUILD" ? "4×750m Row, 2min rest" : "3×1000m Row @ race pace";
-    return {
-      phase, title:"Run Intervals + Ergs",
-      blocks: [
-        {label:"RUN INTERVALS — 30 min", items:[
-          {name:"Run Warm-up", sets:"-", reps:"10 min easy", note:"Build to 70% HR, dynamic mobility"},
-          {name:"Track/Treadmill Intervals", sets:"-", reps:interval, note:"Maintain pace across all reps"},
-          {name:"Cool Down", sets:"-", reps:"5 min easy", note:""}
-        ]},
-        {label:"ERG WORK — 20 min", items:[
-          {name:"SkiErg Intervals", sets:"-", reps:ski, note:"Target 1:50-2:00/500m for men, 2:05-2:15 for women"},
-          {name:"Row Intervals", sets:"-", reps:row, note:"Damper 5-7. Legs-back-arms sequence"}
-        ]}
-      ]
-    };
-  }
-
-  // LEGS = Strength (Upper) + Wall Balls/Burpees
-  if (dayType === "LEGS") {
-    return {
-      phase, title:"Strength (Upper) + Stations",
-      blocks: [
-        {label:"UPPER STRENGTH — 20 min", items:[
-          {name:"Pull-Up", sets:"4", reps:phase==="BASE"?"6-8":"AMRAP", note:"Weighted if able. Back strength = better SkiErg/Row"},
-          {name:"Overhead Press", sets:"4", reps:"6-8", note:"Shoulder strength for wall balls"},
-          {name:"Bent-Over Row", sets:"3", reps:"8-10", note:"Posterior chain durability"}
-        ]},
-        {label:"STATION SKILL WORK — 25 min", items:[
-          {name:"Wall Balls", sets:"5", reps:phase==="BASE"?"15":phase==="BUILD"?"20":"25 unbroken", note:"M: 6kg/10ft / W: 4kg/9ft. Build to unbroken sets of 25-30"},
-          {name:"Burpee Broad Jumps", sets:"4", reps:"10 reps", note:"60s rest. Practice efficient race pace"},
-          {name:"Sandbag Lunges", sets:"3", reps:"50m", note:"M: 20kg / W: 10kg. Front-rack hold"}
-        ]}
-      ]
-    };
-  }
-
-  // FULL = HYROX simulation / compromised running ("Roxzone")
-  if (dayType === "FULL") {
-    if (phase === "BASE") {
+  // HYROX
+  if (style === 'hyrox') {
+    const phase = hyroxPhase(week, totalWeeks);
+    const intervals = HYROX_INTERVALS_BY_PHASE[phase.name] || HYROX_INTERVALS_BY_PHASE.BASE;
+    if (t === 'STRENGTH_LOWER') {
       return {
-        phase, title:"Mini HYROX Simulation",
-        blocks: [
-          {label:"4 ROUNDS — Compromised Running Intro", items:[
-            {name:"Run", sets:"-", reps:"500m", note:"Moderate pace"},
-            {name:"Wall Balls", sets:"-", reps:"25 reps", note:""},
-            {name:"Run", sets:"-", reps:"500m", note:""},
-            {name:"Burpee Broad Jumps", sets:"-", reps:"10 reps", note:""}
-          ]},
-          {label:"FINISHER", items:[
-            {name:"Sandbag Carry", sets:"-", reps:"200m", note:"Bear hug. Just survive."}
-          ]}
-        ]
+        exercises: [
+          { name: 'Back Squat', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
+          { name: 'Romanian Deadlift', sets: '3', reps: '8-10', tempo: '31X0', note: 'Hamstring strength' },
+          { name: 'Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Race transfer' },
+          { name: 'Sled Push (50m)', sets: '4', reps: 'race weight', tempo: '-', note: HYROX_STATIONS[1].note },
+          { name: 'Farmer Carry (200m)', sets: '3', reps: '24kg/16kg KB ea', tempo: '-', note: HYROX_STATIONS[5].note },
+        ],
+        finisher: '1km run for time',
+        phase,
       };
-    } else if (phase === "BUILD") {
+    }
+    if (t === 'STRENGTH_UPPER') {
       return {
-        phase, title:"Half HYROX Simulation",
-        blocks: [
-          {label:"4 ROUNDS — Race Pace Practice", items:[
-            {name:"Run", sets:"-", reps:"1km", note:"Race pace (target sub-5:00 men, sub-5:30 women)"},
-            {name:"Station 1: SkiErg", sets:"-", reps:"500m", note:""},
-            {name:"Run", sets:"-", reps:"1km", note:""},
-            {name:"Station 2: Sled Push (light)", sets:"-", reps:"50m", note:"60-70% race weight"},
-            {name:"Run", sets:"-", reps:"1km", note:""},
-            {name:"Station 3: Burpee Broad Jumps", sets:"-", reps:"40m (~12 reps)", note:""},
-            {name:"Run", sets:"-", reps:"1km", note:""},
-            {name:"Station 4: Wall Balls", sets:"-", reps:"40 reps", note:""}
-          ]}
-        ]
+        exercises: [
+          { name: 'Pull-Up', sets: '4', reps: '6-10', tempo: '20X1', note: 'Strict' },
+          { name: 'Overhead Press', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
+          { name: 'Pendlay Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Explosive' },
+          { name: 'SkiErg (1000m)', sets: '3', reps: 'race effort', tempo: '-', note: HYROX_STATIONS[0].note },
+          { name: 'Wall Balls', sets: '3', reps: '20-25', tempo: '-', note: HYROX_STATIONS[7].note },
+          { name: 'Burpee Broad Jumps', sets: '3', reps: '15', tempo: '-', note: HYROX_STATIONS[3].note },
+        ],
+        finisher: '500m row for time',
+        phase,
       };
-    } else {
+    }
+    if (t === 'RUN_INTERVALS') {
       return {
-        phase, title:"Full HYROX Race Sim",
-        blocks: [
-          {label:"FULL RACE SIMULATION", items:[
-            {name:"1km Run + 1000m SkiErg", sets:"-", reps:"Round 1", note:"Race pace. Time it."},
-            {name:"1km Run + 50m Sled Push", sets:"-", reps:"Round 2", note:"Race weight if available"},
-            {name:"1km Run + 50m Sled Pull", sets:"-", reps:"Round 3", note:""},
-            {name:"1km Run + 80m Burpee Broad Jumps", sets:"-", reps:"Round 4", note:""},
-            {name:"1km Run + 1000m Row", sets:"-", reps:"Round 5", note:""},
-            {name:"1km Run + 200m Farmer Carry", sets:"-", reps:"Round 6", note:""},
-            {name:"1km Run + 100m Sandbag Lunges", sets:"-", reps:"Round 7", note:""},
-            {name:"1km Run + 75-100 Wall Balls", sets:"-", reps:"Round 8", note:"Target sub-1:25:00 men, sub-1:35:00 women"}
-          ]}
-        ]
+        exercises: [
+          { name: 'Run Intervals', sets: '1', reps: intervals.run, tempo: '-', note: intervals.rest },
+          { name: 'Erg Intervals', sets: '1', reps: intervals.erg, tempo: '-', note: intervals.rest },
+        ],
+        finisher: null,
+        phase,
       };
+    }
+    if (t === 'Z2_RUN') {
+      return {
+        exercises: [
+          { name: 'Z2 Long Run', sets: '1', reps: '45-60 min', tempo: '-', note: 'HR 130-150, conversational pace' },
+        ],
+        finisher: null,
+        phase,
+      };
+    }
+    if (t === 'RACE_SIM') {
+      const simMap = {
+        BASE: '4 rounds: 500m run + 2 stations',
+        BUILD: 'Half HYROX: 4 stations with 500m runs',
+        'RACE PREP': 'Full 8-station race simulation, timed',
+        TAPER: 'Light: 2 stations + 500m run only',
+      };
+      return {
+        exercises: [
+          { name: 'Race Simulation', sets: '1', reps: simMap[phase.name] || simMap.BASE, tempo: '-', note: 'Log race time below' },
+        ],
+        finisher: null,
+        phase,
+        isRaceSim: true,
+      };
+    }
+    if (t === 'CARDIO') {
+      const c = cardioProtocol('performance', week, totalWeeks);
+      return { exercises: [{ name: c.name, sets: '1', reps: c.desc, tempo: '-', note: 'Recovery quality' }], finisher: null, phase };
     }
   }
 
-  // CARDIO day - long Z2 + threshold
-  return {
-    phase, title:"Z2 Endurance Run",
-    blocks: [
-      {label:"LONG STEADY STATE", items:[
-        {name:"Z2 Run", sets:"-", reps:phase==="BASE"?"45-60 min":phase==="BUILD"?"60-75 min":"45 min easy", note:"HR 65-75% max. Conversational. Build aerobic base."}
-      ]}
-    ]
-  };
-}
-
-// HYROX session renderer
-function HyroxSession({week, dayType, totalWeeks, sessions, setSessions, coachMsg, sk}) {
-  const wo = getHyroxWorkout(week, dayType, totalWeeks);
-  const saved = sessions[sk] || {};
-  const [setLogs, setSetLogs] = useState(saved.setLogs || {});
-  const [notes, setNotes] = useState(saved.notes || "");
-  const [done, setDone] = useState(saved.done || false);
-  const [raceTime, setRaceTime] = useState(saved.raceTime || "");
-  const go = useRef(false);
-
-  useEffect(()=>{
-    go.current = false;
-    const s = sessions[sk] || {};
-    setSetLogs(s.setLogs || {});
-    setNotes(s.notes || "");
-    setDone(s.done || false);
-    setRaceTime(s.raceTime || "");
-  }, [sk]);
-
-  useEffect(()=>{
-    if(!go.current){go.current=true;return;}
-    setSessions(prev=>({...prev, [sk]:{...(prev[sk]||{}), setLogs, notes, done, raceTime, savedAt:new Date().toISOString(), hyrox:true}}));
-  }, [setLogs, notes, done, raceTime]);
-
-  const updSet = (n,i,f,v)=>{const k=`${n}__${i}`;setSetLogs(p=>({...p,[k]:{...(p[k]||{}),[f]:v}}));};
-  const togSet = (n,i)=>{const k=`${n}__${i}`;setSetLogs(p=>({...p,[k]:{...(p[k]||{}),done:!(p[k]?.done)}}));};
-  const phaseColor = wo.phase==="BASE"?C.a3:wo.phase==="BUILD"?C.a6:wo.phase==="RACE PREP"?C.a2:C.a5;
-
-  return (
-    <>
-      <div style={{...card, marginBottom:10}}>
-        <div style={{padding:"11px 13px", borderBottom:`1px solid ${C.bd}`, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
-          <div style={{flex:1}}>
-            <div style={{...IMP, fontSize:16, fontWeight:900, color:C.a2}}>HYROX — {wo.title}</div>
-            <div style={{fontSize:10, color:C.mu, marginTop:2}}>HYROX Race Prep · Week {week}/{totalWeeks}</div>
-          </div>
-          <div style={{...imp(10, phaseColor), padding:"3px 9px", border:`1px solid ${phaseColor}`, borderRadius:4}}>{wo.phase}</div>
-        </div>
-
-        {dayType==="FULL" && wo.phase!=="BASE" && (
-          <div style={{padding:"9px 13px", borderBottom:`1px solid ${C.bd}`, background:"rgba(255,107,53,.05)"}}>
-            <div style={{...imp(10, C.a2), marginBottom:6}}>RACE TIME (mm:ss)</div>
-            <input value={raceTime} onChange={e=>setRaceTime(e.target.value)} placeholder="e.g. 1:24:35" style={{...inp, width:"100%", fontSize:13, ...IMP, fontWeight:700, letterSpacing:2}}/>
-            <div style={{fontSize:10, color:C.mu, marginTop:5}}>Targets: Open M sub-1:25 / Open W sub-1:35 / Pro sub-1:00 (men) / sub-1:10 (women)</div>
-          </div>
-        )}
-
-        {wo.blocks.map((block, bi) => (
-          <div key={bi} style={{borderTop: bi>0 ? `1px solid ${C.bd}`:"none", padding:"10px 13px"}}>
-            <div style={{...imp(10, C.a2), marginBottom:8}}>{block.label}</div>
-            {block.items.map((item, ii) => {
-              const numSets = parseInt(item.sets) || 0;
-              return (
-                <div key={ii} style={{padding:"7px 0", borderTop: ii>0 ? `1px solid rgba(255,255,255,.04)`:"none"}}>
-                  <div style={{display:"flex", alignItems:"flex-start", gap:9}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13, fontWeight:600}}>{item.name}</div>
-                      <div style={{fontSize:11, color:C.mu2, marginTop:2}}>
-                        {item.sets!=="-" && <strong style={{color:C.tx}}>{item.sets} × {item.reps}</strong>}
-                        {item.sets==="-" && <strong style={{color:C.tx}}>{item.reps}</strong>}
-                        {item.note && <><br/><span style={{fontSize:10, fontStyle:"italic", color:C.mu}}>{item.note}</span></>}
-                      </div>
-                    </div>
-                    {item.name && numSets===0 && (
-                      <button onClick={()=>coachMsg(`How do I scale "${item.name}" for HYROX week ${week}? Goal is race prep.`)} style={{...hbtn, fontSize:9, padding:"2px 7px", flexShrink:0}}>SCALE</button>
-                    )}
-                  </div>
-                  {numSets > 0 && (
-                    <div style={{marginTop:6, display:"flex", flexDirection:"column", gap:4}}>
-                      {Array.from({length:numSets},(_,i)=>{
-                        const k = `${item.name}__${i}`; const lg = setLogs[k] || {};
-                        return (
-                          <div key={i} style={{display:"flex", gap:6, alignItems:"center"}}>
-                            <div style={{width:30, height:26, background:lg.done?C.acc:C.s3, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", ...IMP, fontSize:11, fontWeight:900, color:lg.done?"#000":C.mu, border:`1px solid ${lg.done?C.acc:C.bd}`, flexShrink:0}}>{i+1}</div>
-                            <input type="number" value={lg.weight||""} onChange={e=>updSet(item.name,i,"weight",e.target.value)} placeholder="lbs/kg" style={{flex:1, height:26, ...inp, padding:"0 8px", ...IMP, fontWeight:700, fontSize:12, border:`1px solid ${lg.done?"rgba(232,255,71,.4)":C.bd}`}}/>
-                            <input type="text" value={lg.reps||""} onChange={e=>updSet(item.name,i,"reps",e.target.value)} placeholder="reps/time" style={{width:62, height:26, ...inp, padding:"0 8px", ...IMP, fontWeight:700, fontSize:11, border:`1px solid ${lg.done?"rgba(232,255,71,.4)":C.bd}`}}/>
-                            <button onClick={()=>togSet(item.name,i)} style={{width:26, height:26, borderRadius:4, border:`1px solid ${lg.done?C.acc:C.bd}`, background:lg.done?C.acc:"transparent", color:lg.done?"#000":C.mu, cursor:"pointer", fontSize:11, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>✓</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-
-        <div style={{padding:"10px 13px", borderTop:`1px solid ${C.bd}`, display:"flex", gap:8, flexWrap:"wrap"}}>
-          <button onClick={()=>coachMsg(`Explain HYROX phase "${wo.phase}" and what I should focus on this week. I'm ${week} of ${totalWeeks} weeks out from race.`)} style={hbtn}>EXPLAIN PHASE</button>
-          <button onClick={()=>coachMsg(`HYROX race day strategy — pacing, fueling, station-specific tips. ${totalWeeks-week} weeks until race.`)} style={hbtn}>RACE STRATEGY</button>
-          <button onClick={()=>coachMsg(`What HYROX times should I be hitting on each station for my goal? Open or Pro division?`)} style={hbtn}>STATION TIMES</button>
-        </div>
-      </div>
-
-      <div style={card}>
-        <div style={{padding:"9px 13px", borderBottom:`1px solid ${C.bd}`, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-          <div style={imp(12,C.mu2)}>SESSION LOG</div>
-          {done && <div style={{...imp(10,C.a4), border:`1px solid ${C.a4}`, padding:"2px 8px", borderRadius:3}}>✓ DONE</div>}
-        </div>
-        <div style={{padding:"12px 13px"}}>
-          <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Splits, weights, how it felt, what to adjust..." style={{width:"100%", background:C.s2, border:`1px solid ${C.bd}`, color:C.tx, padding:"8px 10px", borderRadius:4, fontSize:12, resize:"none", minHeight:60, outline:"none", lineHeight:1.6, fontFamily:"inherit"}}/>
-          <label style={{display:"flex", alignItems:"center", gap:6, fontSize:12, color:C.mu2, cursor:"pointer", marginTop:8}}>
-            <input type="checkbox" checked={done} onChange={e=>setDone(e.target.checked)} style={{accentColor:C.acc, width:14, height:14}}/>Mark Complete
-            <span style={{...imp(10,C.mu), marginLeft:8}}>AUTO-SAVED</span>
-          </label>
-        </div>
-      </div>
-    </>
-  );
-}
-
-// HYROX HYBRID - blends HYROX race prep + heavy strength training + kettlebell complexes
-// Designed for athletes who want race readiness AND hypertrophy/strength gains
-// Weekly split: Mon=Heavy Lower+Sled, Tue=KB Complex+Run, Wed=Heavy Upper+Stations, Thu=Z2/Recovery, Fri=Race Sim/Hybrid Conditioning
-
-function getHybridWorkout(week, dayType, totalWeeks) {
-  const tw = parseInt(totalWeeks) || 12;
-  const wk = parseInt(week);
-  const phasePct = wk / tw;
-  const phase = phasePct <= 0.4 ? "BASE" : phasePct <= 0.75 ? "BUILD" : phasePct < 1 ? "PEAK" : "TAPER";
-  const isDeload = wk === tw;
-
-  if (isDeload) {
-    return {
-      phase: "TAPER",
-      title: "Recovery + Mobility",
-      blocks: [
-        {label:"DELOAD", items:[
-          {name:"All lifts at 50-60% intensity", sets:"2-3", reps:"5-6", note:"Quality reps, no fatigue. Stay sharp."},
-          {name:"KB Halos + Goblet Squat (light)", sets:"3", reps:"8-10 each", note:"Mobility-focused"},
-          {name:"Z2 Run", sets:"-", reps:"20-25 min", note:"Conversational pace only"}
-        ]}
-      ]
-    };
-  }
-
-  // MONDAY = Heavy Lower + Sled (strength priority + race-specific)
-  if (dayType === "PUSH") {
-    return {
-      phase, title: "Heavy Lower + Sled",
-      blocks: [
-        {label:"PRIMARY STRENGTH — 25 min", items:[
-          {name:"Back Squat", sets:phase==="BASE"?"5":phase==="BUILD"?"5":"4",
-           reps:phase==="BASE"?"5":phase==="BUILD"?"3-5":"2-3",
-           note:`${phase==="BASE"?"75-80%":phase==="BUILD"?"82-87%":"88-92%"} 1RM. Build leg strength for sled push.`},
-          {name:"Trap Bar Deadlift", sets:"4", reps:phase==="BASE"?"6":"4-5",
-           note:`${phase==="BASE"?"75%":phase==="BUILD"?"82%":"87%"} 1RM. Posterior chain power.`},
-          {name:"Bulgarian Split Squat", sets:"3", reps:"8 each leg", note:"Single-leg strength for sandbag lunges"}
-        ]},
-        {label:"KETTLEBELL ACCESSORY — 12 min", items:[
-          {name:"KB Goblet Squat", sets:"3", reps:"12-15", note:"Heavy KB. Front-loaded squat pattern"},
-          {name:"KB Single-Leg RDL", sets:"3", reps:"8 each leg", note:"Hip stability + balance"}
-        ]},
-        {label:"SLED CONDITIONING — 20 min", items:[
-          {name:"Sled Push (race weight)", sets:phase==="BASE"?"4":phase==="BUILD"?"5":"6",
-           reps:"50m", note:"M: 152kg / W: 102kg. 1:1 work:rest"},
-          {name:"Sled Pull", sets:"4", reps:"50m heavy", note:"M: 103kg / W: 78kg. Hand-over-hand"},
-          {name:"Heavy Farmer Carry", sets:"3", reps:"100m", note:"Heaviest KBs available. Grip endurance."}
-        ]}
-      ]
-    };
-  }
-
-  // TUESDAY = KB Complex + Run Intervals (conditioning + work capacity)
-  if (dayType === "PULL") {
-    const interval = phase==="BASE" ? "6×400m @ 5K pace, 90s rest" : phase==="BUILD" ? "5×800m @ 10K pace, 2min rest" : "4×1km @ race pace, 2min rest";
-    return {
-      phase, title: "KB Complex + Run Intervals",
-      blocks: [
-        {label:"KB COMPLEX BLOCK — 20 min", items:[
-          {name:`KB Clean & Press Complex (${phase==="BASE"?"3":phase==="BUILD"?"4":"5"} rounds)`,
-           sets:"-", reps:"5 swings + 5 cleans + 5 press + 5 squats each side",
-           note:`M: 24kg KB / W: 16kg KB. Rest 90s between rounds. Full body integration.`},
-          {name:`KB Snatch Test`, sets:"-",
-           reps:phase==="BASE"?"5×10 each side":"5×12 each side",
-           note:"Race-specific power endurance. M: 24kg / W: 16kg"},
-          {name:"KB Turkish Get-Up", sets:"3", reps:"3 each side",
-           note:"Heavy KB. Total body stability."}
-        ]},
-        {label:"RUN INTERVALS — 25 min", items:[
-          {name:"Run Warm-up", sets:"-", reps:"10 min easy", note:"Build to 70% HR"},
-          {name:"Track/Treadmill Intervals", sets:"-", reps:interval, note:"Maintain pace across all reps"},
-          {name:"Cool Down Jog", sets:"-", reps:"5 min", note:""}
-        ]},
-        {label:"FINISHER — 8 min", items:[
-          {name:"EMOM 8: 10 KB Swings (heavy) + 5 Burpees",
-           sets:"-", reps:"8 rounds", note:"M: 32kg KB / W: 24kg KB. Compromised conditioning."}
-        ]}
-      ]
-    };
-  }
-
-  // WEDNESDAY = CARDIO day - Z2 long run + station skill (active recovery)
-  // (Routed through cardio path naturally - HYROX Hybrid uses CARDIO day for long Z2)
-
-  // THURSDAY = Heavy Upper + Stations
-  if (dayType === "LEGS") {
-    return {
-      phase, title: "Heavy Upper + Stations",
-      blocks: [
-        {label:"PRIMARY UPPER STRENGTH — 25 min", items:[
-          {name:"Weighted Pull-Up", sets:"5",
-           reps:phase==="BASE"?"5":phase==="BUILD"?"3-5":"2-3",
-           note:`${phase==="BASE"?"BW+25 lbs":phase==="BUILD"?"BW+40 lbs":"BW+55 lbs"} or AMRAP. Back strength = better SkiErg/Row.`},
-          {name:"Standing Overhead Press", sets:"4",
-           reps:phase==="BASE"?"6":"4-5",
-           note:`${phase==="BASE"?"75%":phase==="BUILD"?"82%":"88%"} 1RM. Wall ball shoulder strength.`},
-          {name:"Pendlay Row", sets:"4", reps:"6-8",
-           note:"Explosive pull from floor. Sled pull simulation."}
-        ]},
-        {label:"KETTLEBELL UPPER — 12 min", items:[
-          {name:"KB Push Press (alternating)", sets:"4", reps:"6 each side",
-           note:"M: 24kg / W: 16kg. Power output for race day."},
-          {name:"KB Renegade Row", sets:"3", reps:"8 each side",
-           note:"M: 20kg KB / W: 12kg KB. Anti-rotation core + back."}
-        ]},
-        {label:"STATION SKILL WORK — 22 min", items:[
-          {name:"Wall Balls", sets:"5",
-           reps:phase==="BASE"?"15 unbroken":phase==="BUILD"?"20 unbroken":"25 unbroken",
-           note:"M: 6kg/10ft / W: 4kg/9ft. Build to unbroken sets of 30."},
-          {name:"Burpee Broad Jumps", sets:"4", reps:"10 reps", note:"60s rest. Race pace efficiency."},
-          {name:"Sandbag Front-Rack Lunge", sets:"3", reps:"50m",
-           note:"M: 20kg / W: 10kg. Quad/glute endurance."}
-        ]}
-      ]
-    };
-  }
-
-  // FRIDAY = Race Simulation OR Hybrid Conditioning depending on phase
-  if (dayType === "FULL") {
-    if (phase === "BASE") {
+  // HYROX Hybrid
+  if (style === 'hyrox_hybrid') {
+    const phase = hyroxPhase(week, totalWeeks);
+    if (t === 'STRENGTH_LOWER') {
       return {
-        phase, title: "Hybrid Conditioning Circuit",
-        blocks: [
-          {label:"4 ROUNDS for time", items:[
-            {name:"Run", sets:"-", reps:"400m", note:"Moderate pace"},
-            {name:"KB Swings (heavy)", sets:"-", reps:"20 reps", note:"M: 32kg / W: 24kg"},
-            {name:"Wall Balls", sets:"-", reps:"20 reps", note:""},
-            {name:"KB Goblet Squats", sets:"-", reps:"15 reps", note:"M: 24kg / W: 16kg"},
-            {name:"Burpees", sets:"-", reps:"10 reps", note:""}
-          ]},
-          {label:"FINISHER", items:[
-            {name:"Sandbag Bear Hug Carry", sets:"-", reps:"200m", note:"Just survive. Mental toughness."}
-          ]}
-        ]
+        exercises: [
+          { name: 'Back Squat', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
+          { name: 'Trap Bar Deadlift', sets: '3', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
+          { name: 'Bulgarian Split Squat', sets: '3', reps: '8/leg', tempo: '20X1', note: 'Quad focus' },
+          { name: 'KB Goblet Squat', sets: '3', reps: '10', tempo: '20X1', note: `${KB_SIZING.standard.m}/${KB_SIZING.standard.w}` },
+          { name: 'Single-Leg RDL', sets: '3', reps: '8/leg', tempo: '21X1', note: 'Balance + posterior' },
+          { name: 'Sled Push (50m)', sets: '3', reps: 'race weight', tempo: '-', note: 'Race transfer' },
+          { name: 'Heavy Farmer Carry (200m)', sets: '2', reps: 'heavy', tempo: '-', note: 'Grip + core' },
+        ],
+        finisher: 'EMOM 8: 12 KB swings (heavy)',
+        phase,
       };
-    } else if (phase === "BUILD") {
+    }
+    if (t === 'KB_RUN') {
       return {
-        phase, title: "Half HYROX + KB Hybrid",
-        blocks: [
-          {label:"HYBRID RACE SIM", items:[
-            {name:"Run", sets:"-", reps:"1km", note:"Race pace"},
-            {name:"SkiErg", sets:"-", reps:"500m", note:""},
-            {name:"Run", sets:"-", reps:"1km", note:""},
-            {name:"KB Snatches", sets:"-", reps:"30 reps (15/side)", note:"M: 24kg / W: 16kg"},
-            {name:"Run", sets:"-", reps:"1km", note:""},
-            {name:"Sled Push (75% race weight)", sets:"-", reps:"50m", note:""},
-            {name:"Run", sets:"-", reps:"1km", note:""},
-            {name:"Wall Balls + KB Swings", sets:"-", reps:"30 + 30", note:"Alternating"}
-          ]}
-        ]
+        exercises: [
+          { name: 'KB Complex (Clean+Press+Squat)', sets: '4', reps: '5/side', tempo: '20X1', note: `${KB_SIZING.standard.m}/${KB_SIZING.standard.w} per round` },
+          { name: 'KB Snatch Test', sets: '1', reps: '5 min max reps', tempo: '-', note: '10/min target pace' },
+          { name: 'Turkish Get-Up', sets: '3', reps: '3/side', tempo: '-', note: 'Slow, controlled' },
+          { name: 'Run Intervals', sets: '1', reps: '5 × 400m at 5K pace', tempo: '-', note: '90s rest' },
+        ],
+        finisher: `EMOM 8: heavy KB swings (${KB_SIZING.heavy.m}/${KB_SIZING.heavy.w}) + burpees`,
+        phase,
       };
-    } else {
+    }
+    if (t === 'STRENGTH_UPPER') {
       return {
-        phase, title: "Full HYROX Race Simulation",
-        blocks: [
-          {label:"FULL RACE SIM (time it)", items:[
-            {name:"1km Run + 1000m SkiErg", sets:"-", reps:"Round 1", note:"Race pace"},
-            {name:"1km Run + 50m Sled Push", sets:"-", reps:"Round 2", note:"Race weight"},
-            {name:"1km Run + 50m Sled Pull", sets:"-", reps:"Round 3", note:""},
-            {name:"1km Run + 80m Burpee Broad Jumps", sets:"-", reps:"Round 4", note:""},
-            {name:"1km Run + 1000m Row", sets:"-", reps:"Round 5", note:""},
-            {name:"1km Run + 200m Farmer Carry", sets:"-", reps:"Round 6", note:""},
-            {name:"1km Run + 100m Sandbag Lunges", sets:"-", reps:"Round 7", note:""},
-            {name:"1km Run + 75-100 Wall Balls", sets:"-", reps:"Round 8", note:"Targets: M sub-1:25 / W sub-1:35"}
-          ]}
-        ]
+        exercises: [
+          { name: 'Weighted Pull-Up', sets: '4', reps: '5-8', tempo: '20X1', note: 'Add weight, full ROM' },
+          { name: 'Overhead Press', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
+          { name: 'Pendlay Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Explosive pull' },
+          { name: 'KB Push Press', sets: '3', reps: '8/side', tempo: '20X1', note: `Use leg drive` },
+          { name: 'Renegade Row', sets: '3', reps: '8/side', tempo: '-', note: 'Plank stable' },
+          { name: 'Wall Balls', sets: '3', reps: '20-25', tempo: '-', note: 'Race standards' },
+          { name: 'Burpee Broad Jumps', sets: '3', reps: '15', tempo: '-', note: 'Pace yourself' },
+          { name: 'Sandbag Front-Rack Lunge', sets: '3', reps: '20m', tempo: '-', note: 'Race standard weight' },
+        ],
+        finisher: '500m SkiErg for time',
+        phase,
       };
+    }
+    if (t === 'Z2_RUN') {
+      return {
+        exercises: [
+          { name: 'Z2 Long Run', sets: '1', reps: '45-60 min', tempo: '-', note: 'HR 130-150' },
+          { name: 'KB Get-Ups', sets: '3', reps: '3/side', tempo: '-', note: 'After run' },
+          { name: 'Wall Ball Technique', sets: '3', reps: '20', tempo: '-', note: 'Form work, light' },
+        ],
+        finisher: null,
+        phase,
+      };
+    }
+    if (t === 'RACE_SIM') {
+      const simMap = {
+        BASE: '4-round circuit (KB-flavored)',
+        BUILD: 'Half HYROX with KB substitutions',
+        'RACE PREP': 'Full HYROX race simulation',
+        TAPER: 'Light technique work',
+      };
+      return {
+        exercises: [{ name: 'Race Simulation', sets: '1', reps: simMap[phase.name] || simMap.BASE, tempo: '-', note: 'Log race time below' }],
+        finisher: null,
+        phase,
+        isRaceSim: true,
+      };
+    }
+    if (t === 'CARDIO') {
+      const c = cardioProtocol('performance', week, totalWeeks);
+      return { exercises: [{ name: c.name, sets: '1', reps: c.desc, tempo: '-', note: '' }], finisher: null, phase };
     }
   }
 
-  // CARDIO day - Long Z2 + station skill work (active recovery)
-  return {
-    phase, title: "Z2 Endurance + Skill",
-    blocks: [
-      {label:"LONG Z2 RUN", items:[
-        {name:"Z2 Run", sets:"-",
-         reps:phase==="BASE"?"45-60 min":phase==="BUILD"?"60-75 min":"45 min easy",
-         note:"HR 65-75% max. Conversational. Aerobic base building."}
-      ]},
-      {label:"STATION SKILL FINISHER — 10 min", items:[
-        {name:"KB Get-Ups", sets:"3", reps:"2 each side", note:"Light KB. Mobility-focused."},
-        {name:"Wall Ball Practice", sets:"3", reps:"15 reps", note:"Focus on form, not pace"}
-      ]}
-    ]
-  };
-}
-
-// HYROX Hybrid session renderer (reuses HyroxSession structure but with different programming)
-function HybridSession({week, dayType, totalWeeks, sessions, setSessions, coachMsg, sk}) {
-  const wo = getHybridWorkout(week, dayType, totalWeeks);
-  const saved = sessions[sk] || {};
-  const [setLogs, setSetLogs] = useState(saved.setLogs || {});
-  const [notes, setNotes] = useState(saved.notes || "");
-  const [done, setDone] = useState(saved.done || false);
-  const [raceTime, setRaceTime] = useState(saved.raceTime || "");
-  const go = useRef(false);
-
-  useEffect(()=>{
-    go.current = false;
-    const s = sessions[sk] || {};
-    setSetLogs(s.setLogs || {});
-    setNotes(s.notes || "");
-    setDone(s.done || false);
-    setRaceTime(s.raceTime || "");
-  }, [sk]);
-
-  useEffect(()=>{
-    if(!go.current){go.current=true;return;}
-    setSessions(prev=>({...prev, [sk]:{...(prev[sk]||{}), setLogs, notes, done, raceTime, savedAt:new Date().toISOString(), hybrid:true}}));
-  }, [setLogs, notes, done, raceTime]);
-
-  const updSet = (n,i,f,v)=>{const k=`${n}__${i}`;setSetLogs(p=>({...p,[k]:{...(p[k]||{}),[f]:v}}));};
-  const togSet = (n,i)=>{const k=`${n}__${i}`;setSetLogs(p=>({...p,[k]:{...(p[k]||{}),done:!(p[k]?.done)}}));};
-  const phaseColor = wo.phase==="BASE"?C.a3:wo.phase==="BUILD"?C.a6:wo.phase==="PEAK"?C.a2:C.a5;
-
-  return (
-    <>
-      <div style={{...card, marginBottom:10}}>
-        <div style={{padding:"11px 13px", borderBottom:`1px solid ${C.bd}`, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
-          <div style={{flex:1}}>
-            <div style={{...IMP, fontSize:16, fontWeight:900, color:C.acc}}>HYBRID — {wo.title}</div>
-            <div style={{fontSize:10, color:C.mu, marginTop:2}}>HYROX + Strength + KB · Week {week}/{totalWeeks}</div>
-          </div>
-          <div style={{...imp(10, phaseColor), padding:"3px 9px", border:`1px solid ${phaseColor}`, borderRadius:4}}>{wo.phase}</div>
-        </div>
-
-        {dayType==="FULL" && wo.phase!=="BASE" && (
-          <div style={{padding:"9px 13px", borderBottom:`1px solid ${C.bd}`, background:"rgba(232,255,71,.05)"}}>
-            <div style={{...imp(10, C.acc), marginBottom:6}}>RACE/SIM TIME</div>
-            <input value={raceTime} onChange={e=>setRaceTime(e.target.value)} placeholder="e.g. 1:24:35 or AMRAP score" style={{...inp, width:"100%", fontSize:13, ...IMP, fontWeight:700, letterSpacing:2}}/>
-            <div style={{fontSize:10, color:C.mu, marginTop:5}}>HYROX targets: Open M sub-1:25 / Open W sub-1:35 / Pro sub-1:00 (M) / sub-1:10 (W)</div>
-          </div>
-        )}
-
-        {wo.blocks.map((block, bi) => (
-          <div key={bi} style={{borderTop: bi>0 ? `1px solid ${C.bd}`:"none", padding:"10px 13px"}}>
-            <div style={{...imp(10, C.acc), marginBottom:8}}>{block.label}</div>
-            {block.items.map((item, ii) => {
-              const numSets = parseInt(item.sets) || 0;
-              const prev = numSets > 0 ? getPrevLog(sessions, item.name, sk) : null;
-              return (
-                <div key={ii} style={{padding:"7px 0", borderTop: ii>0 ? `1px solid rgba(255,255,255,.04)`:"none"}}>
-                  <div style={{display:"flex", alignItems:"flex-start", gap:9}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13, fontWeight:600}}>{item.name}</div>
-                      <div style={{fontSize:11, color:C.mu2, marginTop:2}}>
-                        {item.sets!=="-" && <strong style={{color:C.tx}}>{item.sets} × {item.reps}</strong>}
-                        {item.sets==="-" && <strong style={{color:C.tx}}>{item.reps}</strong>}
-                        {item.note && <><br/><span style={{fontSize:10, fontStyle:"italic", color:C.mu}}>{item.note}</span></>}
-                      </div>
-                    </div>
-                    <button onClick={()=>coachMsg(`Swap "${item.name}" in my HYROX Hybrid week ${week} ${dayType} workout. Phase: ${wo.phase}. Give 3 alternatives that match my equipment.`)} style={{...hbtn, fontSize:9, padding:"2px 7px", flexShrink:0}}>SWAP</button>
-                  </div>
-                  {prev && prev.weight && (
-                    <div style={{display:"flex", alignItems:"center", gap:8, padding:"4px 8px", background:"rgba(232,255,71,.06)", border:"1px solid rgba(232,255,71,.18)", borderRadius:4, margin:"5px 0"}}>
-                      <div style={{...IMP, fontSize:13, fontWeight:900, color:C.acc, flexShrink:0}}>→ {prev.weight}</div>
-                      <div style={{fontSize:9, color:C.mu, lineHeight:1.4, flex:1}}>Last: {prev.weight}lbs × {prev.reps}reps</div>
-                    </div>
-                  )}
-                  {numSets > 0 && (
-                    <div style={{marginTop:6, display:"flex", flexDirection:"column", gap:4}}>
-                      {Array.from({length:numSets},(_,i)=>{
-                        const k = `${item.name}__${i}`; const lg = setLogs[k] || {};
-                        return (
-                          <div key={i} style={{display:"flex", gap:6, alignItems:"center"}}>
-                            <div style={{width:30, height:26, background:lg.done?C.acc:C.s3, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", ...IMP, fontSize:11, fontWeight:900, color:lg.done?"#000":C.mu, border:`1px solid ${lg.done?C.acc:C.bd}`, flexShrink:0}}>{i+1}</div>
-                            <input type="number" value={lg.weight||""} onChange={e=>updSet(item.name,i,"weight",e.target.value)} placeholder={prev?.weight?`${prev.weight}`:"lbs/kg"} style={{flex:1, height:26, ...inp, padding:"0 8px", ...IMP, fontWeight:700, fontSize:12, border:`1px solid ${lg.done?"rgba(232,255,71,.4)":C.bd}`}}/>
-                            <input type="text" value={lg.reps||""} onChange={e=>updSet(item.name,i,"reps",e.target.value)} placeholder="reps" style={{width:62, height:26, ...inp, padding:"0 8px", ...IMP, fontWeight:700, fontSize:11, border:`1px solid ${lg.done?"rgba(232,255,71,.4)":C.bd}`}}/>
-                            <button onClick={()=>togSet(item.name,i)} style={{width:26, height:26, borderRadius:4, border:`1px solid ${lg.done?C.acc:C.bd}`, background:lg.done?C.acc:"transparent", color:lg.done?"#000":C.mu, cursor:"pointer", fontSize:11, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>✓</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-
-        <div style={{padding:"10px 13px", borderTop:`1px solid ${C.bd}`, display:"flex", gap:8, flexWrap:"wrap"}}>
-          <button onClick={()=>coachMsg(`Explain HYROX Hybrid phase "${wo.phase}" — what's the focus this week? I'm ${week}/${totalWeeks}.`)} style={hbtn}>EXPLAIN PHASE</button>
-          <button onClick={()=>coachMsg(`KB sizing recommendations for HYROX Hybrid — what weight should I use for swings, snatches, get-ups based on my level?`)} style={hbtn}>KB SIZING</button>
-          <button onClick={()=>coachMsg(`How should I balance heavy lifting with race prep? Am I doing too much volume?`)} style={hbtn}>BALANCE</button>
-        </div>
-      </div>
-
-      <div style={card}>
-        <div style={{padding:"9px 13px", borderBottom:`1px solid ${C.bd}`, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-          <div style={imp(12,C.mu2)}>SESSION LOG</div>
-          {done && <div style={{...imp(10,C.a4), border:`1px solid ${C.a4}`, padding:"2px 8px", borderRadius:3}}>✓ DONE</div>}
-        </div>
-        <div style={{padding:"12px 13px"}}>
-          <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Lifts, KB weights, splits, how it felt..." style={{width:"100%", background:C.s2, border:`1px solid ${C.bd}`, color:C.tx, padding:"8px 10px", borderRadius:4, fontSize:12, resize:"none", minHeight:60, outline:"none", lineHeight:1.6, fontFamily:"inherit"}}/>
-          <label style={{display:"flex", alignItems:"center", gap:6, fontSize:12, color:C.mu2, cursor:"pointer", marginTop:8}}>
-            <input type="checkbox" checked={done} onChange={e=>setDone(e.target.checked)} style={{accentColor:C.acc, width:14, height:14}}/>Mark Complete
-            <span style={{...imp(10,C.mu), marginLeft:8}}>AUTO-SAVED</span>
-          </label>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function RunsView({runs,setRuns,coachMsg}){
-  const [showAdd,setShowAdd]=useState(false);
-  const [filter,setFilter]=useState("all");
-  const localToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};
-  const [form,setForm]=useState({date:localToday(),distance:"",unit:"mi",timeH:"",timeM:"",timeS:"",type:"easy",hr:"",notes:"",elevation:"",route:""});
-
-  const reset=()=>setForm({date:localToday(),distance:"",unit:"mi",timeH:"",timeM:"",timeS:"",type:"easy",hr:"",notes:"",elevation:"",route:""});
-
-  const totalSec=()=>(parseInt(form.timeH)||0)*3600+(parseInt(form.timeM)||0)*60+(parseInt(form.timeS)||0);
-
-  const addRun=()=>{
-    const d=parseFloat(form.distance);const t=totalSec();
-    if(!d||d<=0||!t)return;
-    const distMi=form.unit==="km"?d*0.621371:d;
-    const distKm=form.unit==="km"?d:d*1.60934;
-    const paceSec=t/distMi; // sec per mile
-    const paceKmSec=t/distKm; // sec per km
-    const entry={
-      id:Date.now(),
-      date:form.date,
-      distance:d,
-      unit:form.unit,
-      distMi:Math.round(distMi*100)/100,
-      distKm:Math.round(distKm*100)/100,
-      seconds:t,
-      paceSec:Math.round(paceSec),
-      paceKmSec:Math.round(paceKmSec),
-      type:form.type,
-      hr:parseInt(form.hr)||null,
-      elevation:parseInt(form.elevation)||null,
-      route:form.route||"",
-      notes:form.notes||""
-    };
-    setRuns(r=>[...r,entry]);
-    reset();
-    setShowAdd(false);
-  };
-
-  const fmtTime=(sec)=>{
-    const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.floor(sec%60);
-    return h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${m}:${String(s).padStart(2,"0")}`;
-  };
-
-  const fmtPace=(secPer)=>{
-    if(!secPer||!isFinite(secPer))return "—";
-    const m=Math.floor(secPer/60),s=Math.floor(secPer%60);
-    return `${m}:${String(s).padStart(2,"0")}`;
-  };
-
-  const filtered=filter==="all"?runs:runs.filter(r=>r.type===filter);
-  const sorted=[...filtered].sort((a,b)=>b.date.localeCompare(a.date));
-
-  // Stats
-  const totalMi=runs.reduce((s,r)=>s+r.distMi,0);
-  const totalKm=runs.reduce((s,r)=>s+r.distKm,0);
-  const totalSeconds=runs.reduce((s,r)=>s+r.seconds,0);
-  const totalRuns=runs.length;
-  // This week
-  const today=new Date();today.setHours(0,0,0,0);
-  const weekStart=new Date(today);weekStart.setDate(today.getDate()-((today.getDay()+6)%7));
-  const wkRuns=runs.filter(r=>new Date(r.date+"T00:00:00")>=weekStart);
-  const wkMi=wkRuns.reduce((s,r)=>s+r.distMi,0);
-  // PRs by common distances
-  const findPR=(targetMi,tolerance=0.05)=>{
-    const candidates=runs.filter(r=>Math.abs(r.distMi-targetMi)/targetMi<=tolerance);
-    if(!candidates.length)return null;
-    return candidates.reduce((best,r)=>!best||r.seconds<best.seconds?r:best,null);
-  };
-  const prs=[
-    {name:"1 Mile",mi:1,pr:findPR(1,0.05)},
-    {name:"5K",mi:3.1069,pr:findPR(3.1069,0.05)},
-    {name:"10K",mi:6.2137,pr:findPR(6.2137,0.05)},
-    {name:"Half Marathon",mi:13.1094,pr:findPR(13.1094,0.04)},
-    {name:"Marathon",mi:26.2188,pr:findPR(26.2188,0.04)}
-  ];
-
-  const RUN_TYPES=[
-    {v:"easy",l:"Easy / Z2",col:C.a4},
-    {v:"intervals",l:"Intervals",col:C.a2},
-    {v:"tempo",l:"Tempo",col:C.a6},
-    {v:"long",l:"Long Run",col:C.a3},
-    {v:"race",l:"Race",col:C.a5},
-    {v:"trail",l:"Trail",col:C.a4},
-    {v:"recovery",l:"Recovery",col:C.mu2}
-  ];
-
-  return(
-    <div style={{height:"100%",overflowY:"auto",padding:14}}>
-
-      {/* Stats summary */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:11}}>
-        <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:6,padding:"10px 8px",textAlign:"center"}}>
-          <div style={{...IMP,fontSize:20,color:C.acc}}>{totalRuns}</div>
-          <div style={{fontSize:9,color:C.mu,letterSpacing:1,marginTop:2}}>TOTAL RUNS</div>
-        </div>
-        <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:6,padding:"10px 8px",textAlign:"center"}}>
-          <div style={{...IMP,fontSize:20,color:C.a3}}>{totalMi.toFixed(1)}</div>
-          <div style={{fontSize:9,color:C.mu,letterSpacing:1,marginTop:2}}>TOTAL MILES</div>
-        </div>
-        <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:6,padding:"10px 8px",textAlign:"center"}}>
-          <div style={{...IMP,fontSize:20,color:C.a4}}>{wkMi.toFixed(1)}</div>
-          <div style={{fontSize:9,color:C.mu,letterSpacing:1,marginTop:2}}>THIS WEEK MI</div>
-        </div>
-      </div>
-
-      {/* PRs */}
-      {prs.some(p=>p.pr)&&(
-        <div style={{...card,marginBottom:11}}>
-          <div style={{padding:"9px 13px",borderBottom:`1px solid ${C.bd}`,...imp(11,C.a2)}}>🏆 PERSONAL RECORDS</div>
-          <div style={{padding:"10px 13px",display:"flex",flexDirection:"column",gap:6}}>
-            {prs.filter(p=>p.pr).map(p=>(
-              <div key={p.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:C.s2,borderRadius:5,border:`1px solid ${C.bd}`}}>
-                <div>
-                  <div style={{fontSize:12,fontWeight:600}}>{p.name}</div>
-                  <div style={{fontSize:10,color:C.mu,marginTop:1}}>{new Date(p.pr.date+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{...IMP,fontSize:16,color:C.acc,letterSpacing:1}}>{fmtTime(p.pr.seconds)}</div>
-                  <div style={{fontSize:10,color:C.mu}}>{fmtPace(p.pr.paceSec)}/mi</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Add button */}
-      <button onClick={()=>setShowAdd(s=>!s)} style={{...abtn(),width:"100%",marginBottom:11}}>{showAdd?"CANCEL":"+ LOG NEW RUN"}</button>
-
-      {/* Add run form */}
-      {showAdd&&(
-        <div style={{...card,marginBottom:11,borderTop:`3px solid ${C.acc}`}}>
-          <div style={{padding:"12px 13px"}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:9}}>
-              <div>
-                <label style={lbl9}>Date</label>
-                <input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} style={{...inp,width:"100%"}}/>
-              </div>
-              <div>
-                <label style={lbl9}>Type</label>
-                <select value={form.type} onChange={e=>setForm({...form,type:e.target.value})} style={{...inp,width:"100%"}}>
-                  {RUN_TYPES.map(t=><option key={t.v} value={t.v}>{t.l}</option>)}
-                </select>
-              </div>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:8,marginBottom:9}}>
-              <div>
-                <label style={lbl9}>Distance</label>
-                <input type="number" step="0.01" value={form.distance} onChange={e=>setForm({...form,distance:e.target.value})} placeholder="3.1" style={{...inp,width:"100%"}}/>
-              </div>
-              <div>
-                <label style={lbl9}>Unit</label>
-                <select value={form.unit} onChange={e=>setForm({...form,unit:e.target.value})} style={{...inp,width:"100%"}}>
-                  <option value="mi">Miles</option>
-                  <option value="km">KM</option>
-                </select>
-              </div>
-            </div>
-            <label style={lbl9}>Time</label>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:9}}>
-              <input type="number" value={form.timeH} onChange={e=>setForm({...form,timeH:e.target.value})} placeholder="HR" style={{...inp,textAlign:"center"}}/>
-              <input type="number" value={form.timeM} onChange={e=>setForm({...form,timeM:e.target.value})} placeholder="MIN" style={{...inp,textAlign:"center"}}/>
-              <input type="number" value={form.timeS} onChange={e=>setForm({...form,timeS:e.target.value})} placeholder="SEC" style={{...inp,textAlign:"center"}}/>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:9}}>
-              <div>
-                <label style={lbl9}>Avg HR (opt)</label>
-                <input type="number" value={form.hr} onChange={e=>setForm({...form,hr:e.target.value})} placeholder="bpm" style={{...inp,width:"100%"}}/>
-              </div>
-              <div>
-                <label style={lbl9}>Elevation (ft)</label>
-                <input type="number" value={form.elevation} onChange={e=>setForm({...form,elevation:e.target.value})} placeholder="0" style={{...inp,width:"100%"}}/>
-              </div>
-            </div>
-            <div style={{marginBottom:9}}>
-              <label style={lbl9}>Route (opt)</label>
-              <input value={form.route} onChange={e=>setForm({...form,route:e.target.value})} placeholder="Trinity Trail loop" style={{...inp,width:"100%"}}/>
-            </div>
-            <div style={{marginBottom:11}}>
-              <label style={lbl9}>Notes</label>
-              <textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="How did it feel?" style={{...inp,width:"100%",minHeight:50,resize:"none",fontFamily:"inherit"}}/>
-            </div>
-            <button onClick={addRun} disabled={!form.distance||!totalSec()} style={{...abtn(),width:"100%",opacity:!form.distance||!totalSec()?.4:1}}>SAVE RUN</button>
-          </div>
-        </div>
-      )}
-
-      {/* Filter chips */}
-      {runs.length>0&&(
-        <div style={{display:"flex",gap:5,overflowX:"auto",marginBottom:9,paddingBottom:3}}>
-          <button onClick={()=>setFilter("all")} style={{...hbtn,fontSize:10,padding:"4px 9px",borderColor:filter==="all"?C.acc:C.bd,color:filter==="all"?C.acc:C.mu}}>ALL</button>
-          {RUN_TYPES.map(t=>{
-            const count=runs.filter(r=>r.type===t.v).length;
-            if(!count)return null;
-            return(<button key={t.v} onClick={()=>setFilter(t.v)} style={{...hbtn,fontSize:10,padding:"4px 9px",borderColor:filter===t.v?t.col:C.bd,color:filter===t.v?t.col:C.mu,whiteSpace:"nowrap"}}>{t.l.toUpperCase()} ({count})</button>);
-          })}
-        </div>
-      )}
-
-      {/* Run history */}
-      {runs.length===0?(
-        <div style={{textAlign:"center",padding:30,color:C.mu,fontSize:12}}>
-          <div style={{fontSize:32,marginBottom:8}}>🏃</div>
-          No runs logged yet. Tap LOG NEW RUN to start tracking.
-        </div>
-      ):sorted.length===0?(
-        <div style={{textAlign:"center",padding:18,color:C.mu,fontSize:12}}>No runs match this filter.</div>
-      ):(
-        <div style={{display:"flex",flexDirection:"column",gap:5}}>
-          {sorted.map(r=>{
-            const rt=RUN_TYPES.find(t=>t.v===r.type)||RUN_TYPES[0];
-            return(
-              <div key={r.id} style={{...card,padding:"10px 12px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
-                      <span style={{...IMP,fontSize:10,padding:"2px 7px",borderRadius:3,background:`${rt.col}20`,color:rt.col,letterSpacing:1}}>{rt.l.toUpperCase()}</span>
-                      <span style={{fontSize:10,color:C.mu}}>{new Date(r.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
-                    </div>
-                    <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:3}}>
-                      <div><span style={{...IMP,fontSize:18,color:C.acc}}>{r.distance}</span> <span style={{fontSize:11,color:C.mu}}>{r.unit}</span></div>
-                      <div><span style={{...IMP,fontSize:14,color:C.tx}}>{fmtTime(r.seconds)}</span></div>
-                      <div><span style={{...IMP,fontSize:13,color:C.a3}}>{fmtPace(r.paceSec)}</span><span style={{fontSize:10,color:C.mu}}>/mi</span></div>
-                    </div>
-                    {(r.hr||r.elevation||r.route)&&(
-                      <div style={{display:"flex",gap:9,fontSize:10,color:C.mu,flexWrap:"wrap",marginTop:3}}>
-                        {r.hr&&<span>❤️ {r.hr} bpm</span>}
-                        {r.elevation&&<span>⛰️ {r.elevation} ft</span>}
-                        {r.route&&<span style={{fontStyle:"italic"}}>📍 {r.route}</span>}
-                      </div>
-                    )}
-                    {r.notes&&<div style={{fontSize:11,color:C.mu2,marginTop:5,lineHeight:1.4}}>{r.notes}</div>}
-                  </div>
-                  <button onClick={()=>{if(confirm("Delete this run?"))setRuns(rl=>rl.filter(x=>x.id!==r.id));}} style={{background:"transparent",border:"none",color:C.mu,cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>×</button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ProgramSummary({profile,wlog,sessions,runs,onAcknowledge,onStartNew}){
-  const startWeight=parseFloat(profile.weight);
-  const endWeight=wlog.length?wlog[wlog.length-1].weight:startWeight;
-  const weightChange=(endWeight-startWeight).toFixed(1);
-  const targetReached=profile.targetWeight?Math.abs(endWeight-parseFloat(profile.targetWeight))<2:false;
-
-  // Find lifting PRs (heaviest weight × reps for each unique exercise across all sessions)
-  const liftPRs={};
-  Object.values(sessions||{}).forEach(s=>{
-    if(!s.setLogs)return;
-    Object.entries(s.setLogs).forEach(([k,v])=>{
-      if(!v.weight||!v.reps)return;
-      const exName=k.split("__")[0];
-      const w=parseFloat(v.weight);const r=parseInt(v.reps);
-      if(!w||!r)return;
-      // Estimated 1RM (Brzycki formula)
-      const e1rm=r===1?w:w*(36/(37-Math.min(r,15)));
-      const existing=liftPRs[exName];
-      if(!existing||e1rm>existing.e1rm){
-        liftPRs[exName]={weight:w,reps:r,e1rm:Math.round(e1rm),date:s.savedAt||""};
-      }
-    });
-  });
-  const topLifts=Object.entries(liftPRs).sort((a,b)=>b[1].e1rm-a[1].e1rm).slice(0,8);
-
-  // Session completion stats
-  const totalSessions=Object.values(sessions||{}).length;
-  const completed=Object.values(sessions||{}).filter(s=>s.done).length;
-  const skipped=Object.values(sessions||{}).filter(s=>s.skipped).length;
-  const completionRate=totalSessions?Math.round((completed/totalSessions)*100):0;
-
-  // Run stats
-  const runStats={
-    total:runs?.length||0,
-    miles:(runs||[]).reduce((s,r)=>s+(r.distMi||0),0),
-    longestRun:(runs||[]).reduce((b,r)=>!b||r.distMi>b.distMi?r:b,null),
-    fastestPace:(runs||[]).reduce((b,r)=>!b||r.paceSec<b.paceSec?r:b,null)
-  };
-
-  const fmtTime=(sec)=>{
-    if(!sec)return "—";
-    const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.floor(sec%60);
-    return h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${m}:${String(s).padStart(2,"0")}`;
-  };
-
-  return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.95)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:14,overflow:"auto"}}>
-      <div style={{background:C.s1,border:`2px solid ${C.acc}`,borderRadius:10,padding:0,width:"100%",maxWidth:460,maxHeight:"94vh",overflowY:"auto",boxShadow:`0 0 40px ${C.acc}30`}}>
-
-        {/* Header */}
-        <div style={{padding:"22px 18px",textAlign:"center",borderBottom:`1px solid ${C.bd}`,background:`linear-gradient(135deg,${C.acc}15 0%,transparent 100%)`}}>
-          <div style={{fontSize:38,marginBottom:6}}>🏆</div>
-          <div style={{...IMP,fontSize:22,fontWeight:900,letterSpacing:3,color:C.acc,marginBottom:3}}>PROGRAM COMPLETE</div>
-          <div style={{fontSize:12,color:C.mu}}>{profile.weeks}-Week {({rp_hypertrophy:"RP Hypertrophy",hyrox_hybrid:"HYROX Hybrid",functional_bb:"Functional Bodybuilding",traditional_bb:"Traditional Bodybuilding",crossfit:"CrossFit",hyrox:"HYROX",powerlifting:"Powerlifting",athletic:"Athletic Performance",hiit:"HIIT / Circuit"})[profile.workoutStyle]||profile.workoutStyle}</div>
-        </div>
-
-        {/* Body weight */}
-        <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.bd}`}}>
-          <div style={{...imp(10,C.a3),marginBottom:10}}>BODY WEIGHT</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:8,alignItems:"center",textAlign:"center"}}>
-            <div>
-              <div style={{fontSize:9,color:C.mu,letterSpacing:1,marginBottom:3}}>START</div>
-              <div style={{...IMP,fontSize:24,color:C.tx}}>{startWeight}</div>
-              <div style={{fontSize:9,color:C.mu}}>lbs</div>
-            </div>
-            <div style={{...IMP,fontSize:18,color:C.mu}}>→</div>
-            <div>
-              <div style={{fontSize:9,color:C.mu,letterSpacing:1,marginBottom:3}}>FINISH</div>
-              <div style={{...IMP,fontSize:24,color:C.acc}}>{endWeight}</div>
-              <div style={{fontSize:9,color:C.mu}}>lbs</div>
-            </div>
-          </div>
-          <div style={{marginTop:11,padding:"8px 10px",background:weightChange<0?"rgba(74,222,128,.1)":weightChange>0?"rgba(96,165,250,.1)":C.s2,border:`1px solid ${weightChange<0?C.a4:weightChange>0?C.a3:C.bd}`,borderRadius:5,textAlign:"center"}}>
-            <span style={{...IMP,fontSize:14,color:weightChange<0?C.a4:weightChange>0?C.a3:C.tx,letterSpacing:1}}>{weightChange>=0?"+":""}{weightChange} LBS</span>
-            {profile.targetWeight&&<span style={{fontSize:10,color:C.mu,marginLeft:8}}>target: {profile.targetWeight} lbs {targetReached?"✓ REACHED":""}</span>}
-          </div>
-        </div>
-
-        {/* Workout completion */}
-        <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.bd}`}}>
-          <div style={{...imp(10,C.a4),marginBottom:10}}>WORKOUT CONSISTENCY</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7}}>
-            <div style={{textAlign:"center",padding:"8px 4px",background:C.s2,borderRadius:5,border:`1px solid ${C.bd}`}}>
-              <div style={{...IMP,fontSize:20,color:C.a4}}>{completed}</div>
-              <div style={{fontSize:9,color:C.mu,letterSpacing:1,marginTop:2}}>COMPLETED</div>
-            </div>
-            <div style={{textAlign:"center",padding:"8px 4px",background:C.s2,borderRadius:5,border:`1px solid ${C.bd}`}}>
-              <div style={{...IMP,fontSize:20,color:"#f87171"}}>{skipped}</div>
-              <div style={{fontSize:9,color:C.mu,letterSpacing:1,marginTop:2}}>SKIPPED</div>
-            </div>
-            <div style={{textAlign:"center",padding:"8px 4px",background:C.s2,borderRadius:5,border:`1px solid ${C.bd}`}}>
-              <div style={{...IMP,fontSize:20,color:C.acc}}>{completionRate}%</div>
-              <div style={{fontSize:9,color:C.mu,letterSpacing:1,marginTop:2}}>RATE</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Lifting PRs */}
-        {topLifts.length>0&&(
-          <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.bd}`}}>
-            <div style={{...imp(10,C.a2),marginBottom:10}}>🏋️ LIFTING PRS (EST. 1RM)</div>
-            <div style={{display:"flex",flexDirection:"column",gap:5}}>
-              {topLifts.map(([name,pr])=>(
-                <div key={name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:C.s2,borderRadius:5,border:`1px solid ${C.bd}`}}>
-                  <div style={{flex:1,fontSize:12,fontWeight:600}}>{name}</div>
-                  <div style={{textAlign:"right"}}>
-                    <div style={{...IMP,fontSize:14,color:C.acc}}>{pr.weight} lbs × {pr.reps}</div>
-                    <div style={{fontSize:9,color:C.mu}}>~{pr.e1rm} 1RM</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Run stats */}
-        {runStats.total>0&&(
-          <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.bd}`}}>
-            <div style={{...imp(10,C.a3),marginBottom:10}}>🏃 RUNNING TOTALS</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:7}}>
-              <div style={{padding:"8px 10px",background:C.s2,borderRadius:5,border:`1px solid ${C.bd}`}}>
-                <div style={{fontSize:9,color:C.mu,letterSpacing:1,marginBottom:2}}>TOTAL RUNS</div>
-                <div style={{...IMP,fontSize:18,color:C.acc}}>{runStats.total}</div>
-              </div>
-              <div style={{padding:"8px 10px",background:C.s2,borderRadius:5,border:`1px solid ${C.bd}`}}>
-                <div style={{fontSize:9,color:C.mu,letterSpacing:1,marginBottom:2}}>TOTAL MILES</div>
-                <div style={{...IMP,fontSize:18,color:C.acc}}>{runStats.miles.toFixed(1)}</div>
-              </div>
-              {runStats.longestRun&&(
-                <div style={{padding:"8px 10px",background:C.s2,borderRadius:5,border:`1px solid ${C.bd}`}}>
-                  <div style={{fontSize:9,color:C.mu,letterSpacing:1,marginBottom:2}}>LONGEST</div>
-                  <div style={{...IMP,fontSize:14,color:C.tx}}>{runStats.longestRun.distMi.toFixed(2)} mi</div>
-                  <div style={{fontSize:9,color:C.mu}}>{fmtTime(runStats.longestRun.seconds)}</div>
-                </div>
-              )}
-              {runStats.fastestPace&&(
-                <div style={{padding:"8px 10px",background:C.s2,borderRadius:5,border:`1px solid ${C.bd}`}}>
-                  <div style={{fontSize:9,color:C.mu,letterSpacing:1,marginBottom:2}}>FASTEST PACE</div>
-                  <div style={{...IMP,fontSize:14,color:C.tx}}>{Math.floor(runStats.fastestPace.paceSec/60)}:{String(runStats.fastestPace.paceSec%60).padStart(2,"0")}/mi</div>
-                  <div style={{fontSize:9,color:C.mu}}>{runStats.fastestPace.distMi.toFixed(2)} mi run</div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Action buttons */}
-        <div style={{padding:"14px 18px",display:"flex",flexDirection:"column",gap:8}}>
-          <button onClick={onStartNew} style={{...abtn(),padding:"11px"}}>START NEW PROGRAM</button>
-          <button onClick={onAcknowledge} style={{...abtn("transparent"),border:`1px solid ${C.bd}`,color:C.tx,padding:"9px"}}>VIEW DETAILS LATER</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CardioDay({week,phase,goal,coachMsg,sessions,setSessions,sk}){
-  const saved=sessions[sk]||{};
-  const [notes,setNotes]=useState(saved.notes||"");
-  const [done,setDone]=useState(saved.done||false);
-  const go=useRef(false);
-  useEffect(()=>{go.current=false;const s=sessions[sk]||{};setNotes(s.notes||"");setDone(s.done||false);},[sk]);
-  useEffect(()=>{
-    if(!go.current){go.current=true;return;}
-    setSessions(prev=>({...prev,[sk]:{...(prev[sk]||{}),notes,done,savedAt:new Date().toISOString()}}));
-  },[notes,done]);
-  const w=parseInt(week),c=goal==="fat_loss",pf=goal==="performance";
-  let method,dur,intens,proto;
-  if(c){if(w<=3){method="Zone 2 Steady State";dur="35 min";intens="65-70% max HR";proto="35 min continuous: assault bike, rower, or incline walk. HR 130-140 bpm. Conversational pace — never breathless.";}else if(w<=6){method="Zone 2 + HIIT";dur="40 min";intens="Zone 2 + 85-90% HR sprints";proto="25 min Zone 2, then 8 rounds: 20s all-out sprint / 40s easy recovery.";}else if(w<=9){method="HIIT + Cool-Down";dur="45 min";intens="90%+ HR peaks";proto="10 rounds: 30s max effort / 90s walk. Finish with 15 min Zone 2 cool-down.";}else{method="Zone 2 Deload";dur="30 min";intens="60-65% max HR";proto="30 min easy Zone 2 only. Deload — flush and recover.";}}else if(pf){if(w<=3){method="Aerobic Base";dur="30 min";intens="70% max HR";proto="30 min continuous row or bike at 70% HR.";}else if(w<=6){method="Tempo Intervals";dur="35 min";intens="80-85% HR";proto="5 min warm-up, 4×5 min at 80-85% HR, 2 min easy between, 5 min cool-down.";}else if(w<=9){method="VO2 Max Intervals";dur="40 min";intens="90-95% HR peaks";proto="6×3 min at 90-95% HR with 3 min recovery.";}else{method="Recovery Cardio";dur="25 min";intens="60% max HR";proto="25 min easy. Deload — keep HR low.";}}else{if(w<=3){method="Low-Impact Zone 2";dur="25 min";intens="60-65% max HR";proto="25 min incline walk or easy bike. HR 120-130.";}else if(w<=6){method="Moderate Zone 2";dur="30 min";intens="65-70% max HR";proto="30 min row or bike. Steady aerobic. Don't interfere with muscle recovery.";}else if(w<=9){method="Zone 2 + Intervals";dur="30 min";intens="Zone 2 + 85% peaks";proto="20 min Zone 2, then 4×30s sprints with 2 min easy.";}else{method="Recovery Cardio";dur="20 min";intens="55-60% max HR";proto="20 min easy walk or light bike.";}}
-  return(<>
-    <div style={{...card,marginBottom:10}}>
-      <div style={{padding:"11px 13px",borderBottom:`1px solid ${C.bd}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div style={{...IMP,fontSize:16,fontWeight:900,color:C.a6}}>WED — CARDIO</div>
-        <div style={{...imp(10,C.a6),padding:"3px 9px",border:`1px solid ${C.a6}`,borderRadius:4}}>{goal.replace("_"," ").toUpperCase()}</div>
-      </div>
-      <div style={{padding:"8px 13px",borderBottom:`1px solid ${C.bd}`,display:"flex",gap:14,fontSize:11,color:C.mu2,flexWrap:"wrap"}}>
-        <span><strong style={{color:C.tx}}>Method:</strong> {method}</span>
-        <span><strong style={{color:C.tx}}>Duration:</strong> {dur}</span>
-        <span><strong style={{color:C.tx}}>Intensity:</strong> <span style={{color:C.a6}}>{intens}</span></span>
-      </div>
-      <div style={{padding:"12px 13px",borderBottom:`1px solid ${C.bd}`}}>
-        <div style={{background:C.s2,border:`1px solid ${C.bd}`,borderRadius:6,padding:"12px 14px"}}>
-          <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>{method}</div>
-          <div style={{fontSize:12,color:C.mu2,lineHeight:1.7}}>{proto}</div>
-          <div style={{marginTop:10,display:"flex",gap:8,flexWrap:"wrap"}}>
-            <div style={{background:C.s3,border:`1px solid ${C.bd}`,borderRadius:4,padding:"4px 10px",fontSize:11}}><span style={{...imp(9,C.mu)}}>Duration </span><span style={{...imp(11,C.a6)}}>{dur}</span></div>
-            <div style={{background:C.s3,border:`1px solid ${C.bd}`,borderRadius:4,padding:"4px 10px",fontSize:11}}><span style={{...imp(9,C.mu)}}>Intensity </span><span style={{...imp(11,C.a6)}}>{intens.split(" — ")[0]}</span></div>
-          </div>
-        </div>
-      </div>
-      <div style={{padding:"10px 13px",display:"flex",gap:8}}>
-        <button onClick={()=>coachMsg(`Cardio plan for Week ${w}, ${goal.replace("_"," ")} goal. Equipment: assault bike, rower, treadmill.`)} style={hbtn}>CUSTOMIZE</button>
-        <button onClick={()=>coachMsg("What are my cardio heart rate zones?")} style={hbtn}>HR ZONES</button>
-      </div>
-    </div>
-    <div style={card}>
-      <div style={{padding:"9px 13px",borderBottom:`1px solid ${C.bd}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={imp(12,C.mu2)}>SESSION LOG</div>
-        {done&&<div style={{...imp(10,C.a4),border:`1px solid ${C.a4}`,padding:"2px 8px",borderRadius:3}}>✓ DONE</div>}
-      </div>
-      <div style={{padding:"12px 13px"}}>
-        <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Duration, avg HR, how it felt..." style={{width:"100%",background:C.s2,border:`1px solid ${C.bd}`,color:C.tx,padding:"8px 10px",borderRadius:4,fontSize:12,resize:"none",minHeight:60,outline:"none",lineHeight:1.6,fontFamily:"inherit"}}/>
-        <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.mu2,cursor:"pointer",marginTop:8}}>
-          <input type="checkbox" checked={done} onChange={e=>setDone(e.target.checked)} style={{accentColor:C.acc,width:14,height:14}}/>Mark Complete
-          <span style={{...imp(10,C.mu),marginLeft:8}}>AUTO-SAVED</span>
-        </label>
-      </div>
-    </div>
-  </>);
-}
-
-// Find the most recent logged set data for a given exercise across all sessions
-function getPrevLog(sessions, exName, currentSk) {
-  // Find all session keys that have data for this exercise, excluding current session
-  const entries = Object.entries(sessions)
-    .filter(([sk, s]) => sk !== currentSk && s.setLogs)
-    .filter(([sk, s]) => Object.keys(s.setLogs).some(k => k.startsWith(exName + "__")))
-    .sort((a, b) => {
-      // Sort by savedAt descending to get most recent
-      const ta = a[1].savedAt || "0";
-      const tb = b[1].savedAt || "0";
-      return tb.localeCompare(ta);
-    });
-  if (!entries.length) return null;
-  const [prevSk, prevSess] = entries[0];
-  // Gather all sets for this exercise from that session
-  const sets = Object.entries(prevSess.setLogs)
-    .filter(([k]) => k.startsWith(exName + "__"))
-    .map(([k, v]) => ({ idx: parseInt(k.split("__")[1]), ...v }))
-    .sort((a, b) => a.idx - b.idx);
-  if (!sets.length) return null;
-  // Return average weight and reps from completed sets, or all sets if none marked done
-  const completed = sets.filter(s => s.done && s.weight);
-  const useSets = completed.length ? completed : sets.filter(s => s.weight);
-  if (!useSets.length) return null;
-  const avgW = useSets.reduce((sum, s) => sum + parseFloat(s.weight || 0), 0) / useSets.length;
-  const avgR = useSets.reduce((sum, s) => sum + parseFloat(s.reps || 0), 0) / useSets.length;
-  const maxR = Math.max(...useSets.map(s => parseFloat(s.reps || 0)));
-  const minR = Math.min(...useSets.filter(s => s.reps).map(s => parseFloat(s.reps || 0)));
-  // Pull feedback from that session for the muscle (RP only)
-  const feedback = prevSess.feedback || null;
-  return {
-    weight: Math.round(avgW * 10) / 10,
-    reps: Math.round(avgR),
-    maxReps: maxR,
-    minReps: isFinite(minR) ? minR : maxR,
-    setCount: useSets.length,
-    completedAll: useSets.length === sets.length && sets.every(s => s.done),
-    sessionKey: prevSk,
-    feedback
-  };
-}
-
-// Parse a rep range like "8-12" or "12-15" into {min, max}
-function parseRepRange(range) {
-  if (!range) return { min: 8, max: 12 };
-  const m = String(range).match(/(\d+)\s*[-–]\s*(\d+)/);
-  if (m) return { min: parseInt(m[1]), max: parseInt(m[2]) };
-  const single = parseInt(range);
-  return isFinite(single) ? { min: single, max: single } : { min: 8, max: 12 };
-}
-
-// Smart autoregulation — adjusts weight based on actual performance vs rep target
-// Returns {weight, note, indicator} where indicator is "up"|"hold"|"down"|"deload"
-function getSuggestedWeight(prevLog, phase, goal, repRangeStr, isRP, muscle) {
-  if (!prevLog || !prevLog.weight) return null;
-  const w = prevLog.weight;
-  const phaseStr = typeof phase === "string" ? phase : (phase?.ph || phase?.type || "");
-
-  // Deload — always drop to 60%, no autoregulation needed
-  if (phaseStr === "DELOAD") {
-    return { weight: Math.round(w * 0.6 * 2) / 2, note: `Deload — 60% of ${w} lbs`, indicator: "deload" };
+  // Powerlifting
+  if (style === 'powerlifting') {
+    if (PL_EXERCISES[t]) {
+      return {
+        exercises: PL_EXERCISES[t],
+        finisher: null,
+      };
+    }
+    if (t === 'CARDIO') {
+      const c = cardioProtocol('performance', week, totalWeeks);
+      return { exercises: [{ name: c.name, sets: '1', reps: c.desc, tempo: '-', note: '' }], finisher: null };
+    }
   }
 
-  // Parse the target rep range for this week
-  const range = parseRepRange(repRangeStr);
-  const targetMin = range.min;
-  const targetMax = range.max;
-  const lastMaxReps = prevLog.maxReps || prevLog.reps;
-  const lastMinReps = prevLog.minReps || prevLog.reps;
-  const lastAvgReps = prevLog.reps;
+  // CrossFit
+  if (style === 'crossfit') {
+    const wodMap = {
+      WOD: [
+        { name: 'CrossFit WOD', sets: '1', reps: 'AMRAP 20: 5 pull-ups, 10 push-ups, 15 air squats', tempo: '-', note: 'Cindy benchmark' },
+      ],
+      STRENGTH: [
+        { name: 'Back Squat', sets: '5', reps: '5', tempo: '20X1', note: 'Heavy primary' },
+        { name: 'Bench Press', sets: '5', reps: '5', tempo: '20X1', note: 'Heavy secondary' },
+        { name: 'Strength WOD', sets: '1', reps: '10 min EMOM: 3 deadlifts (heavy)', tempo: '-', note: 'Build strength' },
+      ],
+      OLY: [
+        { name: 'Snatch', sets: '6', reps: '2', tempo: '-', note: 'Build to working set' },
+        { name: 'Clean & Jerk', sets: '6', reps: '2', tempo: '-', note: 'Build to working set' },
+        { name: 'Front Squat', sets: '4', reps: '5', tempo: '20X1', note: 'Olympic accessory' },
+      ],
+      GYMNASTICS: [
+        { name: 'Pull-Ups', sets: '5', reps: 'max strict', tempo: '-', note: 'Build to muscle-up' },
+        { name: 'Handstand Push-Up', sets: '5', reps: '5', tempo: '-', note: 'Wall-supported' },
+        { name: 'Toes-to-Bar', sets: '5', reps: '10', tempo: '-', note: 'Kipping or strict' },
+        { name: 'Ring Dips', sets: '4', reps: '8', tempo: '-', note: 'Strict if possible' },
+      ],
+    };
+    if (wodMap[t]) {
+      return { exercises: wodMap[t], finisher: t === 'STRENGTH' ? null : conditioningFinisher(week, totalWeeks) };
+    }
+  }
+
+  // Athletic
+  if (style === 'athletic') {
+    const athMap = {
+      SPEED: [
+        { name: 'A-Skips', sets: '4', reps: '20m', tempo: '-', note: 'Knee drive, posture' },
+        { name: 'Sprint', sets: '6', reps: '40m', tempo: '-', note: 'Full recovery between' },
+        { name: 'Lateral Bound', sets: '4', reps: '6/side', tempo: '-', note: 'Stick the landing' },
+        { name: 'Box Jump', sets: '4', reps: '5', tempo: '-', note: 'Step down, full reset' },
+      ],
+      POWER: [
+        { name: 'Power Clean', sets: '5', reps: '3', tempo: '-', note: 'Explosive triple ext.' },
+        { name: 'Box Jump', sets: '5', reps: '5', tempo: '-', note: 'Land soft' },
+        { name: 'Med Ball Slam', sets: '4', reps: '8', tempo: '-', note: 'Full force' },
+        { name: 'Broad Jump', sets: '4', reps: '5', tempo: '-', note: 'Stick landing' },
+      ],
+      STRENGTH: [
+        { name: 'Back Squat', sets: '5', reps: '5', tempo: '20X1', note: 'Heavy primary' },
+        { name: 'Bench Press', sets: '4', reps: '6-8', tempo: '20X1', note: 'Upper body' },
+        { name: 'Trap Bar DL', sets: '4', reps: '5', tempo: '20X1', note: 'Posterior chain' },
+        { name: 'Pull-Up', sets: '4', reps: '6-10', tempo: '20X1', note: 'Pulling strength' },
+      ],
+      CONDITIONING: [
+        { name: 'Sled Push', sets: '6', reps: '20m heavy', tempo: '-', note: 'Drive through legs' },
+        { name: 'Battle Ropes', sets: '5', reps: '30s on/30s off', tempo: '-', note: 'Aggressive' },
+        { name: 'Run Intervals', sets: '1', reps: '6×400m at 5K pace', tempo: '-', note: '90s rest' },
+      ],
+    };
+    if (athMap[t]) return { exercises: athMap[t], finisher: t === 'CONDITIONING' ? null : conditioningFinisher(week, totalWeeks) };
+    if (t === 'CARDIO') {
+      const c = cardioProtocol('performance', week, totalWeeks);
+      return { exercises: [{ name: c.name, sets: '1', reps: c.desc, tempo: '-', note: '' }], finisher: null };
+    }
+  }
+
+  // HIIT
+  if (style === 'hiit') {
+    const hiitMap = {
+      HIIT: [
+        { name: 'HIIT Circuit', sets: '5', reps: '40s on / 20s off', tempo: '-', note: 'Burpees / KB swings / Jump squats / Mountain climbers' },
+      ],
+      STRENGTH: [
+        { name: 'Goblet Squat', sets: '3', reps: '12', tempo: '20X1', note: 'Form first' },
+        { name: 'Push-Up', sets: '3', reps: 'AMRAP', tempo: '20X1', note: 'Quality reps' },
+        { name: 'Bent-Over Row', sets: '3', reps: '10', tempo: '20X1', note: 'Squeeze scaps' },
+        { name: 'Plank', sets: '3', reps: '45s', tempo: '-', note: 'Brace' },
+      ],
+      FULL: AB_EXERCISES.FULL[isAWeek(week) ? 'A' : 'B'],
+    };
+    if (hiitMap[t]) return { exercises: hiitMap[t], finisher: t === 'HIIT' ? null : conditioningFinisher(week, totalWeeks) };
+  }
+
+  // Traditional BB — body part split (no A/B)
+  if (style === 'trad_bb') {
+    if (TRADBB_EXERCISES[t]) {
+      return { exercises: TRADBB_EXERCISES[t], finisher: null };
+    }
+    if (t === 'LEGS') {
+      return { exercises: AB_EXERCISES.LEGS[isAWeek(week) ? 'A' : 'B'], finisher: null, variant: isAWeek(week) ? 'A' : 'B' };
+    }
+    // PUSH/PULL fallback to AB
+    if (AB_EXERCISES[t]) {
+      const variant = isAWeek(week) ? 'A' : 'B';
+      return { exercises: AB_EXERCISES[t][variant], finisher: null, variant };
+    }
+    if (t === 'CARDIO') {
+      const c = cardioProtocol('fatloss', week, totalWeeks);
+      return { exercises: [{ name: c.name, sets: '1', reps: c.desc, tempo: '-', note: '' }], finisher: null };
+    }
+  }
+
+  // Functional BB and default — A/B variation
+  if (AB_EXERCISES[t]) {
+    const variant = isAWeek(week) ? 'A' : 'B';
+    const exes = AB_EXERCISES[t][variant];
+    // Mark supersets for func_bb (A1/A2 = ex 0+1, B1/B2 = ex 2+3, C1/C2 = ex 4+5)
+    if (style === 'func_bb') {
+      const tagged = exes.map((e, i) => {
+        let label = '';
+        if (i === 0) label = 'A1';
+        else if (i === 1) label = 'A2';
+        else if (i === 2) label = 'B1';
+        else if (i === 3) label = 'B2';
+        else if (i === 4) label = 'C1';
+        else if (i === 5) label = 'C2';
+        return { ...e, ssLabel: label };
+      });
+      return { exercises: tagged, finisher: conditioningFinisher(week, totalWeeks), variant, isSuperset: true };
+    }
+    return { exercises: exes, finisher: conditioningFinisher(week, totalWeeks), variant };
+  }
+
+  if (t === 'CARDIO') {
+    const c = cardioProtocol('recomp', week, totalWeeks);
+    return { exercises: [{ name: c.name, sets: '1', reps: c.desc, tempo: '-', note: '' }], finisher: null };
+  }
+
+  return { exercises: [], finisher: null };
+};
+
+// ============================================================
+// SCHEDULE / DAY RESOLUTION
+// ============================================================
+const getDayIdx = (iso) => {
+  const d = isoToDate(iso);
+  const jsDay = d.getDay(); // 0=Sun
+  return jsDay === 0 ? 6 : jsDay - 1; // 0=Mon ... 6=Sun
+};
+
+// Get the Monday of the week containing this date (as ISO)
+const getWeekStartISO = (iso) => {
+  const d = isoToDate(iso);
+  const offset = getDayIdx(iso);
+  d.setDate(d.getDate() - offset);
+  return dateToISO(d);
+};
+
+// Compute week number relative to program start
+const getProgramWeek = (iso, startISO, totalWeeks) => {
+  if (!startISO) return 1;
+  const start = isoToDate(startISO);
+  const d = isoToDate(iso);
+  const diff = Math.floor((d - start) / 86400000);
+  const wk = Math.floor(diff / 7) + 1;
+  return Math.max(1, Math.min(wk, totalWeeks));
+};
+
+const getDayTypeForDate = (profile, iso) => {
+  // Check overrides
+  const programWeek = getProgramWeek(iso, profile.startDate, profile.weeks);
+  const overrides = profile.weekOverrides && profile.weekOverrides[`w${programWeek}`];
+  const dayIdx = getDayIdx(iso);
+  if (overrides && overrides[dayIdx]) {
+    return { type: overrides[dayIdx], overridden: true };
+  }
+  // Default schedule
+  if (profile.schedule && profile.schedule[dayIdx]) {
+    return { type: profile.schedule[dayIdx], overridden: false };
+  }
+  return { type: 'REST', overridden: false };
+};
+
+// Validate schedule against allowed types for a style
+const validateSchedule = (schedule, style) => {
+  const allowed = DAY_TYPES_BY_STYLE[style] || DAY_TYPES_BY_STYLE.func_bb;
+  return schedule.every((d) => allowed.includes(d));
+};
+
+const defaultScheduleForStyle = (style) => {
+  const presets = SPLIT_PRESETS[style];
+  if (presets && presets.length) return [...presets[0].days];
+  return ['REST', 'REST', 'REST', 'REST', 'REST', 'REST', 'REST'];
+};
+
+// ============================================================
+// SESSION KEY HELPERS
+// ============================================================
+const sessionKey = (iso) => `s_${iso}`;
+const setKey = (exName, setIdx) => `${exName}__${setIdx}`;
+
+// Find previous logged session for an exercise (across ALL sessions, excludes current date)
+const findPreviousLog = (sessions, exName, currentISO) => {
+  const all = Object.entries(sessions || {})
+    .filter(([k, s]) => s && s.iso !== currentISO && s.setLogs)
+    .sort((a, b) => (a[1].iso < b[1].iso ? 1 : -1)); // newest first
+  for (const [k, s] of all) {
+    const matching = Object.entries(s.setLogs)
+      .filter(([sk, sv]) => sk.startsWith(`${exName}__`) && sv && sv.weight && sv.reps)
+      .map(([sk, sv]) => ({ ...sv, idx: parseInt(sk.split('__')[1] || '0', 10) }));
+    if (matching.length > 0) {
+      const weights = matching.map((m) => +m.weight).filter(Boolean);
+      const reps = matching.map((m) => +m.reps).filter(Boolean);
+      const completedAll = matching.every((m) => m.done);
+      return {
+        date: s.iso,
+        avgWeight: weights.reduce((a, b) => a + b, 0) / weights.length,
+        avgReps: reps.reduce((a, b) => a + b, 0) / reps.length,
+        maxReps: Math.max(...reps),
+        minReps: Math.min(...reps),
+        setCount: matching.length,
+        completedAll,
+      };
+    }
+  }
+  return null;
+};
+
+// ============================================================
+// AUTOREGULATION — smart suggestion engine
+// ============================================================
+const suggestNextSet = (prev, repRange, goal, rpFeedback) => {
+  if (!prev) return { weight: null, arrow: '→', color: TEXT_DIM, note: 'No previous data — start light, find working weight' };
+  const [minR, maxR] = (repRange.match(/\d+/g) || ['8', '12']).slice(0, 2).map(Number);
+  const midR = (minR + maxR) / 2;
+  const goalAggressive = goal === 'muscle';
+  const goalCutting = goal === 'fatloss';
+
+  // RP feedback overrides
+  if (rpFeedback) {
+    const high = (rpFeedback.workload || 0) >= 4 || (rpFeedback.soreness || 0) >= 4;
+    const low = (rpFeedback.workload || 0) <= 1 && (rpFeedback.soreness || 0) <= 1 && (rpFeedback.pump || 0) <= 2;
+    if (high) {
+      return {
+        weight: Math.max(0, prev.avgWeight - 5),
+        arrow: '↓',
+        color: RED,
+        note: `-5 lbs — high workload/soreness · last: ${prev.avgWeight}lbs × ${Math.round(prev.avgReps)}reps`,
+      };
+    }
+    if (low) {
+      return {
+        weight: Math.round((prev.avgWeight + 7.5) * 2) / 2,
+        arrow: '↑',
+        color: GREEN,
+        note: `+7.5 lbs — low fatigue, push harder · last: ${prev.avgWeight}lbs × ${Math.round(prev.avgReps)}reps`,
+      };
+    }
+  }
 
   // Performance categories
-  const hitTopOfRange = lastMinReps >= targetMax; // ALL sets hit top of range
-  const exceededRange = lastMaxReps > targetMax + 1; // went past top
-  const hitRange = lastAvgReps >= targetMin && lastAvgReps <= targetMax;
-  const missedReps = lastAvgReps < targetMin;
-  const completedAll = prevLog.completedAll;
+  const hitTopOfRange = prev.minReps >= maxR;
+  const exceededRange = prev.maxReps > maxR;
+  const hitRange = prev.avgReps >= minR && prev.avgReps <= maxR;
+  const missedReps = prev.avgReps < minR;
+  const inMidRange = prev.avgReps >= midR;
 
-  // RP-specific: factor in feedback (pump/workload/soreness for the muscle)
-  let fbAdjust = 0; // -1 = back off, 0 = normal, +1 = push harder
-  let fbNote = "";
-  if (isRP && muscle && prevLog.feedback && prevLog.feedback[muscle]) {
-    const fb = prevLog.feedback[muscle];
-    const workload = fb.workload; // 0=easy, 4=too much
-    const soreness = fb.soreness; // 0=none, 4=crushed
-    const pump = fb.pump; // 0=none, 4=insane
-    if (workload >= 4 || soreness >= 4) { fbAdjust = -1; fbNote = " · backing off (workload/soreness flagged)"; }
-    else if (workload <= 1 && soreness <= 1 && pump <= 2) { fbAdjust = 1; fbNote = " · pushing harder (low workload/soreness)"; }
-  }
+  let weight = prev.avgWeight;
+  let arrow = '→';
+  let color = '#fbbf24';
+  let note = '';
 
-  // Goal-based progression aggressiveness
-  const cutting = goal === "fat_loss";
-  const bulking = goal === "muscle_gain";
-
-  // Compute jump
-  let jump = 0;
-  let note = "";
-  let indicator = "hold";
-
-  if (!completedAll || missedReps) {
-    // Failed to hit reps — hold or drop
-    if (lastAvgReps < targetMin - 2) {
-      jump = -5;
-      note = `Drop ${Math.abs(jump)} lbs — missed reps last time (${lastAvgReps} avg, target ${targetMin}+)`;
-      indicator = "down";
-    } else {
-      jump = 0;
-      note = `Hold ${w} lbs — didn't quite hit target (${lastAvgReps} avg, target ${targetMin}-${targetMax})`;
-      indicator = "hold";
-    }
-  } else if (hitTopOfRange || exceededRange) {
-    // Crushed it — push the load
-    if (cutting) {
-      jump = 5;
-      note = `+5 lbs — hit top of range (${lastMinReps}+ on all sets)`;
-    } else if (bulking) {
-      jump = exceededRange ? 10 : 5;
-      note = `+${jump} lbs — ${exceededRange ? "exceeded" : "hit top of"} range`;
-    } else {
-      jump = 5;
-      note = `+5 lbs — hit top of range`;
-    }
-    indicator = "up";
+  if (exceededRange && goalAggressive) {
+    weight = prev.avgWeight + 10;
+    arrow = '↑';
+    color = GREEN;
+    note = `+10 lbs — exceeded range (${prev.maxReps}+ reps) · last: ${prev.avgWeight}lbs × ${Math.round(prev.avgReps)}reps`;
+  } else if (hitTopOfRange) {
+    weight = prev.avgWeight + 5;
+    arrow = '↑';
+    color = GREEN;
+    note = `+5 lbs — hit top of range (${maxR}+ on all sets) · last: ${prev.avgWeight}lbs × ${Math.round(prev.avgReps)}reps`;
   } else if (hitRange) {
-    // Hit mid-range — small bump or hold
-    if (cutting) {
-      jump = lastAvgReps >= (targetMin + targetMax) / 2 ? 2.5 : 0;
-      note = jump > 0 ? `+2.5 lbs — solid in range` : `Hold ${w} lbs — earn another rep first`;
+    if (goalCutting && !inMidRange) {
+      weight = prev.avgWeight;
+      arrow = '→';
+      color = '#fbbf24';
+      note = `Hold — cutting, in range · last: ${prev.avgWeight}lbs × ${Math.round(prev.avgReps)}reps`;
+    } else if (goalAggressive) {
+      weight = prev.avgWeight + 2.5;
+      arrow = '↑';
+      color = GREEN;
+      note = `+2.5 lbs — bulking, in range · last: ${prev.avgWeight}lbs × ${Math.round(prev.avgReps)}reps`;
+    } else if (inMidRange) {
+      weight = prev.avgWeight + 2.5;
+      arrow = '↑';
+      color = GREEN;
+      note = `+2.5 lbs — past midpoint · last: ${prev.avgWeight}lbs × ${Math.round(prev.avgReps)}reps`;
     } else {
-      jump = 2.5;
-      note = `+2.5 lbs — in range, push it`;
+      weight = prev.avgWeight;
+      arrow = '→';
+      color = '#fbbf24';
+      note = `Hold — earn the jump · last: ${prev.avgWeight}lbs × ${Math.round(prev.avgReps)}reps`;
     }
-    indicator = jump > 0 ? "up" : "hold";
+  } else if (missedReps) {
+    if (prev.avgReps < minR - 2) {
+      weight = Math.max(0, prev.avgWeight - 5);
+      arrow = '↓';
+      color = RED;
+      note = `-5 lbs — missed reps badly · last: ${prev.avgWeight}lbs × ${Math.round(prev.avgReps)}reps`;
+    } else {
+      weight = prev.avgWeight;
+      arrow = '→';
+      color = '#fbbf24';
+      note = `Hold — try again · last: ${prev.avgWeight}lbs × ${Math.round(prev.avgReps)}reps`;
+    }
   }
 
-  // Apply RP feedback adjustment
-  if (fbAdjust === -1 && jump > 0) { jump = 0; note = `Hold ${w} lbs${fbNote}`; indicator = "hold"; }
-  else if (fbAdjust === -1 && jump === 0) { jump = -5; note = `Drop 5 lbs${fbNote}`; indicator = "down"; }
-  else if (fbAdjust === 1 && jump >= 0) { jump += 2.5; note += fbNote; }
+  weight = Math.round(weight * 2) / 2; // round to 0.5
 
-  const finalWeight = Math.max(0, Math.round((w + jump) * 2) / 2); // round to nearest 0.5
-  const fullNote = note + ` · last: ${w}lbs × ${lastAvgReps}reps${prevLog.setCount > 1 ? ` (${prevLog.setCount} sets)` : ""}`;
+  return { weight, arrow, color, note };
+};
 
-  return { weight: finalWeight, note: fullNote, indicator };
-}
-
-function WorkoutView({profile,week,sessions,setSessions,coachMsg,onUpdateProfile}){
-  const [vw,setVw]=useState(week);
-  const [vd,setVd]=useState(0);
-  const [setLogs,setSetLogs]=useState({});
-  const [notes,setNotes]=useState("");
-  const [done,setDone]=useState(false);
-  const go=useRef(false);
-  const go2=useRef(false);
-
-  useEffect(()=>{setVw(week);},[week]);
-
-  const isRP=profile.workoutStyle==="rp_hypertrophy";
-  const isHybrid=profile.workoutStyle==="hyrox_hybrid";
-  const isHyrox=profile.workoutStyle==="hyrox";
-  const p=isRP?getRPWeek(vw,profile.weeks):(isHybrid||isHyrox?{ph:"",sets:"",reps:"",rpe:"",tempo:"",rest:"",note:""}:getPhase(vw,profile.weeks));
-  const baseSchedule=getSchedule(profile);
-  // Apply per-week overrides (for moving/skipping single days without changing recurring schedule)
-  const weekOverrides=(profile.weekOverrides||{})[`w${vw}`]||{};
-  const schedule=baseSchedule.map((d,i)=>{
-    if(weekOverrides[i]){
-      const styleTypes=getStyleDayTypes(profile);
-      const wt=styleTypes.find(w=>w.type===weekOverrides[i])||{type:weekOverrides[i],col:C.mu,label:weekOverrides[i]};
-      return {...d,type:wt.type,col:wt.col,label:wt.label,overridden:true,originalType:d.type};
-    }
-    return d;
-  });
-  const ds=schedule[vd]||schedule[0]||{day:"MON",type:"REST",col:C.mu,label:"Rest"};
-  const effectiveType=getEffectiveType(ds.type);
-  const sk=`w${vw}d${vd}`;
-  const sess=sessions[sk]||{};
-
-  const [showMoveMenu,setShowMoveMenu]=useState(null); // dayIdx being moved
-
-  // Move a workout from one day to another (within the week only)
-  const moveWorkout=(fromIdx,toIdx)=>{
-    if(fromIdx===toIdx)return;
-    const fromType=schedule[fromIdx].type;
-    const toType=schedule[toIdx].type;
-    const wkKey=`w${vw}`;
-    const newOverrides={...(profile.weekOverrides||{})};
-    if(!newOverrides[wkKey])newOverrides[wkKey]={};
-    // Swap the two days for this week
-    newOverrides[wkKey][fromIdx]=toType;
-    newOverrides[wkKey][toIdx]=fromType;
-    if(onUpdateProfile)onUpdateProfile({...profile,weekOverrides:newOverrides});
-    setShowMoveMenu(null);
-    setVd(toIdx); // jump to where the workout moved
-  };
-
-  // Mark a day as skipped (without rescheduling)
-  const skipDay=(dayIdx)=>{
-    setSessions(prev=>({...prev,[`w${vw}d${dayIdx}`]:{...(prev[`w${vw}d${dayIdx}`]||{}),skipped:true,savedAt:new Date().toISOString()}}));
-    setShowMoveMenu(null);
-  };
-
-  // Reset overrides for this week
-  const resetWeek=()=>{
-    const newOverrides={...(profile.weekOverrides||{})};
-    delete newOverrides[`w${vw}`];
-    if(onUpdateProfile)onUpdateProfile({...profile,weekOverrides:newOverrides});
-  };
-
-  // Detect missed workouts (past days this week that aren't done and aren't rest/skipped)
-  const today=new Date();
-  const todayDayIdx=(today.getDay()+6)%7; // Mon=0, Sun=6
-  const missedDays=[];
-  if(vw===week){ // only show missed for current week
-    schedule.forEach((d,i)=>{
-      if(i<todayDayIdx&&d.type!=="REST"){
-        const sess2=sessions[`w${vw}d${i}`]||{};
-        if(!sess2.done&&!sess2.skipped){
-          missedDays.push({idx:i,type:d.type,label:d.label||d.type,day:d.day});
-        }
+// ============================================================
+// PR DETECTION
+// ============================================================
+const checkRunPR = (run, allRuns) => {
+  const newPRs = [];
+  const distMi = run.distMi;
+  const sec = run.totalSec;
+  if (!distMi || !sec) return newPRs;
+  for (const pd of PR_DISTANCES) {
+    if (Math.abs(distMi - pd.miles) / pd.miles <= pd.tol) {
+      // This run qualifies as this distance
+      const previous = (allRuns || [])
+        .filter((r) => r.id !== run.id)
+        .filter((r) => Math.abs((r.distMi || 0) - pd.miles) / pd.miles <= pd.tol)
+        .map((r) => r.totalSec)
+        .filter((t) => t > 0);
+      if (previous.length === 0 || sec < Math.min(...previous)) {
+        newPRs.push(pd.id);
       }
-    });
+    }
   }
+  return newPRs;
+};
 
-  const hasOverrides=Object.keys(weekOverrides).length>0;
+// ============================================================
+// STATE — defaults, persistence
+// ============================================================
+const defaultProfile = () => ({
+  name: '',
+  age: 30,
+  sex: 'male',
+  height: '5ft 9in',
+  weight: 180,
+  target: 175,
+  goal: 'recomp',
+  activity: 'moderate',
+  weeks: 12,
+  experience: 'intermediate',
+  equipment: 'gym',
+  workoutStyle: 'func_bb',
+  schedule: defaultScheduleForStyle('func_bb'),
+  weekOverrides: {},
+  startDate: todayISO(),
+  raceDate: '',
+  raceDivision: 'Open M',
+  setupComplete: false,
+  summaryAcknowledged: false,
+});
 
-  useEffect(()=>{
-    go.current=false;go2.current=false;
-    const s=sessions[sk]||{};
-    setSetLogs(s.setLogs||{});setNotes(s.notes||"");setDone(s.done||false);
-  },[sk]);
+const defaultState = () => ({
+  schemaVersion: SCHEMA_VERSION,
+  profile: defaultProfile(),
+  week: 1,
+  wlog: [], // [{date, weight}]
+  food: {}, // { iso: [{name, cal, p, c, f, qty}] }
+  jlog: [], // [{date, mood, notes}]
+  sessions: {}, // { s_iso: { iso, dayType, exercises, setLogs, feedback, done, skipped, notes, raceTime, completedAt } }
+  runs: [], // [{id, date, type, distMi, distKm, totalSec, paceSec, hr, elev, route, notes}]
+  conv: [], // ai coach conversation
+});
 
-  useEffect(()=>{
-    if(!go.current){go.current=true;return;}
-    setSessions(prev=>({...prev,[sk]:{...(prev[sk]||{}),notes,done,setLogs,savedAt:new Date().toISOString()}}));
-  },[notes,done]);
-
-  useEffect(()=>{
-    if(!go2.current){go2.current=true;return;}
-    setSessions(prev=>({...prev,[sk]:{...(prev[sk]||{}),notes,done,setLogs,savedAt:new Date().toISOString()}}));
-  },[setLogs]);
-
-  const exList=(ds.type!=="REST"&&effectiveType!=="CARDIO")?getEx(effectiveType,vw):[];
-  const aS=p.sets>3?p.sets-1:3;
-  let ar=p.rpe;
-  if(ar.includes("9-10"))ar="RPE 8-9";else if(ar.includes("8-9"))ar="RPE 7-8";else if(ar.includes("RPE 8"))ar="RPE 7-8";else if(ar.includes("7-8"))ar="RPE 7";
-  const cond=vw<=3?"3 Rounds: 12 Cal Row + 10 KB Swings + 8 Box Jumps":vw<=6?"EMOM 10min: Odd=10 KB Swings, Even=8 Box Jumps":"AMRAP 8min: 8 Burpees + 12 KB Swings + 10 Wall Balls";
-  const wu={PUSH:"Band Pull-Apart + Shoulder CARs",PULL:"Dead Hang + Scapula Pulls",LEGS:"Hip Flexor + Glute Bridge",FULL:"Thoracic Rotation + Hip 90/90"}[ds.type]||"";
-  const updSet=(n,i,f,v)=>{const k=`${n}__${i}`;setSetLogs(p=>({...p,[k]:{...(p[k]||{}),[f]:v}}));};
-  const togSet=(n,i)=>{const k=`${n}__${i}`;setSetLogs(p=>({...p,[k]:{...(p[k]||{}),done:!(p[k]?.done)}}));};
-
-  const SetLog=({name,numSets})=>{
-    const prev=getPrevLog(sessions,name,sk);
-    const sugg=getSuggestedWeight(prev,p.ph,profile.goal,p.reps,false,null);
-    const indCol = sugg?.indicator==="up"?C.a4:sugg?.indicator==="down"?"#f87171":sugg?.indicator==="deload"?C.a5:C.acc;
-    const indIcon = sugg?.indicator==="up"?"↑":sugg?.indicator==="down"?"↓":sugg?.indicator==="deload"?"↓":"→";
-    return(<div style={{marginTop:8,display:"flex",flexDirection:"column",gap:4}}>
-      {sugg&&(
-        <div style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:`rgba(${indCol===C.a4?"74,222,128":indCol==="#f87171"?"248,113,113":indCol===C.a5?"167,139,250":"232,255,71"},.06)`,border:`1px solid rgba(${indCol===C.a4?"74,222,128":indCol==="#f87171"?"248,113,113":indCol===C.a5?"167,139,250":"232,255,71"},.18)`,borderRadius:4,marginBottom:6}}>
-          <div style={{...IMP,fontSize:14,fontWeight:900,color:indCol,flexShrink:0}}>{indIcon} {sugg.weight}</div>
-          <div style={{fontSize:9,color:C.mu,lineHeight:1.4,flex:1}}>{sugg.note}</div>
-        </div>
-      )}
-      <div style={{display:"flex",gap:6,marginBottom:2}}>
-        <div style={{width:32,...imp(9),textAlign:"center"}}>SET</div>
-        <div style={{flex:1,...imp(9)}}>WEIGHT (lbs)</div>
-        <div style={{width:52,...imp(9)}}>REPS</div>
-        <div style={{width:28}}/>
-      </div>
-      {Array.from({length:numSets},(_,i)=>{
-        const k=`${name}__${i}`;const lg=setLogs[k]||{};
-        return(
-          <div key={i} style={{display:"flex",gap:6,alignItems:"center"}}>
-            <div style={{width:32,height:28,background:lg.done?C.acc:C.s3,borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",...IMP,fontSize:12,fontWeight:900,color:lg.done?"#000":C.mu,border:`1px solid ${lg.done?C.acc:C.bd}`,flexShrink:0}}>{i+1}</div>
-            <input type="number" value={lg.weight||""} onChange={e=>updSet(name,i,"weight",e.target.value)} placeholder={sugg?`${sugg.weight}`:"lbs"} style={{flex:1,height:28,...inp,padding:"0 8px",...IMP,fontWeight:700,fontSize:13,border:`1px solid ${lg.done?"rgba(232,255,71,.4)":C.bd}`}}/>
-            <input type="number" value={lg.reps||""} onChange={e=>updSet(name,i,"reps",e.target.value)} placeholder="reps" style={{width:52,height:28,...inp,padding:"0 8px",...IMP,fontWeight:700,fontSize:13,border:`1px solid ${lg.done?"rgba(232,255,71,.4)":C.bd}`}}/>
-            <button onClick={()=>togSet(name,i)} style={{width:28,height:28,borderRadius:4,border:`1px solid ${lg.done?C.acc:C.bd}`,background:lg.done?C.acc:"transparent",color:lg.done?"#000":C.mu,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✓</button>
-          </div>
-        );
-      })}
-    </div>);
-  };
-
-  const ExBlock=({label,exercises,sets,rpe,warmup})=>(
-    <div style={{padding:"10px 13px",borderBottom:`1px solid ${C.bd}`}}>
-      <div style={{...imp(10,C.a2),marginBottom:7}}>{label}</div>
-      {exercises.map(([name,note],i)=>(
-        <div key={i} style={{padding:"8px 0",borderBottom:i<exercises.length-1?`1px solid rgba(255,255,255,.04)`:"none"}}>
-          <div style={{display:"flex",alignItems:"flex-start",gap:9}}>
-            <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:600}}>{name}</div>
-              <div style={{fontSize:11,color:C.mu2,marginTop:2,lineHeight:1.4}}>
-                <strong style={{color:C.tx}}>{sets}x{p.reps} @ {p.tempo}</strong>
-                <br/><span style={{fontSize:10,fontStyle:"italic",color:C.mu}}>{note}</span>
-              </div>
-            </div>
-            <div style={{...imp(11,C.acc),padding:"2px 7px",borderRadius:3,background:"rgba(232,255,71,.08)",border:"1px solid rgba(232,255,71,.2)",whiteSpace:"nowrap",flexShrink:0}}>{rpe}</div>
-            <button onClick={()=>coachMsg(`Swap ${name} in my Wk ${vw} ${ds.type} workout. Phase: ${p.ph} (${p.sets}x${p.reps} @ ${p.rpe}). Give 3 alternatives with movement pattern, equipment, and form note.`)} style={{...hbtn,fontSize:9,padding:"2px 7px",flexShrink:0}}>SWAP</button>
-          </div>
-          {!warmup&&<div style={{marginTop:6,padding:"5px 8px",background:"rgba(96,165,250,.06)",border:"1px solid rgba(96,165,250,.15)",borderRadius:4,fontSize:10,color:C.a3,lineHeight:1.5}}>{wtGuide(profile.goal,p.ph)}</div>}
-          {!warmup&&<SetLog name={name} numSets={typeof sets==="number"?sets:parseInt(sets)||3}/>}
-        </div>
-      ))}
-    </div>
-  );
-
-  return(
-    <div style={{height:"100%",overflowY:"auto",padding:14}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
-        <div>
-          <div style={{...IMP,fontSize:20,fontWeight:900,letterSpacing:2}}>WEEK {vw}</div>
-          <div style={{fontSize:11,color:C.mu,marginTop:1}}>{isRP?`${p.type||"WEEK"} — ${p.repRange||""} reps @ ${p.rir||""}`:isHybrid?"HYROX Hybrid":isHyrox?"HYROX Race Prep":`${p.ph||""} — ${p.sets||""}x${p.reps||""} @ ${p.rpe||""} — ${p.tempo||""}`}</div>
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:"auto"}}>
-          <button onClick={()=>setVw(v=>Math.max(1,v-1))} style={{...hbtn,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
-          <select value={vw} onChange={e=>setVw(parseInt(e.target.value))} style={{background:C.s2,border:`1px solid ${C.bd}`,color:C.tx,padding:"4px 8px",borderRadius:4,...IMP,fontSize:11,outline:"none"}}>
-            {Array.from({length:parseInt(profile.weeks)},(_,i)=><option key={i+1} value={i+1}>Week {i+1}</option>)}
-          </select>
-          <button onClick={()=>setVw(v=>Math.min(parseInt(profile.weeks),v+1))} style={{...hbtn,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
-        </div>
-      </div>
-      {p.note&&vw>1&&!isRP&&<div style={{background:"rgba(232,255,71,.06)",border:"1px solid rgba(232,255,71,.2)",borderRadius:6,padding:"8px 12px",marginBottom:12,fontSize:12,color:C.acc,lineHeight:1.5}}><strong>WK {vw}:</strong> {p.note}</div>}
-      <div style={{display:"flex",gap:5,marginBottom:12,overflowX:"auto"}}>
-        {schedule.map((d,i)=>{
-          const sess2=sessions[`w${vw}d${i}`]||{};
-          const done2=sess2.done;
-          const skipped=sess2.skipped;
-          const on=i===vd;
-          const shortLbl=d.label?d.label.toUpperCase().replace(/[()].*/,"").trim().slice(0,12):d.type;
-          const borderCol=on?C.acc:done2?C.a4:skipped?"#f87171":d.overridden?C.a6:C.bd;
-          return(<div key={i} onClick={()=>d.type!=="REST"&&setVd(i)} style={{padding:"6px 9px",...IMP,fontSize:11,letterSpacing:1,textTransform:"uppercase",cursor:d.type==="REST"?"default":"pointer",border:`1px solid ${borderCol}`,borderRadius:5,whiteSpace:"nowrap",flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:on?C.acc:"transparent",color:on?"#000":done2?C.a4:skipped?"#f87171":C.mu,opacity:d.type==="REST"&&!on?0.5:1,minWidth:62,position:"relative"}}>
-            <span style={{fontSize:11}}>{d.day}</span>
-            <span style={{fontSize:8,letterSpacing:.5,color:on?"inherit":d.col,maxWidth:60,overflow:"hidden",textOverflow:"ellipsis"}}>{shortLbl}</span>
-            {done2&&<span style={{position:"absolute",top:-4,right:-4,fontSize:8,background:C.a4,color:"#000",borderRadius:6,padding:"0 3px",fontWeight:900}}>✓</span>}
-            {skipped&&<span style={{position:"absolute",top:-4,right:-4,fontSize:8,background:"#f87171",color:"#fff",borderRadius:6,padding:"0 3px",fontWeight:900}}>×</span>}
-            {d.overridden&&!done2&&!skipped&&<span style={{position:"absolute",top:-4,right:-4,fontSize:7,background:C.a6,color:"#000",borderRadius:6,padding:"0 3px",fontWeight:900}}>↔</span>}
-          </div>);
-        })}
-      </div>
-
-      {/* Missed workouts banner */}
-      {missedDays.length>0&&(
-        <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.a6}`,background:"rgba(251,191,36,.05)"}}>
-          <div style={{padding:"9px 12px",borderBottom:`1px solid ${C.bd}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{...imp(11,C.a6)}}>⚠️ MISSED THIS WEEK</div>
-            <div style={{fontSize:10,color:C.mu}}>{missedDays.length} workout{missedDays.length>1?"s":""}</div>
-          </div>
-          <div style={{padding:"10px 12px"}}>
-            {missedDays.map((m,mi)=>{
-              const isToday=todayDayIdx===m.idx;
-              const todayIsRest=schedule[todayDayIdx]?.type==="REST";
-              return(
-                <div key={m.idx} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderTop:mi>0?`1px solid rgba(255,255,255,.04)`:"none"}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:12,fontWeight:600}}>{m.day} — {m.label}</div>
-                    <div style={{fontSize:10,color:C.mu,marginTop:1}}>Not completed</div>
-                  </div>
-                  <div style={{display:"flex",gap:5}}>
-                    {!isToday&&todayDayIdx<7&&(
-                      <button onClick={()=>moveWorkout(m.idx,todayDayIdx)} style={{...hbtn,fontSize:9,padding:"3px 7px",borderColor:C.acc,color:C.acc}}>MOVE TO TODAY</button>
-                    )}
-                    <button onClick={()=>skipDay(m.idx)} style={{...hbtn,fontSize:9,padding:"3px 7px"}}>SKIP IT</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Day actions bar - move/skip current day */}
-      {ds.type!=="REST"&&!sess.done&&(
-        <div style={{display:"flex",gap:6,marginBottom:10,alignItems:"center"}}>
-          <button onClick={()=>setShowMoveMenu(showMoveMenu===vd?null:vd)} style={{...hbtn,fontSize:10,padding:"5px 10px"}}>↔ MOVE THIS DAY</button>
-          <button onClick={()=>skipDay(vd)} style={{...hbtn,fontSize:10,padding:"5px 10px"}}>× SKIP</button>
-          {hasOverrides&&<button onClick={resetWeek} style={{...hbtn,fontSize:10,padding:"5px 10px",borderColor:C.a6,color:C.a6,marginLeft:"auto"}}>RESET WEEK</button>}
-        </div>
-      )}
-
-      {/* Move menu - swap with another day */}
-      {showMoveMenu===vd&&(
-        <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.a6}`}}>
-          <div style={{padding:"9px 12px",borderBottom:`1px solid ${C.bd}`,...imp(10,C.a6)}}>SWAP {ds.day} ({ds.label||ds.type}) WITH:</div>
-          <div style={{padding:"8px",display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:5}}>
-            {schedule.map((d,i)=>{
-              if(i===vd)return null;
-              const sess2=sessions[`w${vw}d${i}`]||{};
-              return(
-                <button key={i} onClick={()=>moveWorkout(vd,i)} style={{padding:"6px 8px",background:C.s2,border:`1px solid ${C.bd}`,borderRadius:4,textAlign:"left",cursor:"pointer",color:C.tx}}>
-                  <div style={{...IMP,fontSize:10,fontWeight:900,color:C.tx}}>{d.day}</div>
-                  <div style={{fontSize:10,color:d.col,marginTop:1}}>{d.label||d.type}</div>
-                  {sess2.done&&<div style={{fontSize:8,color:C.a4,marginTop:1}}>✓ Done</div>}
-                  {sess2.skipped&&<div style={{fontSize:8,color:"#f87171",marginTop:1}}>× Skipped</div>}
-                </button>
-              );
-            })}
-          </div>
-          <div style={{padding:"6px 12px",fontSize:10,color:C.mu,lineHeight:1.4,borderTop:`1px solid ${C.bd}`}}>
-            Swap only affects this week. Your recurring schedule stays the same.
-          </div>
-        </div>
-      )}
-      {ds.type==="REST"?(
-        <div style={{...card,padding:"32px 20px",textAlign:"center"}}>
-          <div style={{fontSize:36,marginBottom:10}}>🛌</div>
-          <div style={{...IMP,fontSize:18,fontWeight:800,letterSpacing:2,color:C.mu2,marginBottom:6}}>REST DAY</div>
-          <div style={{fontSize:12,color:C.mu,marginBottom:14}}>Light walk, mobility, foam rolling.</div>
-          <button onClick={()=>coachMsg("Give me a mobility and recovery routine for today")} style={hbtn}>GET RECOVERY ROUTINE</button>
-        </div>
-      ):profile.workoutStyle==="hyrox_hybrid"?(
-        <HybridSession week={vw} dayType={effectiveType} totalWeeks={profile.weeks} sessions={sessions} setSessions={setSessions} coachMsg={coachMsg} sk={sk}/>
-      ):profile.workoutStyle==="hyrox"?(
-        <HyroxSession week={vw} dayType={effectiveType} totalWeeks={profile.weeks} sessions={sessions} setSessions={setSessions} coachMsg={coachMsg} sk={sk}/>
-      ):effectiveType==="CARDIO"?(
-        <CardioDay week={vw} phase={p} goal={profile.goal} coachMsg={coachMsg} sessions={sessions} setSessions={setSessions} sk={sk}/>
-      ):profile.workoutStyle==="rp_hypertrophy"?(
-        <RPSession week={vw} dayType={effectiveType} mesoLen={profile.weeks} sessions={sessions} setSessions={setSessions} coachMsg={coachMsg} sk={sk}/>
-      ):(
-        <>
-          <div style={{...card,marginBottom:10}}>
-            <div style={{padding:"11px 13px",borderBottom:`1px solid ${C.bd}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div style={{flex:1}}>
-                <div style={{...IMP,fontSize:16,fontWeight:900,color:ds.col}}>{ds.day} — {ds.label||ds.type} ({vw%2===1?"A":"B"})</div>
-                {profile.workoutStyle&&<div style={{fontSize:10,color:C.mu,marginTop:2}}>{({rp_hypertrophy:"RP Hypertrophy",hyrox_hybrid:"HYROX Hybrid",functional_bb:"Functional Bodybuilding",traditional_bb:"Traditional Bodybuilding",crossfit:"CrossFit",hyrox:"HYROX",powerlifting:"Powerlifting",athletic:"Athletic Performance",hiit:"HIIT / Circuit"})[profile.workoutStyle]||profile.workoutStyle}</div>}
-              </div>
-              <div style={{...imp(10,ds.col),padding:"3px 9px",border:`1px solid ${ds.col}`,borderRadius:4}}>{ds.label||ds.type}</div>
-            </div>
-            <div style={{padding:"8px 13px",borderBottom:`1px solid ${C.bd}`,display:"flex",gap:12,fontSize:11,color:C.mu2,flexWrap:"wrap"}}>
-              <span><strong style={{color:C.tx}}>Sets/Reps:</strong> {p.sets}x{p.reps}</span>
-              <span><strong style={{color:C.tx}}>RPE:</strong> {p.rpe}</span>
-              <span><strong style={{color:C.tx}}>Tempo:</strong> <span style={{color:C.a5}}>{p.tempo}</span></span>
-              <span><strong style={{color:C.tx}}>Rest:</strong> {p.rest}</span>
-            </div>
-            {p.note&&vw>1&&<div style={{background:"rgba(232,255,71,.08)",border:"1px solid rgba(232,255,71,.2)",borderRadius:5,padding:"6px 11px",margin:"8px 13px 0",fontSize:11,color:C.acc,lineHeight:1.5}}><strong>WK {vw}:</strong> {p.note}</div>}
-            <ExBlock label="WARM-UP (5-8 min)" exercises={[[wu,"Prime target muscles, not exhausting them"]]} sets="2-3" rpe="RPE 4-5" warmup={true}/>
-            {exList.length>=2&&<ExBlock label={`A1/A2 — PRIMARY SUPERSET — Rest ${p.rest}`} exercises={exList.slice(0,2)} sets={p.sets} rpe={p.rpe} warmup={false}/>}
-            {exList.length>=4&&<ExBlock label={`B1/B2 — ACCESSORY SUPERSET — Rest ${p.rest}`} exercises={exList.slice(2,4)} sets={aS} rpe={ar} warmup={false}/>}
-            {exList.length>=6&&<ExBlock label="C1/C2 — ISOLATION FINISHER — Rest 60s" exercises={exList.slice(4,6)} sets={Math.max(2,aS-1)} rpe="RPE 7" warmup={false}/>}
-            <div style={{padding:"10px 13px"}}>
-              <div style={{...imp(10,C.a2),marginBottom:7}}>CONDITIONING FINISHER</div>
-              <div style={{display:"flex",alignItems:"flex-start",gap:9,padding:"7px 0"}}>
-                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{cond}</div><div style={{fontSize:11,color:C.mu2,marginTop:2}}>Aerobic conditioning — maintain pace</div></div>
-                <div style={{...imp(11,C.acc),padding:"2px 7px",borderRadius:3,background:"rgba(232,255,71,.08)",border:"1px solid rgba(232,255,71,.2)",whiteSpace:"nowrap"}}>RPE 7-8</div>
-              </div>
-            </div>
-          </div>
-          <div style={card}>
-            <div style={{padding:"9px 13px",borderBottom:`1px solid ${C.bd}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={imp(12,C.mu2)}>SESSION LOG</div>
-              {done&&<div style={{...imp(10,C.a4),border:`1px solid ${C.a4}`,padding:"2px 8px",borderRadius:3}}>✓ DONE</div>}
-            </div>
-            <div style={{padding:"12px 13px"}}>
-              <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Notes — RPE hit, how it felt, what to adjust..." style={{width:"100%",background:C.s2,border:`1px solid ${C.bd}`,color:C.tx,padding:"8px 10px",borderRadius:4,fontSize:12,resize:"none",minHeight:60,outline:"none",lineHeight:1.6,fontFamily:"inherit"}}/>
-              <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.mu2,cursor:"pointer",marginTop:8}}>
-                <input type="checkbox" checked={done} onChange={e=>setDone(e.target.checked)} style={{accentColor:C.acc,width:14,height:14}}/>Mark Complete
-                <span style={{...imp(10,C.mu),marginLeft:8}}>AUTO-SAVED</span>
-              </label>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function FoodView({profile,food,setFood}){
-  const [date,setDate]=useState(new Date());
-  const [q,setQ]=useState("");const [searching,setSearching]=useState(false);const [results,setResults]=useState([]);
-  const [manual,setManual]=useState({n:"",c:"",p:"",cb:"",f:""});
-  const ds=date.toISOString().slice(0,10);
-  const today=new Date();today.setHours(0,0,0,0);
-  const diff=Math.round((date-today)/86400000);
-  const lbl2=diff===0?"TODAY":diff===-1?"YESTERDAY":date.toLocaleDateString("en-US",{month:"short",day:"numeric"}).toUpperCase();
-  const entries=food[ds]||[];
-  let tc=0,tp=0,tcb=0,tf=0;entries.forEach(e=>{tc+=e.c||0;tp+=e.p||0;tcb+=e.cb||0;tf+=e.f||0;});
-
-  // RP Diet: 7-day rolling weekly average calorie tracking
-  const weekDays = [];
-  for (let i=0;i<7;i++){const d=new Date(date);d.setDate(d.getDate()-(6-i));weekDays.push(d);}
-  const weekData = weekDays.map(d=>{
-    const k=d.toISOString().slice(0,10);
-    const ents=food[k]||[];
-    let c=0,p=0,cb=0,f=0;
-    ents.forEach(e=>{c+=e.c||0;p+=e.p||0;cb+=e.cb||0;f+=e.f||0;});
-    return {date:d, key:k, cal:c, prot:p, carb:cb, fat:f, count:ents.length};
-  });
-  const wkAvgCal = weekData.filter(d=>d.count>0).length ? Math.round(weekData.reduce((s,d)=>s+d.cal,0)/Math.max(1,weekData.filter(d=>d.count>0).length)) : 0;
-  const wkTotalDays = weekData.filter(d=>d.count>0).length;
-
-  // RP Day Balance: how the rest of today should look based on remaining macros
-  const remCal = profile.targetCals - Math.round(tc);
-  const remProt = profile.protein - Math.round(tp);
-  const remCarb = profile.carbs - Math.round(tcb);
-  const remFat = profile.fat - Math.round(tf);
-
-  const add=(n,c,p,cb,f)=>setFood(prev=>({...prev,[ds]:[...(prev[ds]||[]),{n,c:parseFloat(c)||0,p:parseFloat(p)||0,cb:parseFloat(cb)||0,f:parseFloat(f)||0}]}));
-  const search=async(customQ)=>{
-    const queryStr=customQ||q;
-    if(!queryStr)return;setSearching(true);setResults([]);
-    try{
-      const r=await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:1200,
-          system:`You are a comprehensive nutrition database covering BOTH whole foods AND national restaurant chains. Return ONLY a valid JSON array of up to 8 results.
-Each item must be: {"name":"food name","serving":"serving size","cal":number,"prot":number,"carb":number,"fat":number}
-
-COVERAGE:
-1. Whole/grocery foods → use USDA FoodData Central values. Include common serving sizes (e.g. "1 cup (240ml)", "3oz (85g)", "1 large").
-2. National restaurant chains → use the chain's PUBLISHED nutrition data. Include the brand in the name. Examples:
-   - Chipotle (bowls, burritos, sides, proteins)
-   - Chick-fil-A (sandwiches, nuggets, salads, sides)
-   - Starbucks (drinks, food, oatmeal)
-   - McDonald's, Burger King, Wendy's
-   - Subway, Jersey Mike's, Jimmy John's
-   - Panera, Cava, Sweetgreen
-   - Taco Bell, Qdoba, Moe's
-   - Olive Garden, Texas Roadhouse, Cheesecake Factory, Outback
-   - Domino's, Pizza Hut, Papa John's
-   - Dunkin', Tim Hortons
-   - Five Guys, In-N-Out, Shake Shack, Whataburger
-   - Buffalo Wild Wings, Applebee's, Chili's
-   - Panda Express, P.F. Chang's
-   - Jamba, Smoothie King, Tropical Smoothie
-   - Crumbl, Krispy Kreme
-   - Costco / Sam's Club food court items
-
-QUERY HANDLING:
-- "chipotle chicken bowl" → return Chipotle bowl variations (white rice, brown rice, with/without specific ingredients)
-- "starbucks latte" → return common Starbucks lattes in different sizes
-- Brand name only → return their most popular items
-- Generic food → return USDA whole food results
-- Mix of both if relevant (e.g. "protein shake" → grocery options + national chain options)
-
-Be accurate — these macros directly affect someone's diet plan. If unsure of exact values, omit that item rather than guess.
-Return ONLY the JSON array, no markdown, no explanation.`,
-          messages:[{role:"user",content:queryStr}]
-        })
-      });
-      const d=await r.json();
-      const raw=d.content?.[0]?.text||"[]";
-      const s=raw.indexOf("["),e2=raw.lastIndexOf("]");
-      const items=s>=0&&e2>s?JSON.parse(raw.slice(s,e2+1)):[];
-      setResults(items.filter(x=>x.name&&x.cal>=0));
-    }catch(e){setResults([]);}
-    setSearching(false);
-  };
-  const pct=(v,t)=>t?Math.min(100,(v/t)*100):0;
-  return(
-    <div style={{height:"100%",overflowY:"auto",padding:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:11}}>
-        <button onClick={()=>setDate(d=>{const n=new Date(d);n.setDate(n.getDate()-1);return n;})} style={hbtn}>PREV</button>
-        <div style={{...IMP,fontSize:14,fontWeight:700,letterSpacing:2,textTransform:"uppercase"}}>{lbl2}</div>
-        <button onClick={()=>setDate(d=>{const n=new Date(d);n.setDate(n.getDate()+1);return n;})} style={hbtn}>NEXT</button>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7,marginBottom:11}}>
-        {[[Math.round(tc),"Cal",C.acc,profile.targetCals],[Math.round(tp)+"g","Prot",C.a3,profile.protein],[Math.round(tcb)+"g","Carb",C.a6,profile.carbs],[Math.round(tf)+"g","Fat",C.a5,profile.fat]].map(([v,l,col,t])=>(
-          <div key={l} style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:6,padding:"8px 6px",textAlign:"center"}}>
-            <div style={{...IMP,fontSize:19,color:col}}>{v}</div>
-            <div style={{fontSize:9,textTransform:"uppercase",letterSpacing:1,color:C.mu,marginTop:1}}>{l}</div>
-            <div style={{fontSize:9,color:C.mu}}>/ {t}{l!=="Cal"?"g":""}</div>
-            <div style={{height:3,background:C.bd,borderRadius:2,marginTop:5,overflow:"hidden"}}><div style={{height:"100%",width:pct(parseFloat(v),t)+"%",background:col,borderRadius:2}}/></div>
-          </div>
-        ))}
-      </div>
-
-      {/* RP Day Balance */}
-      <div style={{...card, marginBottom:11, borderLeft:`3px solid ${C.acc}`}}>
-        <div style={{padding:"8px 13px", borderBottom:`1px solid ${C.bd}`, ...imp(10), color:C.acc, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-          <span>DAY BALANCE — REMAINING</span>
-          <span style={{fontSize:9, color:C.mu, letterSpacing:1}}>{entries.length} meal{entries.length!==1?"s":""} logged</span>
-        </div>
-        <div style={{padding:"10px 13px", display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:7}}>
-          {[[remCal,"CAL",C.acc],[remProt,"PROT",C.a3],[remCarb,"CARB",C.a6],[remFat,"FAT",C.a5]].map(([v,l,col])=>{
-            const num=parseInt(v);
-            const isOver=num<0;
-            return(
-              <div key={l} style={{textAlign:"center", padding:"6px 4px", background:C.s2, borderRadius:5, border:`1px solid ${isOver?"rgba(248,113,113,.3)":C.bd}`}}>
-                <div style={{...IMP, fontSize:16, color:isOver?"#f87171":col}}>{isOver?"":"+"}{v}{l!=="CAL"?"g":""}</div>
-                <div style={{fontSize:9, color:C.mu, marginTop:1, letterSpacing:1}}>{isOver?"OVER":"LEFT"}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* RP 7-Day Weekly Average */}
-      <div style={{...card, marginBottom:11}}>
-        <div style={{padding:"8px 13px", borderBottom:`1px solid ${C.bd}`, ...imp(10), display:"flex", justifyContent:"space-between"}}>
-          <span>7-DAY ROLLING AVERAGE</span>
-          <span style={{fontSize:9, color:C.mu}}>{wkTotalDays}/7 days logged</span>
-        </div>
-        <div style={{padding:"10px 13px"}}>
-          <div style={{display:"flex", alignItems:"baseline", gap:6, marginBottom:9}}>
-            <div style={{...IMP, fontSize:24, color:C.acc}}>{wkAvgCal}</div>
-            <div style={{fontSize:11, color:C.mu}}>avg cal/day</div>
-            {wkTotalDays>0 && (
-              <div style={{marginLeft:"auto", fontSize:11, fontWeight:700, padding:"2px 7px", borderRadius:3, background: Math.abs(wkAvgCal-profile.targetCals)<100 ? "rgba(74,222,128,.15)" : "rgba(248,113,113,.15)", color: Math.abs(wkAvgCal-profile.targetCals)<100 ? C.a4 : "#f87171"}}>
-                {wkAvgCal-profile.targetCals>=0?"+":""}{wkAvgCal-profile.targetCals} vs target
-              </div>
-            )}
-          </div>
-          <div style={{display:"flex", gap:3, alignItems:"flex-end", height:38}}>
-            {weekData.map((d,i)=>{
-              const onDay = d.key === ds;
-              const h = profile.targetCals ? Math.min(100, (d.cal/profile.targetCals)*100) : 0;
-              const overUnder = profile.targetCals ? d.cal/profile.targetCals : 0;
-              const col = d.count===0 ? C.bd : overUnder>1.15 ? "#f87171" : overUnder<0.85 ? C.a6 : C.a4;
-              return (
-                <div key={i} style={{flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2, cursor:"pointer"}} onClick={()=>setDate(new Date(d.date))}>
-                  <div style={{width:"100%", height:30, background:C.s2, borderRadius:2, overflow:"hidden", display:"flex", alignItems:"flex-end", border: onDay?`1px solid ${C.acc}`:"none"}}>
-                    <div style={{width:"100%", height:`${h}%`, background:col, transition:"height .3s"}}/>
-                  </div>
-                  <div style={{fontSize:8, color:onDay?C.acc:C.mu, letterSpacing:.5}}>{d.date.toLocaleDateString("en-US",{weekday:"narrow"})}</div>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{fontSize:10, color:C.mu, marginTop:7, lineHeight:1.4, textAlign:"center"}}>
-            RP method: weekly average matters more than daily perfection. You can shift cals between days.
-          </div>
-        </div>
-      </div>
-
-      <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:8,padding:11,marginBottom:11}}>
-        <div style={{...imp(10,C.acc),marginBottom:8}}>SEARCH FOOD · USDA + RESTAURANTS</div>
-        <div style={{display:"flex",gap:6,marginBottom:6}}>
-          <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&search()} placeholder='Search foods OR restaurants: "chipotle bowl", "starbucks latte"...' style={{flex:1,...inp,fontSize:12}}/>
-          <button onClick={()=>search()} disabled={searching} style={{background:C.a2,color:"#fff",border:"none",padding:"6px 11px",borderRadius:4,...IMP,fontSize:10,fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>{searching?"...":"SEARCH"}</button>
-        </div>
-        <div style={{display:"flex",gap:4,overflowX:"auto",marginBottom:8,paddingBottom:3}}>
-          {[
-            ["🌯 Chipotle","chipotle"],
-            ["🐔 Chick-fil-A","chick-fil-a popular menu items"],
-            ["☕ Starbucks","starbucks"],
-            ["🥪 Subway","subway"],
-            ["🍔 McDonald's","mcdonalds"],
-            ["🥗 Cava","cava"],
-            ["🥙 Panera","panera"],
-            ["🌮 Taco Bell","taco bell"],
-            ["🍕 Domino's","dominos"],
-            ["🍩 Dunkin'","dunkin"],
-            ["🥩 Texas Roadhouse","texas roadhouse"],
-            ["🍳 Eggs","eggs"],
-            ["🍗 Chicken","chicken breast"],
-            ["🍚 Rice","white rice brown rice"]
-          ].map(([label,query])=>(
-            <button key={label} onClick={()=>{setQ(query);search(query);}} style={{background:C.s2,border:`1px solid ${C.bd}`,color:C.tx,padding:"4px 9px",borderRadius:14,fontSize:11,whiteSpace:"nowrap",cursor:"pointer",flexShrink:0}}>{label}</button>
-          ))}
-        </div>
-        {results.length>0&&<div style={{background:C.bg,border:`1px solid ${C.bd}`,borderRadius:4,marginBottom:6,maxHeight:220,overflowY:"auto"}}>
-          <div style={{padding:"5px 10px",borderBottom:`1px solid ${C.bd}`,display:"flex",justifyContent:"space-between",alignItems:"center",background:C.s2}}>
-            <span style={{...imp(9,C.mu)}}>{results.length} RESULT{results.length!==1?"S":""} · TAP TO ADD</span>
-            <button onClick={()=>{setResults([]);setQ("");}} style={{background:"transparent",border:"none",color:C.mu,cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>×</button>
-          </div>
-          {results.map((item,i)=>{
-            const added=(food[ds]||[]).some(e=>e.n===item.name+" ("+item.serving+")");
-            return(
-              <div key={i} onClick={()=>add(item.name+" ("+item.serving+")",item.cal,item.prot,item.carb,item.fat)} style={{padding:"7px 10px",cursor:"pointer",borderBottom:i<results.length-1?`1px solid ${C.bd}`:"none",display:"flex",alignItems:"center",gap:8,background:added?"rgba(74,222,128,.05)":"transparent"}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:12,fontWeight:500}}>{item.name} <span style={{fontSize:10,color:C.mu}}>({item.serving})</span></div>
-                  <div style={{fontSize:10,marginTop:1}}><span style={{color:C.acc}}>{Math.round(item.cal)}cal</span> · <span style={{color:C.a3}}>{Math.round(item.prot)}g P</span> · <span style={{color:C.a6}}>{Math.round(item.carb)}g C</span> · <span style={{color:C.a5}}>{Math.round(item.fat)}g F</span></div>
-                </div>
-                <div style={{...IMP,fontSize:11,fontWeight:900,color:added?C.a4:C.acc,letterSpacing:1,flexShrink:0}}>{added?"✓ ADDED":"+ ADD"}</div>
-              </div>
-            );
-          })}
-        </div>}
-        <div style={{...imp(10,C.acc),marginBottom:8,marginTop:10}}>MANUAL ENTRY</div>
-        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr",gap:5,marginBottom:7}}>
-          {[["n","Name","Chicken"],["c","Cal","0"],["p","Prot","0"],["cb","Carbs","0"],["f","Fat","0"]].map(([k,l,ph])=>(
-            <div key={k}><label style={{...lbl9,fontSize:9,marginBottom:3}}>{l}</label>
-            <input value={manual[k]} onChange={e=>setManual(m=>({...m,[k]:e.target.value}))} placeholder={ph} type={k==="n"?"text":"number"} style={{width:"100%",...inp,padding:"5px 8px",fontSize:11}}/></div>
-          ))}
-        </div>
-        <button onClick={()=>{if(!manual.n)return;add(manual.n,manual.c,manual.p,manual.cb,manual.f);setManual({n:"",c:"",p:"",cb:"",f:""});}} style={{...abtn(),fontSize:10}}>+ ADD TO LOG</button>
-      </div>
-      {entries.length===0?<div style={{textAlign:"center",padding:22,color:C.mu,fontSize:12}}>No food logged yet.</div>:(
-        <><div style={{...imp(10),padding:"4px 0 7px",borderBottom:`1px solid ${C.bd}`,marginBottom:7}}>{entries.length} item{entries.length!==1?"s":""} logged</div>
-        <div style={{display:"flex",flexDirection:"column",gap:4}}>
-          {entries.map((e,i)=>(
-            <div key={i} style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:4,padding:"6px 10px",display:"flex",alignItems:"center",gap:8}}>
-              <div style={{flex:1,fontSize:12,fontWeight:500}}>{e.n}</div>
-              <div style={{display:"flex",gap:7,fontSize:10}}><span style={{color:C.acc,fontWeight:700}}>{Math.round(e.c)}cal</span><span style={{color:C.a3,fontWeight:700}}>{Math.round(e.p)}P</span><span style={{color:C.a6,fontWeight:700}}>{Math.round(e.cb)}C</span><span style={{color:C.a5,fontWeight:700}}>{Math.round(e.f)}F</span></div>
-              <button onClick={()=>setFood(prev=>{const u=[...(prev[ds]||[])];u.splice(i,1);return{...prev,[ds]:u};})} style={{background:"transparent",border:"none",color:C.mu,cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>
-            </div>
-          ))}
-        </div></>
-      )}
-    </div>
-  );
-}
-
-function MetricsView({profile,wlog,setWlog}){
-  const [inp2,setInp2]=useState("");
-  const latest=wlog.length?wlog[wlog.length-1].weight:parseFloat(profile.weight);
-  const change=(latest-parseFloat(profile.weight)).toFixed(1);
-  const pct=profile.targetWeight&&parseFloat(profile.targetWeight)!==parseFloat(profile.weight)?Math.min(100,Math.max(0,Math.round((parseFloat(profile.weight)-latest)/(parseFloat(profile.weight)-parseFloat(profile.targetWeight))*100))):0;
-  return(
-    <div style={{height:"100%",overflowY:"auto",padding:14}}>
-      {profile.targetWeight&&(
-        <div style={{...card,marginBottom:12}}>
-          <div style={{padding:"10px 13px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-              <div style={{fontSize:12,color:C.mu2}}>Goal Progress</div>
-              <div style={{...IMP,fontSize:13,color:C.acc}}>{pct}% to goal</div>
-            </div>
-            <div style={{height:8,background:C.bd,borderRadius:4,overflow:"hidden",marginBottom:8}}>
-              <div style={{height:"100%",width:pct+"%",background:`linear-gradient(90deg,${C.a3},${C.acc})`,borderRadius:4,transition:"width .6s"}}/>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.mu}}>
-              <span>Start: {profile.weight} lbs</span>
-              <span style={{color:parseFloat(change)<0?C.a4:C.a2}}>{Math.abs(parseFloat(change))} lbs {parseFloat(change)<0?"lost":"gained"}</span>
-              <span>Target: {profile.targetWeight} lbs</span>
-            </div>
-          </div>
-        </div>
-      )}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <div style={card}>
-          <div style={{padding:"8px 13px",borderBottom:`1px solid ${C.bd}`,...imp(10)}}>LOG WEIGHT</div>
-          <div style={{padding:"11px 13px"}}>
-            <div style={{display:"flex",gap:7,marginBottom:9}}>
-              <input type="number" step="0.1" value={inp2} onChange={e=>setInp2(e.target.value)} placeholder="lbs" style={{...inp,flex:1}}/>
-              <button onClick={()=>{const v=parseFloat(inp2);if(!v||v<50)return;setWlog(l=>[...l,{date:new Date().toISOString(),weight:v}]);setInp2("");}} style={abtn()}>LOG</button>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:200,overflowY:"auto"}}>
-              {wlog.slice().reverse().slice(0,10).map((e,i,arr)=>{const prev=arr[i+1];const dd=prev?(e.weight-prev.weight).toFixed(1):null;return(
-                <div key={i} style={{background:C.s2,border:`1px solid ${C.bd}`,borderRadius:4,padding:"5px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{color:C.mu,fontSize:11}}>{new Date(e.date).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>
-                  <span style={{...IMP,fontSize:15,color:C.acc}}>{e.weight} lbs</span>
-                  <span style={{fontSize:11,fontWeight:700,color:dd===null?C.mu:dd<0?C.a4:dd>0?"#f87171":C.mu}}>{dd===null?"--":dd<0?dd:"+"+dd}</span>
-                </div>
-              );})}
-            </div>
-          </div>
-        </div>
-        <div style={card}>
-          <div style={{padding:"8px 13px",borderBottom:`1px solid ${C.bd}`,...imp(10)}}>MACROS & STATS</div>
-          <div style={{padding:"11px 13px"}}>
-            {[["Start",profile.weight+" lbs",C.acc],["Current",latest+" lbs",C.acc],["Target",(profile.targetWeight||"—")+" lbs",C.a3],["Change",(change>=0?"+":"")+change+" lbs",change<0?C.a4:"#f87171"],["Calories",profile.targetCals+" kcal",C.acc],["Protein",profile.protein+"g",C.a3],["Carbs",profile.carbs+"g",C.a6],["Fat",profile.fat+"g",C.a5]].map(([l,v,col])=>(
-              <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",background:C.s2,borderRadius:4,border:`1px solid ${C.bd}`,marginBottom:4}}>
-                <span style={{fontSize:11,color:C.mu}}>{l}</span>
-                <span style={{...IMP,fontSize:14,fontWeight:800,color:col}}>{v}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function JournalView({jlog,setJlog}){
-  const [date,setDate]=useState(new Date());
-  const [mood,setMood]=useState(-1);const [notes,setNotes]=useState("");
-  const ds=date.toISOString().slice(0,10);
-  const today=new Date();today.setHours(0,0,0,0);
-  const diff=Math.round((date-today)/86400000);
-  const lbl2=diff===0?"TODAY":diff===-1?"YESTERDAY":date.toLocaleDateString("en-US",{month:"short",day:"numeric"}).toUpperCase();
-  useEffect(()=>{const e=jlog[ds];setNotes(e?.notes||"");setMood(e?.mi??-1);},[ds,jlog]);
-  const sv=()=>setJlog(prev=>({...prev,[ds]:{notes,mi:mood,savedAt:new Date().toISOString()}}));
-  return(
-    <div style={{height:"100%",overflowY:"auto",padding:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:11}}>
-        <button onClick={()=>setDate(d=>{const n=new Date(d);n.setDate(n.getDate()-1);return n;})} style={hbtn}>PREV</button>
-        <div style={{...IMP,fontSize:14,fontWeight:700,letterSpacing:2,textTransform:"uppercase"}}>{lbl2}</div>
-        <button onClick={()=>setDate(d=>{const n=new Date(d);n.setDate(n.getDate()+1);return n;})} style={hbtn}>NEXT</button>
-      </div>
-      <div style={{...card,marginBottom:10}}>
-        <div style={{padding:"8px 13px",borderBottom:`1px solid ${C.bd}`,...imp(10)}}>MOOD / ENERGY</div>
-        <div style={{padding:"11px 13px",display:"flex",gap:7}}>{MOODS.map((m,i)=><button key={i} onClick={()=>setMood(i)} style={{background:mood===i?"rgba(232,255,71,.1)":C.s2,border:`1px solid ${mood===i?C.acc:C.bd}`,padding:"5px 10px",borderRadius:20,fontSize:17,cursor:"pointer"}}>{m}</button>)}</div>
-      </div>
-      <div style={{...card,marginBottom:10}}>
-        <div style={{padding:"8px 13px",borderBottom:`1px solid ${C.bd}`,...imp(10)}}>TODAY'S NOTES</div>
-        <div style={{padding:"11px 13px"}}>
-          <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="How did training go? Weights used, how you felt..." style={{width:"100%",background:C.s2,border:`1px solid ${C.bd}`,color:C.tx,padding:"8px 10px",borderRadius:4,fontSize:12,resize:"none",minHeight:90,outline:"none",lineHeight:1.65,fontFamily:"inherit"}}/>
-          <button onClick={sv} style={{...abtn(),marginTop:8}}>SAVE ENTRY</button>
-        </div>
-      </div>
-      <div style={card}>
-        <div style={{padding:"8px 13px",borderBottom:`1px solid ${C.bd}`,...imp(10)}}>PAST ENTRIES</div>
-        <div style={{padding:"11px 13px"}}>
-          {Object.keys(jlog).length===0?<div style={{color:C.mu,fontSize:12}}>No entries yet.</div>:
-          Object.entries(jlog).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,10).map(([k,e])=>(
-            <div key={k} style={{background:C.s2,border:`1px solid ${C.bd}`,borderRadius:5,padding:"9px 11px",marginBottom:6}}>
-              <div style={{...imp(10),display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
-                <span style={{fontSize:15}}>{e.mi>=0&&e.mi<MOODS.length?MOODS[e.mi]:""}</span>
-                {new Date(k+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}
-              </div>
-              <div style={{fontSize:12,lineHeight:1.6}}>{(e.notes||"").substring(0,160)}{(e.notes||"").length>160?"...":""}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CoachDrawer({open,onClose,profile,week,initMsg,onInitConsumed,sessions,wlog,food}){
-  const [conv,setConv]=useState([]);const [msg,setMsg]=useState("");const [loading,setLoading]=useState(false);
-  const ref=useRef(null);
-  const sentInit=useRef(false);
-  useEffect(()=>{
-    if(open&&initMsg&&!sentInit.current){sentInit.current=true;send(initMsg);if(onInitConsumed)onInitConsumed();}
-    if(!open)sentInit.current=false;
-  },[open,initMsg]);
-  const sys=()=>{
-    const p=getPhase(week,profile.weeks);
-    const gl={fat_loss:"fat loss",muscle_gain:"muscle building",recomp:"recomposition",performance:"athletic performance"};
-    const styleMap={rp_hypertrophy:"RP Hypertrophy: Mesocycle-based, MEV/MAV/MRV volume landmarks per muscle, RIR drops 3→0 across 4-6 weeks, deload last week, pump/soreness/workload feedback adjusts next session volume",functional_bb:"Functional Bodybuilding: supersets A1/A2, RPE-based, aesthetics + performance",traditional_bb:"Traditional Bodybuilding: isolation exercises, hypertrophy focus, physique",crossfit:"CrossFit: WODs, AMRAP, EMOM, Olympic lifting, high conditioning",hyrox:"HYROX: race prep, functional strength + cardio endurance circuits",powerlifting:"Powerlifting: squat/bench/deadlift focus, max strength, heavy triples/singles",athletic:"Athletic Performance: sport conditioning, speed, power, agility work",hiit:"HIIT/Circuit: high intensity intervals, minimal rest, full body circuits"};
-
-    // Build recent session summary (last 5 sessions with set data)
-    const recentSessions = Object.entries(sessions||{})
-      .filter(([,s])=>s.setLogs&&Object.keys(s.setLogs).length>0)
-      .sort((a,b)=>(b[1].savedAt||"0").localeCompare(a[1].savedAt||"0"))
-      .slice(0,5);
-    const sessionSummary = recentSessions.length ? recentSessions.map(([sk,s])=>{
-      const day = DAYS[parseInt(sk.replace(/w\d+d/,""))]?.type||"";
-      const wkNum = sk.match(/w(\d+)/)?.[1]||"?";
-      const sets = Object.entries(s.setLogs)
-        .filter(([,v])=>v.weight)
-        .map(([k,v])=>{const name=k.split("__")[0];return `${name}: ${v.weight}lbs×${v.reps||"?"}`;})
-        .slice(0,6).join(", ");
-      return `Wk${wkNum} ${day}${s.done?" ✓":""}: ${sets}`;
-    }).join("\n") : "No sessions logged yet.";
-
-    // Weight trend
-    const wtTrend = (wlog||[]).slice(-5).map(e=>`${new Date(e.date).toLocaleDateString("en-US",{month:"short",day:"numeric"})}: ${e.weight}lbs`).join(", ") || "No weight entries yet.";
-
-    // Today's food log
-    const today = new Date().toISOString().slice(0,10);
-    const todayFood = (food||{})[today]||[];
-    let ftc=0,ftp=0,ftcb=0,ftf=0;
-    todayFood.forEach(e=>{ftc+=e.c||0;ftp+=e.p||0;ftcb+=e.cb||0;ftf+=e.f||0;});
-    const remaining = {cal:profile.targetCals-Math.round(ftc),prot:profile.protein-Math.round(ftp),carb:profile.carbs-Math.round(ftcb),fat:profile.fat-Math.round(ftf)};
-    const foodSummary = todayFood.length
-      ? `Logged today: ${Math.round(ftc)}cal / ${Math.round(ftp)}gP / ${Math.round(ftcb)}gC / ${Math.round(ftf)}gF\nRemaining: ${remaining.cal}cal / ${remaining.prot}gP / ${remaining.carb}gC / ${remaining.fat}gF`
-      : "No food logged today.";
-
-    return `You are RECOMP, an elite AI fitness coach. Direct, specific, evidence-based. You have full access to this athlete's data.
-
-ATHLETE: ${profile.name} | ${profile.age}yo | ${profile.sex} | ${profile.height} | ${profile.weight}lbs → target: ${profile.targetWeight||"not set"}lbs | Goal: ${gl[profile.goal]||profile.goal}
-Experience: ${profile.experience} | Equipment: ${profile.equipment} | Week ${week}/${profile.weeks}
-Macros targets: ${profile.targetCals}cal / ${profile.protein}gP / ${profile.carbs}gC / ${profile.fat}gF
-Training style: ${styleMap[profile.workoutStyle||"functional_bb"]||profile.workoutStyle}
-CURRENT PHASE: ${p.ph} — ${p.sets}x${p.reps} @ ${p.rpe} — ${p.tempo} tempo
-${p.note?"THIS WEEK: "+p.note+"\n":""}
-SPLIT: Mon=Push, Tue=Pull, Wed=Cardio, Thu=Legs, Fri=Full Body, weekends off. A/B alternate weekly.
-
-RECENT WORKOUT SESSIONS (actual logged data):
-${sessionSummary}
-
-WEIGHT HISTORY (recent):
-${wtTrend}
-
-TODAY'S NUTRITION:
-${foodSummary}
-
-CAPABILITIES — you can:
-- Analyze the athlete's actual logged weights and suggest progressions
-- Review recent sessions and identify trends (e.g. stalling, inconsistency)
-- Suggest what to eat to hit remaining macros (give specific foods with portions)
-- Track weight trend and comment on rate of loss/gain vs goal
-- Answer any training, nutrition, recovery, or programming question
-- Suggest exercise swaps matched to their training style and equipment
-- Set reminders or goals the athlete mentions
-
-When asked about remaining macros or what to eat: give specific food suggestions with amounts that hit the remaining targets. Be precise (e.g. "2 cups of 2% cottage cheese = 440cal, 52gP, 18gC, 10gF — that covers most of your remaining protein").
-Always tailor exercise and programming advice to the athlete's training style.`;
-  };
-  const send=async(m)=>{
-    if(!m.trim()||loading)return;
-    const nc=[...conv,{role:"user",content:m}];setConv(nc);setMsg("");setLoading(true);
-    try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys(),messages:nc.slice(-20)})});const d=await r.json();setConv(c=>[...c,{role:"assistant",content:d.content?.[0]?.text||"Error."}]);}catch{setConv(c=>[...c,{role:"assistant",content:"Connection error."}]);}
-    setLoading(false);
-  };
-  useEffect(()=>{if(ref.current)ref.current.scrollTop=ref.current.scrollHeight;},[conv,loading]);
-  const qb=[
-    ["THIS WEEK","Explain this week's phase, what changed from last week, and key focus"],
-    ["MY SESSIONS","Review my recent logged sessions. How are my lifts progressing? Any stalls?"],
-    ["FILL MACROS","Based on what I've eaten today, what should I eat to hit my remaining macro targets?"],
-    ["WEIGHT TREND","Analyze my recent weight entries. Am I on track for my goal?"],
-    ["PROGRESS","Based on my logged weights, how should I progress my lifts this week?"],
-    ["CARDIO","Cardio protocol for today based on my goal and current week"],
-    ["RECOVERY","I'm sore — should I rest or train? What's best for my goal right now?"],
-    ["MEALS","High protein meal ideas tailored to my goal and macros"]
-  ];
-  return(
-    <div style={{position:"fixed",bottom:0,right:0,width:"100%",maxWidth:420,height:"68vh",background:C.s1,borderTop:`2px solid ${C.acc}`,borderLeft:`1px solid ${C.bd}`,borderRadius:"12px 0 0 0",zIndex:300,display:"flex",flexDirection:"column",transform:open?"translateY(0)":"translateY(100%)",transition:"transform .3s ease",boxShadow:"-4px -4px 30px rgba(0,0,0,.6)"}}>
-      <div style={{padding:"9px 13px",borderBottom:`1px solid ${C.bd}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-        <div style={{...IMP,fontSize:13,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.acc}}>RECOMP COACH</div>
-        <button onClick={onClose} style={{background:"transparent",border:`1px solid ${C.bd}`,color:C.mu,width:26,height:26,borderRadius:4,fontSize:15,cursor:"pointer"}}>✕</button>
-      </div>
-      <div style={{padding:"7px 11px",borderBottom:`1px solid ${C.bd}`,display:"flex",gap:4,overflowX:"auto",flexShrink:0}}>
-        {qb.map(([l,m])=><button key={l} onClick={()=>send(m)} style={{...hbtn,whiteSpace:"nowrap",fontSize:10,padding:"3px 8px"}}>{l}</button>)}
-      </div>
-      <div ref={ref} style={{flex:1,overflowY:"auto",padding:11}}>
-        <div style={{display:"flex",flexDirection:"column",gap:9}}>
-          {conv.map((m,i)=>(
-            <div key={i} style={{display:"flex",gap:7,flexDirection:m.role==="user"?"row-reverse":"row"}}>
-              <div style={{width:27,height:27,borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",...IMP,fontWeight:900,fontSize:10,flexShrink:0,background:m.role==="assistant"?`linear-gradient(135deg,${C.acc},${C.a2})`:C.s3,color:m.role==="assistant"?"#000":C.tx,border:m.role==="user"?`1px solid ${C.bd}`:"none"}}>
-                {m.role==="assistant"?"AI":(profile.name?.[0]?.toUpperCase()||"U")}
-              </div>
-              <div style={{maxWidth:"84%"}}><div style={{padding:"8px 10px",borderRadius:5,fontSize:12,lineHeight:1.6,background:m.role==="assistant"?"#13131a":C.s3,border:`1px solid ${C.bd}`,borderLeft:m.role==="assistant"?`3px solid ${C.acc}`:`1px solid ${C.bd}`}} dangerouslySetInnerHTML={{__html:m.content.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\*\*(.*?)\*\*/g,"<strong style='color:#e8ff47'>$1</strong>").replace(/\n/g,"<br>")}}/></div>
-            </div>
-          ))}
-          {loading&&<div style={{display:"flex",gap:7,alignItems:"center"}}>
-            <div style={{width:27,height:27,borderRadius:4,background:`linear-gradient(135deg,${C.acc},${C.a2})`,display:"flex",alignItems:"center",justifyContent:"center",...IMP,fontWeight:900,fontSize:10,color:"#000"}}>AI</div>
-            <div style={{padding:"8px 10px",borderRadius:5,background:"#13131a",border:`1px solid ${C.bd}`,borderLeft:`3px solid ${C.acc}`,display:"flex",gap:4,alignItems:"center"}}>
-              {[0,.2,.4].map((d,i)=><div key={i} style={{width:4,height:4,background:C.mu,borderRadius:"50%",animation:`pulse ${1.2}s ${d}s ease-in-out infinite`}}/>)}
-            </div>
-          </div>}
-        </div>
-      </div>
-      <div style={{background:C.bg,borderTop:`1px solid ${C.bd}`,padding:"9px 11px",display:"flex",gap:6,alignItems:"flex-end",flexShrink:0}}>
-        <textarea value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send(msg);}}} placeholder="Ask your coach..." rows={1} style={{flex:1,background:C.s2,border:`1px solid ${C.bd}`,color:C.tx,padding:"7px 9px",borderRadius:4,fontSize:12,resize:"none",minHeight:34,maxHeight:85,outline:"none",lineHeight:1.5,fontFamily:"inherit"}}/>
-        <button onClick={()=>send(msg)} disabled={loading||!msg.trim()} style={{...abtn(),height:34,padding:"0 13px",opacity:loading||!msg.trim()?0.4:1,cursor:loading||!msg.trim()?"not-allowed":"pointer",flexShrink:0}}>SEND</button>
-      </div>
-    </div>
-  );
-}
-
-function Dashboard({profile,week,wlog,food,openCoach,onUpdateProfile}){
-  const isRP=profile.workoutStyle==="rp_hypertrophy";
-  const isHyrox=profile.workoutStyle==="hyrox";
-  const isHybrid=profile.workoutStyle==="hyrox_hybrid";
-  const isSpecial=isRP||isHyrox||isHybrid;
-  const showRaceCountdown=true;
-  const tw=parseInt(profile.weeks)||8;
-  const wk=parseInt(week)||1;
-  const [editingRace,setEditingRace]=useState(false);
-  const [raceInput,setRaceInput]=useState(profile.raceDate||"");
-  const [raceName,setRaceName]=useState(profile.raceName||"HYROX RACE");
-
-  // Calculate days until race
-  let daysToRace=null,raceDateObj=null,raceFmt="";
-  if(profile.raceDate){
-    raceDateObj=new Date(profile.raceDate+"T00:00:00");
-    const today=new Date();today.setHours(0,0,0,0);
-    daysToRace=Math.ceil((raceDateObj-today)/86400000);
-    raceFmt=raceDateObj.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"});
+const loadState = async () => {
+  try {
+    if (typeof window === 'undefined' || !window.storage) return defaultState();
+    const result = await window.storage.get(STORAGE_KEY);
+    if (!result || !result.value) return defaultState();
+    let parsed;
+    try {
+      parsed = JSON.parse(result.value);
+    } catch {
+      return defaultState();
+    }
+    // Migrate / validate
+    const def = defaultState();
+    const merged = { ...def, ...parsed };
+    merged.profile = { ...def.profile, ...(parsed.profile || {}) };
+    if (!Array.isArray(merged.profile.schedule) || merged.profile.schedule.length !== 7) {
+      merged.profile.schedule = defaultScheduleForStyle(merged.profile.workoutStyle);
+    }
+    if (!validateSchedule(merged.profile.schedule, merged.profile.workoutStyle)) {
+      merged.profile.schedule = defaultScheduleForStyle(merged.profile.workoutStyle);
+    }
+    if (!merged.profile.weekOverrides || typeof merged.profile.weekOverrides !== 'object') {
+      merged.profile.weekOverrides = {};
+    }
+    if (!Array.isArray(merged.wlog)) merged.wlog = [];
+    if (!Array.isArray(merged.jlog)) merged.jlog = [];
+    if (!Array.isArray(merged.runs)) merged.runs = [];
+    if (!Array.isArray(merged.conv)) merged.conv = [];
+    if (!merged.food || typeof merged.food !== 'object') merged.food = {};
+    if (!merged.sessions || typeof merged.sessions !== 'object') merged.sessions = {};
+    if (!merged.profile.weeks) merged.profile.weeks = 12;
+    if (!merged.profile.workoutStyle) merged.profile.workoutStyle = 'func_bb';
+    if (!merged.profile.startDate) merged.profile.startDate = todayISO();
+    if (!merged.week) merged.week = 1;
+    return merged;
+  } catch (e) {
+    console.error('loadState', e);
+    return defaultState();
   }
+};
 
-  const saveRace=()=>{
-    onUpdateProfile({...profile,raceDate:raceInput,raceName:raceName||"HYROX RACE"});
-    setEditingRace(false);
-  };
-
-  const clearRace=()=>{
-    onUpdateProfile({...profile,raceDate:"",raceName:""});
-    setEditingRace(false);
-    setRaceInput("");
-  };
-
-  let phName="WEEK", phSub="", phCol=C.acc;
-  if(isRP){
-    const p=getRPWeek(wk,tw);
-    phName=p.type;phSub=`${p.rir} · ${p.repRange} reps`;phCol=p.type==="DELOAD"?C.a5:C.acc;
-  } else if(isHyrox||isHybrid){
-    const phasePct=wk/tw;
-    const ph=phasePct<=0.4?"BASE":phasePct<=0.75?"BUILD":phasePct<1?(isHybrid?"PEAK":"RACE PREP"):"TAPER";
-    phName=ph;phSub=isHybrid?"HYROX + Lifting + KB":"HYROX Race Prep";
-    phCol=ph==="BASE"?C.a3:ph==="BUILD"?C.a6:ph==="TAPER"?C.a5:C.a2;
-  } else {
-    const p=getPhase(wk,tw);
-    phName=p.ph||"WEEK";phSub=`${p.sets||""}x${p.reps||""} · ${p.rpe||""}`;phCol=PC[p.ph]||C.acc;
+const saveState = async (s) => {
+  try {
+    if (typeof window === 'undefined' || !window.storage) return;
+    await window.storage.set(STORAGE_KEY, JSON.stringify(s));
+  } catch (e) {
+    console.error('saveState', e);
   }
-  const latest=wlog.length?wlog[wlog.length-1].weight:parseFloat(profile.weight);
-  const delta=wlog.length>1?(wlog[wlog.length-1].weight-wlog[wlog.length-2].weight).toFixed(1):null;
-  const today=new Date().toISOString().slice(0,10);const te=food[today]||[];
-  let tc=0,tp=0,tcb=0,tf=0;te.forEach(e=>{tc+=e.c||0;tp+=e.p||0;tcb+=e.cb||0;tf+=e.f||0;});
-  const pct=(v,t)=>t?Math.min(100,(v/t)*100):0;
-  const Mini=({v,l,col,t})=>(
-    <div style={{background:C.s2,borderRadius:4,padding:"7px 5px",textAlign:"center"}}>
-      <div style={{...IMP,fontSize:17,color:col}}>{v}</div>
-      <div style={{fontSize:9,textTransform:"uppercase",letterSpacing:1,color:C.mu,marginTop:1}}>{l}</div>
-      <div style={{height:3,background:C.bd,borderRadius:2,marginTop:4,overflow:"hidden"}}><div style={{height:"100%",width:pct(parseFloat(v),t)+"%",background:col,borderRadius:2}}/></div>
-    </div>
-  );
+};
 
-  // Determine countdown urgency color
-  const cdCol=daysToRace===null?C.mu:daysToRace<0?C.mu:daysToRace<=7?C.a2:daysToRace<=21?C.a6:daysToRace<=56?C.acc:C.a3;
-  const cdLabel=daysToRace===null?"":daysToRace<0?"PASSED":daysToRace===0?"RACE DAY":daysToRace===1?"DAY":"DAYS";
-
-  return(
-    <div style={{height:"100%",overflowY:"auto",padding:14}}>
-
-      {/* HYROX Race Countdown - always visible regardless of workout style */}
-      {showRaceCountdown&&(
-        <div style={{position:"relative",marginBottom:14,borderRadius:10,overflow:"hidden",background:profile.raceDate?`linear-gradient(135deg, #0a0a0f 0%, ${cdCol}15 50%, #0a0a0f 100%)`:`linear-gradient(135deg,${C.s1} 0%,${C.s2} 100%)`,border:`2px solid ${profile.raceDate?cdCol:C.bd}`,boxShadow:profile.raceDate?`0 0 30px ${cdCol}25, 0 4px 20px rgba(0,0,0,.4)`:"0 4px 12px rgba(0,0,0,.3)"}}>
-
-          {/* Decorative racing stripe */}
-          {profile.raceDate&&!editingRace&&(
-            <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,transparent,${cdCol},transparent)`,animation:"pulse 2.5s ease-in-out infinite"}}/>
-          )}
-
-          <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.bd}`,display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(0,0,0,.25)"}}>
-            <div style={{...IMP,fontSize:12,letterSpacing:2,color:profile.raceDate?cdCol:C.a2,display:"flex",alignItems:"center",gap:7}}>
-              <span style={{fontSize:18}}>🏁</span>
-              <span style={{fontWeight:900}}>{profile.raceName||"RACE COUNTDOWN"}</span>
-            </div>
-            <button onClick={()=>{setEditingRace(e=>!e);setRaceInput(profile.raceDate||"");setRaceName(profile.raceName||"HYROX RACE");}} style={{...hbtn,fontSize:9,padding:"3px 9px"}}>{editingRace?"CANCEL":profile.raceDate?"EDIT":"SET DATE"}</button>
-          </div>
-
-          {editingRace?(
-            <div style={{padding:"14px"}}>
-              <label style={{...lbl9,fontSize:9,marginBottom:3}}>Race Name</label>
-              <input value={raceName} onChange={e=>setRaceName(e.target.value)} placeholder="HYROX Dallas 2026" style={{width:"100%",...inp,fontSize:12,marginBottom:8}}/>
-              <label style={{...lbl9,fontSize:9,marginBottom:3}}>Race Date</label>
-              <input type="date" value={raceInput} onChange={e=>setRaceInput(e.target.value)} style={{width:"100%",...inp,fontSize:12,marginBottom:10}}/>
-              <div style={{display:"flex",gap:6}}>
-                <button onClick={saveRace} disabled={!raceInput} style={{...abtn(),flex:1,opacity:!raceInput?.4:1}}>SAVE</button>
-                {profile.raceDate&&<button onClick={clearRace} style={{...abtn("transparent"),border:"1px solid #f87171",color:"#f87171"}}>REMOVE</button>}
-              </div>
-            </div>
-          ):profile.raceDate?(
-            <div style={{padding:"22px 14px 18px",textAlign:"center",position:"relative"}}>
-
-              {/* Big countdown number with stroke effect */}
-              <div style={{display:"flex",alignItems:"baseline",justifyContent:"center",gap:10,marginBottom:6}}>
-                <div style={{...IMP,fontSize:78,fontWeight:900,lineHeight:.85,color:cdCol,letterSpacing:1,textShadow:`0 0 25px ${cdCol}55, 0 0 50px ${cdCol}30`,filter:`drop-shadow(0 2px 8px ${cdCol}40)`}}>{daysToRace<0?Math.abs(daysToRace):daysToRace}</div>
-                <div style={{...IMP,fontSize:20,fontWeight:900,color:cdCol,letterSpacing:3,opacity:.9}}>{cdLabel}</div>
-              </div>
-
-              <div style={{fontSize:12,color:C.tx,marginBottom:10,fontWeight:600,letterSpacing:.5}}>{raceFmt}</div>
-
-              {/* Phase indicator with animated background */}
-              <div style={{display:"inline-block",padding:"6px 14px",borderRadius:20,background:`${cdCol}18`,border:`1px solid ${cdCol}55`,...IMP,fontSize:11,letterSpacing:2,color:cdCol,fontWeight:900}}>
-                {daysToRace===0?"🏁 GO TIME — TRUST YOUR PREP":daysToRace<0?"RACE COMPLETE":daysToRace<=7?"⚡ RACE WEEK — RECOVER":daysToRace<=21?"⚡ TAPER ZONE — RECOVERY MATTERS":daysToRace<=56?"🔥 PEAK PHASE — PUSH HARD":daysToRace<=84?"📈 BUILD BLOCK — CONSISTENCY":"🏗️ BASE BUILDING — STAY THE COURSE"}
-              </div>
-
-              {/* Weeks/months remaining (extra context) */}
-              {daysToRace>7&&(
-                <div style={{display:"flex",justifyContent:"center",gap:18,marginTop:14,paddingTop:12,borderTop:`1px solid rgba(255,255,255,.06)`}}>
-                  <div>
-                    <div style={{...IMP,fontSize:18,color:C.tx,fontWeight:900}}>{Math.floor(daysToRace/7)}</div>
-                    <div style={{fontSize:9,color:C.mu,letterSpacing:1.5,...IMP}}>WEEKS</div>
-                  </div>
-                  <div style={{width:1,background:C.bd}}/>
-                  <div>
-                    <div style={{...IMP,fontSize:18,color:C.tx,fontWeight:900}}>{daysToRace%7}</div>
-                    <div style={{fontSize:9,color:C.mu,letterSpacing:1.5,...IMP}}>DAYS</div>
-                  </div>
-                  {daysToRace>=30&&(
-                    <>
-                      <div style={{width:1,background:C.bd}}/>
-                      <div>
-                        <div style={{...IMP,fontSize:18,color:C.tx,fontWeight:900}}>{Math.floor(daysToRace/30)}</div>
-                        <div style={{fontSize:9,color:C.mu,letterSpacing:1.5,...IMP}}>MONTHS</div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          ):(
-            <div style={{padding:"20px 14px",textAlign:"center"}}>
-              <div style={{fontSize:32,marginBottom:6}}>🏁</div>
-              <div style={{...IMP,fontSize:14,fontWeight:800,letterSpacing:1.5,color:C.tx,marginBottom:4}}>SET YOUR RACE DATE</div>
-              <div style={{fontSize:11,color:C.mu,marginBottom:12,lineHeight:1.5}}>Track your countdown to race day with auto-updating daily progress</div>
-              <button onClick={()=>setEditingRace(true)} style={{...abtn(C.a2),fontSize:11,padding:"8px 18px",letterSpacing:2}}>+ ADD RACE DATE</button>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <div style={card}>
-          <div style={{padding:"9px 13px",borderBottom:`1px solid ${C.bd}`,...imp(11)}}>WEIGHT</div>
-          <div style={{padding:"12px 13px"}}>
-            <div style={{display:"flex",alignItems:"baseline",gap:6}}>
-              <div style={{...IMP,fontSize:32,lineHeight:1,color:C.acc}}>{latest}</div>
-              <div style={{...IMP,fontSize:13,color:C.mu}}>lbs</div>
-              {delta&&<div style={{fontSize:11,fontWeight:700,padding:"2px 7px",borderRadius:3,marginLeft:4,background:delta<0?"rgba(74,222,128,.15)":"rgba(248,113,113,.15)",color:delta<0?C.a4:"#f87171"}}>{delta>=0?"+":""}{delta}</div>}
-            </div>
-            <div style={{fontSize:11,color:C.mu,marginTop:3}}>Start: {profile.weight} lbs{profile.targetWeight?" → Target: "+profile.targetWeight+" lbs":""}</div>
-          </div>
-        </div>
-        <div style={card}>
-          <div style={{padding:"9px 13px",borderBottom:`1px solid ${C.bd}`,...imp(11)}}>TODAY MACROS</div>
-          <div style={{padding:"12px 13px"}}>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5}}>
-              <Mini v={Math.round(tc)} l="Cal" col={C.acc} t={profile.targetCals}/>
-              <Mini v={Math.round(tp)} l="Prot" col={C.a3} t={profile.protein}/>
-              <Mini v={Math.round(tcb)} l="Carb" col={C.a6} t={profile.carbs}/>
-              <Mini v={Math.round(tf)} l="Fat" col={C.a5} t={profile.fat}/>
-            </div>
-            <div style={{fontSize:10,color:C.mu,marginTop:6,textAlign:"center"}}>{profile.targetCals} cal / {profile.protein}g P / {profile.carbs}g C / {profile.fat}g F</div>
-          </div>
-        </div>
-        <div style={card}>
-          <div style={{padding:"9px 13px",borderBottom:`1px solid ${C.bd}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={imp(11)}>{isRP?"MESOCYCLE":isSpecial?"PHASE":"PHASE"}</div><div style={{fontSize:10,color:C.mu}}>Wk {wk}/{tw}</div>
-          </div>
-          <div style={{padding:"12px 13px"}}>
-            <div style={{background:C.s2,borderRadius:6,padding:"10px 12px"}}>
-              <div style={{...IMP,fontSize:13,fontWeight:800,letterSpacing:1,color:phCol}}>{phName}</div>
-              <div style={{fontSize:11,color:C.mu,margin:"3px 0 7px"}}>{phSub}</div>
-              <div style={{height:4,background:C.bd,borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:(wk/tw*100)+"%",background:phCol,borderRadius:2,transition:"width .6s"}}/></div>
-            </div>
-          </div>
-        </div>
-        <div style={card}>
-          <div style={{padding:"9px 13px",borderBottom:`1px solid ${C.bd}`,...imp(11)}}>QUICK COACH</div>
-          <div style={{padding:"12px 13px"}}>
-            <div style={{fontSize:11,color:C.mu2,marginBottom:8}}>Tap 🤖 or a quick prompt.</div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              {[["THIS WEEK","Explain this week and what changed"],["MACROS","My macro targets"],["CARDIO","Cardio protocol for today"],["RECOVERY","I'm sore — rest or train?"]].map(([l,m])=>(
-                <button key={l} onClick={()=>openCoach(m)} style={{...hbtn,fontSize:10,padding:"4px 9px"}}>{l}</button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BackupView({profile,week,wlog,food,jlog,sessions,runs,conv,onImport,onReset,onSetWeek,onUpdateProfile,onShowSummary}){
-  const [wkInp,setWkInp]=useState(String(week));
-  const [editing,setEditing]=useState(false);
-  const [pf,setPf]=useState({name:profile.name||"",age:profile.age||"",sex:profile.sex||"male",height:profile.height||"",weight:profile.weight||"",targetWeight:profile.targetWeight||"",goal:profile.goal||"fat_loss",activity:profile.activity||"very_active",experience:profile.experience||"advanced",equipment:profile.equipment||"full_gym",workoutStyle:profile.workoutStyle||"functional_bb",weeks:profile.weeks||"8"});
-  const sp=k=>e=>setPf(p=>({...p,[k]:e.target.value}));
-  let preview;
-  try{preview=calcMacros({...profile,...pf},pf.weight);}
-  catch(e){preview={tdee:0,targetCals:0,protein:0,carbs:0,fat:0,lbsToGo:0,pctToGoal:0};}
-  const savePf=()=>{
-    try{
-      const updated={...profile,...pf,...calcMacros({...profile,...pf},pf.weight)};
-      onUpdateProfile(updated);
-      setEditing(false);
-    }catch(e){alert("Error saving profile: "+e.message);}
-  };
-  const fi2=(id,lbl,type="text",ph="")=><div style={{marginBottom:8}}><label style={{...lbl9,fontSize:9,marginBottom:3}}>{lbl}</label><input type={type} value={pf[id]} onChange={sp(id)} placeholder={ph} style={{width:"100%",...inp,background:C.s3}}/></div>;
-  const fs2=(id,lbl,opts)=><div style={{marginBottom:8}}><label style={{...lbl9,fontSize:9,marginBottom:3}}>{lbl}</label><select value={pf[id]} onChange={sp(id)} style={{width:"100%",...inp,background:C.s3}}>{opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>;
-  const g2=(a,b)=><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{a}{b}</div>;
-  const exp=()=>{const d={version:9,exported:new Date().toISOString(),profile,week,wlog,food,jlog,sessions,runs,conversation:conv};const b=new Blob([JSON.stringify(d,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="recomp-backup-"+new Date().toISOString().slice(0,10)+".json";a.click();URL.revokeObjectURL(a.href);};
-  const imp2=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!d.profile?.name){alert("Invalid backup.");return;}onImport(d);}catch{alert("Invalid file.");}};r.readAsText(f);e.target.value="";};
-  const bk=(title,desc,children)=>(
-    <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:8,padding:14,marginBottom:10}}>
-      <div style={{...imp(11,C.acc),marginBottom:5}}>{title}</div>
-      <div style={{fontSize:12,color:C.mu2,lineHeight:1.6,marginBottom:9}}>{desc}</div>
-      {children}
-    </div>
-  );
-  return(
-    <div style={{height:"100%",overflowY:"auto",padding:14}}>
-      <ScheduleEditor profile={profile} onUpdateProfile={onUpdateProfile}/>
-      <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:8,padding:14,marginBottom:10}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:editing?14:0}}>
-          <div>
-            <div style={{...imp(11,C.acc),marginBottom:3}}>EDIT PROFILE</div>
-            {!editing&&<div style={{fontSize:12,color:C.mu2}}>Update weight, target weight, goals, macros.</div>}
-          </div>
-          <button onClick={()=>setEditing(e=>!e)} style={{...hbtn,borderColor:editing?"#f87171":C.bd,color:editing?"#f87171":C.mu2}}>{editing?"CANCEL":"EDIT"}</button>
-        </div>
-        {editing&&(
-          <div>
-            {g2(fi2("name","Name"),fi2("age","Age","number"))}
-            {g2(fi2("height","Height"),fs2("sex","Sex",[["male","Male"],["female","Female"]]))}
-            {g2(fi2("weight","Current Weight (lbs)","number"),fi2("targetWeight","Target Weight (lbs)","number","175"))}
-            {fs2("goal","Primary Goal",[["fat_loss","Fat Loss / Cut"],["muscle_gain","Muscle Gain"],["recomp","Body Recomposition"],["performance","Athletic Performance"]])}
-            {g2(fs2("activity","Activity Level",[["sedentary","Sedentary"],["lightly_active","Lightly Active"],["moderately_active","Moderately Active"],["very_active","Very Active"]]),fs2("experience","Experience",[["beginner","Beginner"],["intermediate","Intermediate"],["advanced","Advanced"]]))}
-            {fs2("equipment","Equipment",[["full_gym","Full Gym"],["home_dumbbells","Home Dumbbells"],["bodyweight","Bodyweight Only"]])}
-            {fs2("workoutStyle","Workout Style",[
-              ["rp_hypertrophy","RP Hypertrophy"],
-              ["hyrox_hybrid","HYROX Hybrid (Race + Lifting + KB)"],
-              ["functional_bb","Functional Bodybuilding"],
-              ["traditional_bb","Traditional Bodybuilding"],
-              ["crossfit","CrossFit"],
-              ["hyrox","HYROX"],
-              ["powerlifting","Powerlifting"],
-              ["athletic","Athletic Performance"],
-              ["hiit","HIIT / Circuit"]
-            ])}
-            {fs2("weeks","Program Length",[["4","4 Weeks"],["8","8 Weeks"],["10","10 Weeks"],["12","12 Weeks"],["16","16 Weeks"]])}
-            <div style={{background:C.s2,border:`1px solid ${C.bd}`,borderRadius:6,padding:"10px 12px",marginBottom:12}}>
-              <div style={{...imp(9,C.mu),marginBottom:6}}>NEW MACRO PREVIEW</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,textAlign:"center"}}>
-                {[[preview.targetCals,"Cal",C.acc],[preview.protein+"g","Prot",C.a3],[preview.carbs+"g","Carb",C.a6],[preview.fat+"g","Fat",C.a5]].map(([v,l,col])=>(
-                  <div key={l}><div style={{...IMP,fontSize:16,color:col}}>{v}</div><div style={{fontSize:9,textTransform:"uppercase",letterSpacing:1,color:C.mu}}>{l}</div></div>
-                ))}
-              </div>
-            </div>
-            <button onClick={savePf} style={abtn()}>SAVE CHANGES</button>
-          </div>
-        )}
-      </div>
-      {bk("EXPORT BACKUP","Download all your data.",<button onClick={exp} style={abtn()}>DOWNLOAD BACKUP</button>)}
-      {bk("PROGRAM SUMMARY","See your stats: weight change, lifting PRs, run totals, completion rate.",<button onClick={onShowSummary} style={abtn(C.a4)}>VIEW SUMMARY</button>)}
-      {bk("IMPORT BACKUP","Restore a previous backup file.",<><input type="file" id="impf" accept=".json" style={{display:"none"}} onChange={imp2}/><button onClick={()=>document.getElementById("impf").click()} style={{...abtn("transparent"),border:`1px solid ${C.acc}`,color:C.acc}}>UPLOAD BACKUP</button></>)}
-      {bk("SET WEEK","Manually set your current program week.",<div style={{display:"flex",gap:8,alignItems:"center"}}><input type="number" value={wkInp} onChange={e=>setWkInp(e.target.value)} min="1" max="12" style={{...inp,width:65}}/><button onClick={()=>{const v=parseInt(wkInp);if(!v||v<1||v>parseInt(profile.weeks))return;onSetWeek(v);}} style={abtn()}>SET WEEK</button></div>)}
-      {bk("RESET","Wipe all data and start over.",<button onClick={()=>{if(confirm("Reset ALL data?"))onReset();}} style={{...abtn("transparent"),border:"1px solid #f87171",color:"#f87171"}}>RESET ALL</button>)}
-    </div>
-  );
-}
-
-// Error boundary - prevents white screens on render crashes
+// ============================================================
+// ERROR BOUNDARY
+// ============================================================
 class ErrorBoundary extends React.Component {
-  constructor(props){super(props);this.state={hasError:false,error:null};}
-  static getDerivedStateFromError(error){return {hasError:true,error};}
-  componentDidCatch(error,info){console.error("Recomp crash:",error,info);}
-  render(){
-    if(this.state.hasError){
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    console.error('App crashed:', error, info);
+  }
+  reset = () => this.setState({ error: null });
+  resetData = async () => {
+    try {
+      if (window.storage) await window.storage.delete(STORAGE_KEY);
+      if (typeof localStorage !== 'undefined') localStorage.clear();
+    } catch (e) {}
+    if (typeof window !== 'undefined') window.location.reload();
+  };
+  render() {
+    if (this.state.error) {
       return (
-        <div style={{minHeight:"100vh",background:"#09090b",color:"#eff0f4",padding:20,fontFamily:"Helvetica,Arial,sans-serif",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
-          <div style={{maxWidth:480,width:"100%",background:"#111115",border:"1px solid #25252f",borderRadius:8,padding:20,textAlign:"center"}}>
-            <div style={{fontSize:38,marginBottom:10}}>⚠️</div>
-            <div style={{fontFamily:"Impact,Arial,sans-serif",fontSize:20,letterSpacing:2,color:"#e8ff47",marginBottom:8}}>SOMETHING BROKE</div>
-            <div style={{fontSize:13,color:"#7a7a8e",marginBottom:14,lineHeight:1.5}}>
-              The app hit an error. Your data is safe in storage. This usually happens after a major update — clearing the cached data fixes it.
-            </div>
-            {this.state.error&&(
-              <div style={{background:"#17171c",border:"1px solid #25252f",borderRadius:5,padding:"8px 10px",marginBottom:12,fontSize:11,color:"#f87171",fontFamily:"monospace",textAlign:"left",maxHeight:120,overflowY:"auto"}}>
-                {String(this.state.error?.message||this.state.error)}
-              </div>
-            )}
-            <div style={{display:"flex",gap:8,flexDirection:"column"}}>
-              <button onClick={()=>{this.setState({hasError:false,error:null});}} style={{background:"#e8ff47",color:"#000",border:"none",padding:"10px",borderRadius:4,fontFamily:"Impact,Arial,sans-serif",fontSize:12,fontWeight:900,letterSpacing:2,cursor:"pointer"}}>TRY AGAIN</button>
-              <button onClick={async()=>{
-                try{await window.storage?.delete?.("recomp_data");}catch(e){}
-                try{localStorage.clear();}catch(e){}
-                window.location.reload();
-              }} style={{background:"transparent",color:"#f87171",border:"1px solid #f87171",padding:"10px",borderRadius:4,fontFamily:"Impact,Arial,sans-serif",fontSize:12,fontWeight:900,letterSpacing:2,cursor:"pointer"}}>RESET ALL DATA & RELOAD</button>
+        <div style={{ minHeight: '100vh', background: BG, color: '#fff', padding: 20, fontFamily: 'Helvetica, Arial, sans-serif' }}>
+          <div style={{ maxWidth: 480, margin: '60px auto', textAlign: 'center' }}>
+            <div style={{ fontSize: 64, marginBottom: 12 }}>⚠️</div>
+            <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 32, color: ACCENT, letterSpacing: 1.5, marginBottom: 12 }}>SOMETHING BROKE</div>
+            <div style={{ color: TEXT_DIM, marginBottom: 20 }}>The app hit an error. Your data should still be safe.</div>
+            <pre style={{ background: '#1a0000', border: `1px solid ${RED}`, color: '#fca5a5', padding: 12, borderRadius: 6, fontSize: 11, textAlign: 'left', overflowX: 'auto', fontFamily: 'monospace' }}>
+              {String(this.state.error?.message || this.state.error)}
+            </pre>
+            <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button onClick={this.reset} style={{ background: ACCENT, color: '#000', border: 'none', padding: '12px 20px', borderRadius: 6, fontWeight: 700, cursor: 'pointer', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 14 }}>TRY AGAIN</button>
+              <button onClick={this.resetData} style={{ background: 'transparent', color: RED, border: `1px solid ${RED}`, padding: '12px 20px', borderRadius: 6, fontWeight: 700, cursor: 'pointer', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 14 }}>RESET ALL DATA & RELOAD</button>
             </div>
           </div>
         </div>
@@ -2701,206 +1361,3182 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-function RecompCore(){
-  const [ready,setReady]=useState(false);
-  const [profile,setProfile]=useState(null);
-  const [tab,setTab]=useState("dashboard");
-  const [week,setWeek]=useState(1);
-  const [sessions,setSessions]=useState({});
-  const [wlog,setWlog]=useState([]);
-  const [food,setFood]=useState({});
-  const [jlog,setJlog]=useState({});
-  const [runs,setRuns]=useState([]);
-  const [conv,setConv]=useState([]);
-  const [coachOpen,setCoachOpen]=useState(false);
-  const [pendingMsg,setPendingMsg]=useState(null);
-  const [showSummary,setShowSummary]=useState(false);
-  const saveTimer=useRef(null);
+// ============================================================
+// UI PRIMITIVES
+// ============================================================
+const H = ({ children, size = 16, color = '#fff', mb = 8, style = {} }) => (
+  <div style={{
+    fontFamily: 'Impact, Arial Black, sans-serif',
+    fontSize: size,
+    color,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: mb,
+    ...style,
+  }}>{children}</div>
+);
+
+const Btn = ({ children, onClick, variant = 'primary', size = 'md', disabled, style = {}, type = 'button' }) => {
+  const sizes = {
+    sm: { padding: '6px 10px', fontSize: 11 },
+    md: { padding: '10px 14px', fontSize: 13 },
+    lg: { padding: '14px 20px', fontSize: 15 },
+  };
+  const variants = {
+    primary: { background: ACCENT, color: '#000', border: 'none' },
+    ghost: { background: 'transparent', color: '#fff', border: `1px solid ${BORDER}` },
+    danger: { background: 'transparent', color: RED, border: `1px solid ${RED}` },
+    orange: { background: ORANGE, color: '#000', border: 'none' },
+    accent2: { background: 'transparent', color: ACCENT, border: `1px solid ${ACCENT}` },
+    dark: { background: CARD2, color: '#fff', border: `1px solid ${BORDER}` },
+  };
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        ...sizes[size],
+        ...variants[variant],
+        borderRadius: 6,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        fontFamily: 'Impact, Arial Black, sans-serif',
+        letterSpacing: 1,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        boxSizing: 'border-box',
+        whiteSpace: 'nowrap',
+        ...style,
+      }}
+    >{children}</button>
+  );
+};
+
+const Card = ({ children, style = {} }) => (
+  <div style={{
+    background: CARD,
+    border: `1px solid ${BORDER}`,
+    borderRadius: 8,
+    padding: 14,
+    boxSizing: 'border-box',
+    ...style,
+  }}>{children}</div>
+);
+
+const Input = (props) => (
+  <input
+    {...props}
+    style={{
+      background: CARD2,
+      border: `1px solid ${BORDER}`,
+      borderRadius: 6,
+      color: '#fff',
+      padding: '9px 11px',
+      fontSize: 14,
+      width: '100%',
+      boxSizing: 'border-box',
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      outline: 'none',
+      ...(props.style || {}),
+    }}
+  />
+);
+
+const Select = (props) => (
+  <select
+    {...props}
+    style={{
+      background: CARD2,
+      border: `1px solid ${BORDER}`,
+      borderRadius: 6,
+      color: '#fff',
+      padding: '9px 11px',
+      fontSize: 13,
+      width: '100%',
+      boxSizing: 'border-box',
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      outline: 'none',
+      appearance: 'none',
+      backgroundImage: `linear-gradient(45deg, transparent 50%, ${TEXT_DIM} 50%), linear-gradient(135deg, ${TEXT_DIM} 50%, transparent 50%)`,
+      backgroundPosition: 'calc(100% - 14px) calc(50% - 2px), calc(100% - 9px) calc(50% - 2px)',
+      backgroundSize: '5px 5px, 5px 5px',
+      backgroundRepeat: 'no-repeat',
+      paddingRight: 28,
+      ...(props.style || {}),
+    }}
+  />
+);
+
+const Label = ({ children, style = {} }) => (
+  <div style={{
+    fontSize: 10,
+    color: TEXT_MUTED,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+    fontFamily: 'Impact, Arial Black, sans-serif',
+    ...style,
+  }}>{children}</div>
+);
+
+const ProgressBar = ({ value, max, color = ACCENT, height = 4, bg = CARD2 }) => {
+  const pct = Math.min(100, Math.max(0, (value / max) * 100));
+  return (
+    <div style={{ background: bg, borderRadius: height / 2, height, overflow: 'hidden', width: '100%' }}>
+      <div style={{ background: color, height: '100%', width: `${pct}%`, transition: 'width .3s' }} />
+    </div>
+  );
+};
+
+const Pill = ({ children, color = ACCENT, bg }) => (
+  <span style={{
+    display: 'inline-block',
+    background: bg || `${color}22`,
+    color,
+    padding: '3px 9px',
+    borderRadius: 999,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    fontFamily: 'Impact, Arial Black, sans-serif',
+  }}>{children}</span>
+);
+
+// ============================================================
+// GLOBAL CSS (animations + scrollbar)
+// ============================================================
+const GlobalStyles = () => (
+  <style>{`
+    @keyframes recomp-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .55; transform: scale(.97); }
+    }
+    @keyframes recomp-stripe {
+      0%, 100% { opacity: .4; }
+      50% { opacity: 1; }
+    }
+    @keyframes recomp-glow {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.4); }
+    }
+    @keyframes recomp-blink {
+      0%, 80%, 100% { transform: scale(0.6); opacity: .4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+    .recomp-app * { box-sizing: border-box; }
+    .recomp-app ::-webkit-scrollbar { width: 3px; height: 3px; }
+    .recomp-app ::-webkit-scrollbar-track { background: transparent; }
+    .recomp-app ::-webkit-scrollbar-thumb { background: ${BORDER}; border-radius: 3px; }
+    .recomp-app input:focus, .recomp-app select:focus, .recomp-app textarea:focus {
+      border-color: ${ACCENT} !important;
+    }
+    .recomp-app input[type="checkbox"] { accent-color: ${ACCENT}; }
+  `}</style>
+);
+
+// ============================================================
+// SETUP WIZARD
+// ============================================================
+const SetupScreen = ({ onComplete }) => {
+  const [step, setStep] = useState(1);
+  const [profile, setProfile] = useState(defaultProfile());
+  const [scheduleCustomized, setScheduleCustomized] = useState(false);
+  const [showCustomize, setShowCustomize] = useState(false);
+
+  const update = (k, v) => setProfile((p) => ({ ...p, [k]: v }));
+
+  // When workoutStyle changes, auto-update schedule (until customized)
+  const updateStyle = (newStyle) => {
+    setProfile((p) => ({
+      ...p,
+      workoutStyle: newStyle,
+      schedule: scheduleCustomized && validateSchedule(p.schedule, newStyle)
+        ? p.schedule
+        : defaultScheduleForStyle(newStyle),
+    }));
+  };
+
+  const updateSchedule = (idx, val) => {
+    setScheduleCustomized(true);
+    setProfile((p) => {
+      const next = [...p.schedule];
+      next[idx] = val;
+      return { ...p, schedule: next };
+    });
+  };
+
+  const applyPreset = (preset) => {
+    setScheduleCustomized(true);
+    setProfile((p) => ({ ...p, schedule: [...preset.days] }));
+  };
+
+  const finish = () => {
+    onComplete({
+      ...profile,
+      setupComplete: true,
+      // Snap to Monday of current week so program week 1 doesn't immediately
+      // show missed workouts for earlier days this week.
+      startDate: getWeekStartISO(todayISO()),
+    });
+  };
+
+  const dayTypes = DAY_TYPES_BY_STYLE[profile.workoutStyle] || [];
+  const presets = SPLIT_PRESETS[profile.workoutStyle] || [];
+  const workoutDayCount = profile.schedule.filter((d) => d !== 'REST').length;
+
+  const wt = profile.weight || 180;
+  const macros = profile.age && profile.height ? calcMacros(profile, wt) : null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.93)',
+      display: 'flex',
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      padding: 12,
+      zIndex: 100,
+      overflowY: 'auto',
+    }}>
+      <div style={{
+        background: BG,
+        border: `1px solid ${BORDER}`,
+        borderTop: `3px solid ${ACCENT}`,
+        borderRadius: 10,
+        padding: 18,
+        width: '100%',
+        maxWidth: 430,
+        marginTop: 20,
+        marginBottom: 40,
+      }}>
+        <H size={26}>
+          <span style={{ color: ACCENT }}>RE</span>
+          <span style={{ color: ORANGE }}>COMP</span>
+        </H>
+        <div style={{ marginBottom: 18 }}>
+          <ProgressBar value={step} max={4} color={ACCENT} height={4} />
+          <div style={{ marginTop: 6, fontSize: 11, color: TEXT_MUTED, letterSpacing: 1, fontFamily: 'Impact, Arial Black, sans-serif' }}>STEP {step} OF 4</div>
+        </div>
+
+        {step === 1 && (
+          <>
+            <H size={18}>WHO ARE YOU</H>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div>
+                <Label>NAME</Label>
+                <Input value={profile.name} onChange={(e) => update('name', e.target.value)} placeholder="First name" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <Label>AGE</Label>
+                  <Input type="number" value={profile.age} onChange={(e) => update('age', +e.target.value)} />
+                </div>
+                <div>
+                  <Label>SEX</Label>
+                  <Select value={profile.sex} onChange={(e) => update('sex', e.target.value)}>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>HEIGHT (e.g., "5ft 9in" or "175cm")</Label>
+                <Input value={profile.height} onChange={(e) => update('height', e.target.value)} placeholder="5ft 9in" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <Label>CURRENT WEIGHT (lbs)</Label>
+                  <Input type="number" value={profile.weight} onChange={(e) => update('weight', +e.target.value)} />
+                </div>
+                <div>
+                  <Label>TARGET WEIGHT (lbs)</Label>
+                  <Input type="number" value={profile.target} onChange={(e) => update('target', +e.target.value)} />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <H size={18}>YOUR GOAL</H>
+            <Label>GOAL</Label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+              {GOAL_OPTIONS.map((g) => (
+                <button key={g.id} onClick={() => update('goal', g.id)} style={{
+                  background: profile.goal === g.id ? ACCENT : CARD,
+                  color: profile.goal === g.id ? '#000' : '#fff',
+                  border: `1px solid ${profile.goal === g.id ? ACCENT : BORDER}`,
+                  borderRadius: 6,
+                  padding: 10,
+                  cursor: 'pointer',
+                  fontFamily: 'Impact, Arial Black, sans-serif',
+                  letterSpacing: 1,
+                  textAlign: 'left',
+                }}>
+                  <div style={{ fontSize: 13, marginBottom: 2 }}>{g.name.toUpperCase()}</div>
+                  <div style={{ fontSize: 9, opacity: 0.7, fontFamily: 'Helvetica, Arial, sans-serif', textTransform: 'none' }}>{g.desc}</div>
+                </button>
+              ))}
+            </div>
+            <Label>ACTIVITY LEVEL</Label>
+            <div style={{ display: 'grid', gap: 6, marginBottom: 14 }}>
+              {ACTIVITY_LEVELS.map((a) => (
+                <button key={a.id} onClick={() => update('activity', a.id)} style={{
+                  background: profile.activity === a.id ? ACCENT : CARD,
+                  color: profile.activity === a.id ? '#000' : '#fff',
+                  border: `1px solid ${profile.activity === a.id ? ACCENT : BORDER}`,
+                  borderRadius: 6,
+                  padding: 9,
+                  cursor: 'pointer',
+                  fontFamily: 'Impact, Arial Black, sans-serif',
+                  letterSpacing: 1,
+                  textAlign: 'left',
+                  fontSize: 12,
+                }}>
+                  {a.name.toUpperCase()} — <span style={{ fontSize: 10, opacity: 0.7, fontFamily: 'Helvetica, Arial, sans-serif', textTransform: 'none' }}>{a.desc} (×{a.mult})</span>
+                </button>
+              ))}
+            </div>
+            <Label>EXPERIENCE</Label>
+            <Select value={profile.experience} onChange={(e) => update('experience', e.target.value)}>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </Select>
+            <div style={{ height: 10 }} />
+            <Label>EQUIPMENT</Label>
+            <Select value={profile.equipment} onChange={(e) => update('equipment', e.target.value)}>
+              <option value="gym">Full Gym</option>
+              <option value="home">Home (DBs + Bands)</option>
+              <option value="minimal">Minimal/Bodyweight</option>
+            </Select>
+            {macros && (
+              <div style={{ marginTop: 14, padding: 10, background: CARD2, borderRadius: 6, border: `1px solid ${BORDER}` }}>
+                <div style={{ fontSize: 10, color: ACCENT, letterSpacing: 1, fontFamily: 'Impact, Arial Black, sans-serif', marginBottom: 4 }}>YOUR DAILY TARGETS</div>
+                <div style={{ fontSize: 12, color: '#fff' }}>{macros.calories} kcal · {macros.protein}p · {macros.carbs}c · {macros.fat}f</div>
+                <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 2 }}>BMR {macros.bmr} · TDEE {macros.tdee}</div>
+              </div>
+            )}
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <H size={18}>PROGRAM & STYLE</H>
+            <Label>PROGRAM LENGTH</Label>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+              {PROGRAM_LENGTHS.map((w) => (
+                <button key={w} onClick={() => update('weeks', w)} style={{
+                  background: profile.weeks === w ? ACCENT : CARD,
+                  color: profile.weeks === w ? '#000' : '#fff',
+                  border: `1px solid ${profile.weeks === w ? ACCENT : BORDER}`,
+                  borderRadius: 6,
+                  padding: '8px 14px',
+                  cursor: 'pointer',
+                  fontFamily: 'Impact, Arial Black, sans-serif',
+                  letterSpacing: 1,
+                  fontSize: 13,
+                }}>{w} WK</button>
+              ))}
+            </div>
+            <Label>WORKOUT STYLE</Label>
+            <Select value={profile.workoutStyle} onChange={(e) => updateStyle(e.target.value)}>
+              {WORKOUT_STYLES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </Select>
+            <div style={{ marginTop: 4, fontSize: 11, color: TEXT_DIM }}>
+              {WORKOUT_STYLES.find((s) => s.id === profile.workoutStyle)?.desc}
+            </div>
+
+            {/* Race date for HYROX styles */}
+            {(profile.workoutStyle === 'hyrox' || profile.workoutStyle === 'hyrox_hybrid') && (
+              <>
+                <div style={{ height: 12 }} />
+                <Label>RACE DATE (OPTIONAL)</Label>
+                <Input type="date" value={profile.raceDate} onChange={(e) => update('raceDate', e.target.value)} />
+                <div style={{ height: 8 }} />
+                <Label>DIVISION</Label>
+                <Select value={profile.raceDivision} onChange={(e) => update('raceDivision', e.target.value)}>
+                  {HYROX_TARGETS.map((t) => <option key={t.div} value={t.div}>{t.div} — target {t.target}</option>)}
+                </Select>
+              </>
+            )}
+          </>
+        )}
+
+        {step === 4 && (
+          <>
+            <H size={18}>WEEKLY SCHEDULE</H>
+            <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 10 }}>
+              Auto-loaded from {WORKOUT_STYLES.find((s) => s.id === profile.workoutStyle)?.name}.
+              {scheduleCustomized && ' (Customized — locked in)'}
+            </div>
+
+            {/* Compact preview */}
+            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 6, padding: 10, marginBottom: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+                {profile.schedule.map((d, i) => {
+                  const c = DAY_TYPE_COLOR[d] || TEXT_MUTED;
+                  return (
+                    <div key={i} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif' }}>{DAY_LETTERS[i]}</div>
+                      <div style={{
+                        background: `${c}22`,
+                        color: c,
+                        border: `1px solid ${c}55`,
+                        borderRadius: 4,
+                        padding: '4px 0',
+                        fontSize: 10,
+                        fontFamily: 'Impact, Arial Black, sans-serif',
+                        letterSpacing: 0.5,
+                        marginTop: 2,
+                      }}>{DAY_TYPE_ABBR[d] || d.slice(0, 3)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop: 8, fontSize: 11, color: TEXT_DIM, textAlign: 'center', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+                {workoutDayCount} WORKOUT {workoutDayCount === 1 ? 'DAY' : 'DAYS'} / WEEK
+              </div>
+            </div>
+
+            {!showCustomize ? (
+              <Btn variant="ghost" onClick={() => setShowCustomize(true)} style={{ width: '100%' }}>
+                CUSTOMIZE SCHEDULE
+              </Btn>
+            ) : (
+              <>
+                {presets.length > 0 && (
+                  <div style={{ marginBottom: 10 }}>
+                    <Label>QUICK PRESETS</Label>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {presets.map((p) => (
+                        <button key={p.name} onClick={() => applyPreset(p)} style={{
+                          background: 'transparent', color: ACCENT, border: `1px solid ${ACCENT}`,
+                          padding: '5px 10px', borderRadius: 14, fontSize: 10,
+                          fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, cursor: 'pointer',
+                        }}>{p.name.toUpperCase()}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: 'grid', gap: 6 }}>
+                  {DAYS.map((day, i) => (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '50px 1fr', gap: 8, alignItems: 'center' }}>
+                      <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 12, color: TEXT_DIM, letterSpacing: 1 }}>{day}</div>
+                      <Select value={profile.schedule[i]} onChange={(e) => updateSchedule(i, e.target.value)}>
+                        {dayTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+          {step > 1 && <Btn variant="ghost" onClick={() => setStep(step - 1)}>BACK</Btn>}
+          <div style={{ flex: 1 }} />
+          {step < 4 ? (
+            <Btn onClick={() => setStep(step + 1)}>NEXT</Btn>
+          ) : (
+            <Btn onClick={finish} variant="orange">START PROGRAM</Btn>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// RACE COUNTDOWN CARD
+// ============================================================
+const RaceCountdown = ({ profile }) => {
+  const [_, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60000);
+    return () => clearInterval(id);
+  }, []);
+  if (!profile.raceDate) return null;
+  const days = daysUntil(profile.raceDate);
+  const phase = racePhase(days);
+  const color = raceColor(days);
+  const wks = days != null && days > 0 ? Math.floor(days / 7) : 0;
+  const remDays = days != null && days > 0 ? days % 7 : 0;
+  const months = days != null && days >= 30 ? Math.floor(days / 30) : 0;
+
+  return (
+    <div style={{
+      position: 'relative',
+      background: `linear-gradient(180deg, ${CARD} 0%, ${color}15 100%)`,
+      border: `2px solid ${color}`,
+      borderRadius: 10,
+      padding: 18,
+      marginBottom: 14,
+      boxShadow: `0 0 30px ${color}44`,
+      overflow: 'hidden',
+    }}>
+      {/* Animated stripe */}
+      <div style={{
+        position: 'absolute',
+        top: 0, left: 0, right: 0,
+        height: 3,
+        background: `linear-gradient(90deg, transparent 0%, ${color} 50%, transparent 100%)`,
+        animation: 'recomp-stripe 2.5s ease-in-out infinite',
+      }} />
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, justifyContent: 'center' }}>
+        <span style={{
+          fontFamily: 'Impact, Arial Black, sans-serif',
+          fontSize: 78,
+          color,
+          letterSpacing: -1,
+          lineHeight: 1,
+          textShadow: `0 0 20px ${color}88, 0 0 40px ${color}44`,
+        }}>{days != null ? Math.max(0, days) : '—'}</span>
+        <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 20, color, letterSpacing: 1.5 }}>DAYS</span>
+      </div>
+      <div style={{ textAlign: 'center', marginTop: 4 }}>
+        <Pill color={color}>{phase ? `${phase.emoji} ${phase.label}` : ''}</Pill>
+      </div>
+      <div style={{ textAlign: 'center', marginTop: 8, fontSize: 12, color: TEXT_DIM, fontFamily: 'Helvetica, Arial, sans-serif' }}>
+        {formatDateLong(profile.raceDate)}
+      </div>
+      {days != null && days >= 7 && (
+        <div style={{ textAlign: 'center', marginTop: 4, fontSize: 11, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+          {wks} WEEK{wks === 1 ? '' : 'S'}{remDays > 0 ? ` · ${remDays} DAY${remDays === 1 ? '' : 'S'}` : ''}
+          {months > 0 && ` · ${months} MO`}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// DASHBOARD (2x2 grid)
+// ============================================================
+const Dashboard = ({ state, onTab, onCoachPrompt }) => {
+  const { profile, wlog, food, week, sessions } = state;
+  const currentWeight = wlog.length ? wlog[wlog.length - 1].weight : profile.weight;
+  const macros = calcMacros(profile, currentWeight);
+  const todaysFood = food[todayISO()] || [];
+  const totals = todaysFood.reduce(
+    (acc, f) => ({
+      cal: acc.cal + (+f.cal || 0) * (f.qty || 1),
+      p: acc.p + (+f.p || 0) * (f.qty || 1),
+      c: acc.c + (+f.c || 0) * (f.qty || 1),
+      f: acc.f + (+f.f || 0) * (f.qty || 1),
+    }),
+    { cal: 0, p: 0, c: 0, f: 0 }
+  );
+
+  const startW = wlog[0]?.weight || profile.weight;
+  const wDelta = currentWeight - startW;
+  const wDeltaColor = profile.goal === 'fatloss' ? (wDelta < 0 ? GREEN : RED) : profile.goal === 'muscle' ? (wDelta > 0 ? GREEN : RED) : TEXT_DIM;
+  const wDeltaSign = wDelta > 0 ? '+' : '';
+
+  // Phase / week info
+  let phaseInfo;
+  if (profile.workoutStyle === 'rp_hyp') {
+    phaseInfo = rpWeekData(week, profile.weeks);
+    phaseInfo.color = phaseInfo.phase === 'RP DELOAD' ? PURPLE : ACCENT;
+  } else if (profile.workoutStyle === 'hyrox' || profile.workoutStyle === 'hyrox_hybrid') {
+    const ph = hyroxPhase(week, profile.weeks);
+    phaseInfo = { phase: ph.name, sub: HYROX_INTERVALS_BY_PHASE[ph.name]?.run || '', color: ph.color };
+  } else {
+    const ph = phaseForWeek(week, profile.weeks);
+    phaseInfo = { phase: ph.phase, sub: `${ph.sets}×${ph.reps} @ RPE ${ph.rpe}`, color: PHASE_COLORS[ph.phase] || ACCENT };
+  }
+
+  return (
+    <div>
+      <RaceCountdown profile={profile} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {/* Weight */}
+        <Card>
+          <Label>WEIGHT</Label>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+            <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 32, color: '#fff' }}>{currentWeight}</span>
+            <span style={{ fontSize: 12, color: TEXT_DIM, fontFamily: 'Helvetica, Arial, sans-serif' }}>lbs</span>
+          </div>
+          <div style={{ marginTop: 4 }}>
+            <Pill color={wDeltaColor}>{wDeltaSign}{wDelta.toFixed(1)} lbs</Pill>
+          </div>
+          <div style={{ marginTop: 6, fontSize: 10, color: TEXT_MUTED, fontFamily: 'Helvetica, Arial, sans-serif' }}>
+            {startW} → {profile.target} lbs
+          </div>
+        </Card>
+
+        {/* Today macros */}
+        <Card>
+          <Label>TODAY</Label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 4 }}>
+            {[
+              { label: 'CAL', cur: totals.cal, max: macros.calories, color: ACCENT },
+              { label: 'P', cur: totals.p, max: macros.protein, color: BLUE },
+              { label: 'C', cur: totals.c, max: macros.carbs, color: ORANGE },
+              { label: 'F', cur: totals.f, max: macros.fat, color: PURPLE },
+            ].map((m) => (
+              <div key={m.label}>
+                <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>{m.label}</div>
+                <div style={{ fontSize: 13, color: '#fff', fontFamily: 'Impact, Arial Black, sans-serif' }}>{Math.round(m.cur)}<span style={{ fontSize: 9, color: TEXT_MUTED }}>/{Math.round(m.max)}</span></div>
+                <ProgressBar value={m.cur} max={m.max} color={m.color} height={2} />
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Phase */}
+        <Card>
+          <Label>PHASE</Label>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 16, color: phaseInfo.color, letterSpacing: 1 }}>{phaseInfo.phase}</div>
+          <div style={{ fontSize: 10, color: TEXT_DIM, marginTop: 2 }}>{phaseInfo.sub || phaseInfo.repRange}</div>
+          <div style={{ marginTop: 8 }}>
+            <ProgressBar value={week} max={profile.weeks} color={phaseInfo.color} height={3} />
+            <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 4, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>WK {week} / {profile.weeks}</div>
+          </div>
+        </Card>
+
+        {/* Quick coach */}
+        <Card>
+          <Label>COACH</Label>
+          <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 8 }}>Tap 🤖 or quick prompt</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {['THIS WEEK', 'MACROS', 'CARDIO', 'RECOVERY'].map((p) => (
+              <button key={p} onClick={() => onCoachPrompt(p)} style={{
+                background: 'transparent', color: ACCENT, border: `1px solid ${ACCENT}55`,
+                padding: '4px 8px', borderRadius: 12, fontSize: 9,
+                fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, cursor: 'pointer',
+              }}>{p}</button>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      {/* Quick actions */}
+      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <Btn onClick={() => onTab('workouts')}>TODAY'S WORKOUT</Btn>
+        <Btn variant="ghost" onClick={() => onTab('food')}>LOG FOOD</Btn>
+        <Btn variant="ghost" onClick={() => onTab('runs')}>LOG RUN</Btn>
+        <Btn variant="ghost" onClick={() => onTab('metrics')}>LOG WEIGHT</Btn>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// WORKOUTS VIEW
+// ============================================================
+const Workouts = ({ state, setState }) => {
+  const { profile, sessions, week, wlog } = state;
+  const [viewISO, setViewISO] = useState(todayISO());
+  const [viewWeek, setViewWeek] = useState(week);
+  const [showMoveMenu, setShowMoveMenu] = useState(false);
+
+  const currentWeight = wlog.length ? wlog[wlog.length - 1].weight : profile.weight;
+
+  const dayInfo = getDayTypeForDate(profile, viewISO);
+  const dayType = dayInfo.type;
+  const dayProgramWeek = getProgramWeek(viewISO, profile.startDate, profile.weeks);
+  const sessKey = sessionKey(viewISO);
+  const session = sessions[sessKey];
+  const exData = getExercisesForDay(profile.workoutStyle, dayType, dayProgramWeek, profile.weeks);
+
+  // Detect missed workouts in current week
+  const weekStart = getWeekStartISO(todayISO());
+  const todayIdx = getDayIdx(todayISO());
+  const missedDays = [];
+  for (let i = 0; i < todayIdx; i++) {
+    const d = new Date(isoToDate(weekStart));
+    d.setDate(d.getDate() + i);
+    const di = dateToISO(d);
+    const dInfo = getDayTypeForDate(profile, di);
+    if (dInfo.type === 'REST') continue;
+    const sk = sessionKey(di);
+    const s = sessions[sk];
+    if (!s || (!s.done && !s.skipped)) {
+      missedDays.push({ iso: di, idx: i, type: dInfo.type });
+    }
+  }
+
+  const updateSession = (patch) => {
+    setState((prev) => {
+      const existing = prev.sessions[sessKey];
+      const base = existing || { iso: viewISO, dayType, exercises: exData?.exercises || [], setLogs: {}, feedback: {}, done: false, skipped: false };
+      return {
+        ...prev,
+        sessions: {
+          ...prev.sessions,
+          [sessKey]: { ...base, ...patch, iso: viewISO, dayType },
+        },
+      };
+    });
+  };
+
+  const updateSet = (exName, setIdx, patch) => {
+    const k = setKey(exName, setIdx);
+    setState((prev) => {
+      const existing = prev.sessions[sessKey];
+      const base = existing || { iso: viewISO, dayType, exercises: exData?.exercises || [], setLogs: {}, feedback: {}, done: false, skipped: false };
+      const cur = (base.setLogs || {})[k] || {};
+      return {
+        ...prev,
+        sessions: {
+          ...prev.sessions,
+          [sessKey]: {
+            ...base,
+            iso: viewISO,
+            dayType,
+            setLogs: { ...(base.setLogs || {}), [k]: { ...cur, ...patch } },
+          },
+        },
+      };
+    });
+  };
+
+  const updateMuscleFeedback = (muscle, field, value) => {
+    setState((prev) => {
+      const existing = prev.sessions[sessKey];
+      const base = existing || { iso: viewISO, dayType, exercises: exData?.exercises || [], setLogs: {}, feedback: {}, done: false, skipped: false };
+      const fb = base.feedback || {};
+      const m = fb[muscle] || {};
+      return {
+        ...prev,
+        sessions: {
+          ...prev.sessions,
+          [sessKey]: {
+            ...base,
+            iso: viewISO,
+            dayType,
+            feedback: { ...fb, [muscle]: { ...m, [field]: value } },
+          },
+        },
+      };
+    });
+  };
+
+  const skipDay = () => {
+    updateSession({ skipped: true, done: false });
+    setShowMoveMenu(false);
+  };
+
+  const markDone = () => {
+    updateSession({ done: true, skipped: false, completedAt: new Date().toISOString() });
+  };
+
+  const moveToToday = (fromISO) => {
+    const fromInfo = getDayTypeForDate(profile, fromISO);
+    const fromKey = sessionKey(fromISO);
+    setState((prev) => {
+      const newOverrides = { ...(prev.profile.weekOverrides || {}) };
+      const programWeek = getProgramWeek(todayISO(), prev.profile.startDate, prev.profile.weeks);
+      const wKey = `w${programWeek}`;
+      newOverrides[wKey] = { ...(newOverrides[wKey] || {}), [getDayIdx(todayISO())]: fromInfo.type };
+
+      // Mark the original day as skipped
+      const fromSess = prev.sessions[fromKey] || { iso: fromISO, dayType: fromInfo.type, setLogs: {}, feedback: {}, exercises: [] };
+      return {
+        ...prev,
+        profile: { ...prev.profile, weekOverrides: newOverrides },
+        sessions: {
+          ...prev.sessions,
+          [fromKey]: { ...fromSess, skipped: true, moved: true },
+        },
+      };
+    });
+    setViewISO(todayISO());
+    setShowMoveMenu(false);
+  };
+
+  const swapDay = (targetISO) => {
+    const newType = dayType;
+    setState((prev) => {
+      const programWeek = getProgramWeek(targetISO, prev.profile.startDate, prev.profile.weeks);
+      const wKey = `w${programWeek}`;
+      const newOverrides = { ...(prev.profile.weekOverrides || {}) };
+      newOverrides[wKey] = { ...(newOverrides[wKey] || {}), [getDayIdx(targetISO)]: newType };
+      // Mark current as skipped
+      const curSess = prev.sessions[sessKey] || { iso: viewISO, dayType, setLogs: {}, feedback: {}, exercises: [] };
+      return {
+        ...prev,
+        profile: { ...prev.profile, weekOverrides: newOverrides },
+        sessions: { ...prev.sessions, [sessKey]: { ...curSess, skipped: true, moved: true } },
+      };
+    });
+    setViewISO(targetISO);
+    setShowMoveMenu(false);
+  };
+
+  // Date strip — current week
+  const stripWeekStart = getWeekStartISO(viewISO);
+  const strip = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(isoToDate(stripWeekStart));
+    d.setDate(d.getDate() + i);
+    const di = dateToISO(d);
+    const info = getDayTypeForDate(profile, di);
+    const sk = sessionKey(di);
+    const s = sessions[sk];
+    let stat = '';
+    if (s?.done) stat = 'done';
+    else if (s?.skipped) stat = 'skipped';
+    else if (info.overridden) stat = 'moved';
+    strip.push({ iso: di, idx: i, type: info.type, overridden: info.overridden, stat, isToday: di === todayISO() });
+  }
+
+  // Color for header based on day type
+  const headerColor = DAY_TYPE_COLOR[dayType] || ACCENT;
+
+  // Week note (weeks 2+)
+  const phaseInfo = profile.workoutStyle === 'rp_hyp' ? rpWeekData(dayProgramWeek, profile.weeks) : phaseForWeek(dayProgramWeek, profile.weeks);
+  const showWeekNote = dayProgramWeek >= 2 && phaseInfo.note;
+
+  // Variant indicator for A/B
+  const variant = exData?.variant;
+
+  return (
+    <div>
+      {/* Week nav */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+        <Btn size="sm" variant="ghost" onClick={() => {
+          const d = isoToDate(viewISO); d.setDate(d.getDate() - 7); setViewISO(dateToISO(d));
+        }}>‹</Btn>
+        <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: TEXT_DIM, letterSpacing: 1 }}>
+          WEEK {dayProgramWeek} OF {profile.weeks}
+        </div>
+        <Btn size="sm" variant="ghost" onClick={() => {
+          const d = isoToDate(viewISO); d.setDate(d.getDate() + 7); setViewISO(dateToISO(d));
+        }}>›</Btn>
+      </div>
+
+      {/* Day strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 10 }}>
+        {strip.map((d) => {
+          const c = DAY_TYPE_COLOR[d.type] || TEXT_MUTED;
+          const isViewing = d.iso === viewISO;
+          const bg = d.stat === 'done' ? `${GREEN}33` : d.stat === 'skipped' ? `${RED}33` : d.stat === 'moved' ? `${YELLOW}33` : isViewing ? CARD2 : CARD;
+          const border = isViewing ? `2px solid ${ACCENT}` : d.overridden && !d.stat ? `1px solid ${YELLOW}` : `1px solid ${BORDER}`;
+          return (
+            <button key={d.idx} onClick={() => setViewISO(d.iso)} style={{
+              background: bg,
+              border,
+              borderRadius: 5,
+              padding: '6px 2px',
+              cursor: 'pointer',
+              minHeight: 56,
+              fontFamily: 'Impact, Arial Black, sans-serif',
+              color: '#fff',
+            }}>
+              <div style={{ fontSize: 10, color: TEXT_DIM }}>{DAY_LETTERS[d.idx]}</div>
+              <div style={{
+                fontSize: 9,
+                color: c,
+                marginTop: 2,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: 60,
+                margin: '2px auto 0',
+              }}>{DAY_TYPE_ABBR[d.type] || d.type.slice(0, 3)}</div>
+              <div style={{ fontSize: 10, marginTop: 2 }}>
+                {d.stat === 'done' && <span style={{ color: GREEN }}>✓</span>}
+                {d.stat === 'skipped' && <span style={{ color: RED }}>×</span>}
+                {d.stat === 'moved' && <span style={{ color: YELLOW }}>↔</span>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Missed banner */}
+      {missedDays.length > 0 && viewISO === todayISO() && (
+        <Card style={{ background: `${YELLOW}15`, border: `1px solid ${YELLOW}88`, marginBottom: 10 }}>
+          <H size={12} color={YELLOW} mb={4}>⚠ MISSED THIS WEEK</H>
+          {missedDays.map((m) => (
+            <div key={m.iso} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              <span style={{ flex: 1, fontSize: 12, color: '#fff' }}>{DAYS[m.idx]} — <span style={{ color: DAY_TYPE_COLOR[m.type] || '#fff' }}>{m.type}</span></span>
+              <Btn size="sm" variant="primary" onClick={() => moveToToday(m.iso)}>MOVE TO TODAY</Btn>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {/* Date label + day type */}
+      <Card style={{ marginBottom: 10, borderTop: `3px solid ${headerColor}` }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 11, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+              {viewISO === todayISO() ? 'TODAY' : viewISO === dateOffsetISO(-1) ? 'YESTERDAY' : formatDate(viewISO).toUpperCase()}
+            </div>
+            <H size={20} color={headerColor} mb={2} style={{ marginTop: 4 }}>
+              {dayType.replace(/_/g, ' ')}
+              {variant && <span style={{ color: TEXT_DIM, fontSize: 14, marginLeft: 6 }}>({variant})</span>}
+              {dayInfo.overridden && <span style={{ color: YELLOW, fontSize: 12, marginLeft: 6 }}>↔</span>}
+            </H>
+            <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Helvetica, Arial, sans-serif' }}>
+              {WORKOUT_STYLES.find((s) => s.id === profile.workoutStyle)?.name}
+              {exData?.phase && ` · ${exData.phase.emoji} ${exData.phase.name}`}
+              {exData?.wd && ` · RIR ${exData.wd.rir}`}
+            </div>
+          </div>
+          {!session?.skipped && !session?.done && dayType !== 'REST' && (
+            <Btn size="sm" variant="ghost" onClick={() => setShowMoveMenu(!showMoveMenu)}>MOVE/SKIP</Btn>
+          )}
+        </div>
+
+        {/* Move/skip menu */}
+        {showMoveMenu && (
+          <div style={{ marginTop: 12, padding: 10, background: CARD2, borderRadius: 6, border: `1px solid ${BORDER}` }}>
+            <Label>MOVE TO ANOTHER DAY THIS WEEK</Label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 8 }}>
+              {strip.map((d) => {
+                if (d.iso === viewISO) return null;
+                return (
+                  <button key={d.idx} onClick={() => swapDay(d.iso)} style={{
+                    background: CARD, color: '#fff', border: `1px solid ${BORDER}`,
+                    borderRadius: 4, padding: 6, cursor: 'pointer', fontSize: 10,
+                    fontFamily: 'Impact, Arial Black, sans-serif',
+                  }}>
+                    <div style={{ color: TEXT_DIM }}>{DAY_LETTERS[d.idx]}</div>
+                    <div style={{ color: DAY_TYPE_COLOR[d.type], marginTop: 2 }}>{DAY_TYPE_ABBR[d.type] || d.type.slice(0, 3)}</div>
+                    {d.stat === 'done' && <div style={{ color: GREEN, fontSize: 10 }}>✓</div>}
+                    {d.stat === 'skipped' && <div style={{ color: RED, fontSize: 10 }}>×</div>}
+                  </button>
+                );
+              })}
+            </div>
+            <Btn size="sm" variant="danger" onClick={skipDay} style={{ width: '100%' }}>SKIP THIS DAY</Btn>
+          </div>
+        )}
+      </Card>
+
+      {/* Status badges */}
+      {session?.done && <Card style={{ background: `${GREEN}20`, marginBottom: 10 }}><H size={13} color={GREEN} mb={0}>✓ DONE</H></Card>}
+      {session?.skipped && <Card style={{ background: `${RED}20`, marginBottom: 10 }}><H size={13} color={RED} mb={0}>× SKIPPED{session.moved ? ' (MOVED)' : ''}</H></Card>}
+
+      {/* Week note */}
+      {showWeekNote && !session?.skipped && dayType !== 'REST' && (
+        <Card style={{ marginBottom: 10, background: CARD2, borderLeft: `3px solid ${ACCENT}` }}>
+          <Label>THIS WEEK'S CHANGE</Label>
+          <div style={{ fontSize: 12, color: '#fff' }}>{phaseInfo.note}</div>
+        </Card>
+      )}
+
+      {/* Warm-up */}
+      {dayType !== 'REST' && exData?.exercises?.length > 0 && !session?.skipped && (
+        <Card style={{ marginBottom: 10 }}>
+          <Label>WARM-UP</Label>
+          <div style={{ fontSize: 12, color: TEXT_DIM }}>{warmupForDayType(dayType)}</div>
+        </Card>
+      )}
+
+      {/* Rest day */}
+      {dayType === 'REST' && (
+        <Card>
+          <H size={18} color={TEXT_DIM}>REST DAY</H>
+          <div style={{ fontSize: 12, color: TEXT_DIM }}>Recovery is the work. Hydrate, sleep, mobility.</div>
+        </Card>
+      )}
+
+      {/* Cardio day with HR zones option */}
+      {dayType === 'CARDIO' && exData?.exercises?.length > 0 && !session?.skipped && (
+        <Card style={{ marginBottom: 10 }}>
+          <Label>CARDIO PROTOCOL</Label>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 14, color: BLUE }}>{exData.exercises[0].name}</div>
+          <div style={{ fontSize: 12, color: TEXT_DIM, marginTop: 4 }}>{exData.exercises[0].reps}</div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+            <Btn size="sm" variant="ghost">CUSTOMIZE</Btn>
+            <Btn size="sm" variant="ghost">HR ZONES</Btn>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <Label>NOTES</Label>
+            <textarea value={session?.notes || ''} onChange={(e) => updateSession({ notes: e.target.value })} placeholder="Duration, HR, how it felt..." style={{
+              width: '100%', minHeight: 60, background: CARD2, border: `1px solid ${BORDER}`,
+              borderRadius: 6, color: '#fff', padding: 8, fontSize: 12, fontFamily: 'Helvetica, Arial, sans-serif', outline: 'none', boxSizing: 'border-box',
+            }} />
+          </div>
+        </Card>
+      )}
+
+      {/* Race sim — race time input */}
+      {exData?.isRaceSim && !session?.skipped && (
+        <Card style={{ marginBottom: 10 }}>
+          <Label>RACE TIME (mm:ss)</Label>
+          <Input value={session?.raceTime || ''} onChange={(e) => updateSession({ raceTime: e.target.value })} placeholder="e.g. 1:24:30" />
+          <div style={{ marginTop: 6, fontSize: 11, color: TEXT_DIM }}>
+            Target: {HYROX_TARGETS.find((t) => t.div === profile.raceDivision)?.target || '—'}
+          </div>
+        </Card>
+      )}
+
+      {/* Exercises (non-cardio non-rest) */}
+      {dayType !== 'REST' && dayType !== 'CARDIO' && exData?.exercises?.length > 0 && !session?.skipped && (
+        <>
+          {exData.isRP ? (
+            // RP — group by muscle
+            (() => {
+              const byMuscle = {};
+              exData.exercises.forEach((ex) => {
+                if (!byMuscle[ex.muscle]) byMuscle[ex.muscle] = [];
+                byMuscle[ex.muscle].push(ex);
+              });
+              return Object.entries(byMuscle).map(([muscle, exs]) => (
+                <div key={muscle} style={{ marginBottom: 14 }}>
+                  <H size={14} color={ORANGE} mb={6}>{muscle.toUpperCase()}</H>
+                  <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 8 }}>
+                    MEV {RP_LANDMARKS[muscle].MEV} · MAV {RP_LANDMARKS[muscle].MAV} · MRV {RP_LANDMARKS[muscle].MRV} sets/wk
+                  </div>
+                  {exs.map((ex, ei) => (
+                    <ExerciseBlock
+                      key={ei}
+                      ex={ex}
+                      session={session}
+                      sessions={sessions}
+                      currentISO={viewISO}
+                      goal={profile.goal}
+                      onSetUpdate={updateSet}
+                      rpFeedback={(session?.feedback || {})[muscle]}
+                    />
+                  ))}
+                  <RPMuscleFeedback muscle={muscle} feedback={(session?.feedback || {})[muscle]} onUpdate={updateMuscleFeedback} />
+                </div>
+              ));
+            })()
+          ) : (
+            exData.exercises.map((ex, ei) => (
+              <ExerciseBlock
+                key={ei}
+                ex={ex}
+                session={session}
+                sessions={sessions}
+                currentISO={viewISO}
+                goal={profile.goal}
+                onSetUpdate={updateSet}
+                showSuperset={exData.isSuperset}
+              />
+            ))
+          )}
+
+          {/* Conditioning finisher */}
+          {exData.finisher && (
+            <Card style={{ background: `${ORANGE}10`, borderLeft: `3px solid ${ORANGE}`, marginTop: 10 }}>
+              <Label>CONDITIONING FINISHER</Label>
+              <div style={{ fontSize: 12, color: '#fff' }}>{exData.finisher}</div>
+            </Card>
+          )}
+
+          {/* Session notes + complete */}
+          <Card style={{ marginTop: 10 }}>
+            <Label>SESSION NOTES</Label>
+            <textarea value={session?.notes || ''} onChange={(e) => updateSession({ notes: e.target.value })} placeholder="How did it feel?" style={{
+              width: '100%', minHeight: 60, background: CARD2, border: `1px solid ${BORDER}`,
+              borderRadius: 6, color: '#fff', padding: 8, fontSize: 12, fontFamily: 'Helvetica, Arial, sans-serif', outline: 'none', boxSizing: 'border-box',
+            }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#fff', cursor: 'pointer' }}>
+                <input type="checkbox" checked={session?.done || false} onChange={(e) => e.target.checked ? markDone() : updateSession({ done: false })} />
+                MARK COMPLETE
+              </label>
+              <span style={{ flex: 1 }} />
+              <span style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>AUTO-SAVED</span>
+            </div>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+};
+
+const ExerciseBlock = ({ ex, session, sessions, currentISO, goal, onSetUpdate, rpFeedback, showSuperset }) => {
+  const setCount = parseInt(ex.sets, 10) || 3;
+  const prev = findPreviousLog(sessions, ex.name, currentISO);
+  const suggestion = suggestNextSet(prev, ex.reps, goal, rpFeedback);
+
+  return (
+    <Card style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+        <H size={14} mb={2}>
+          {ex.ssLabel && <span style={{ color: ACCENT, marginRight: 6 }}>{ex.ssLabel}</span>}
+          {ex.name}
+        </H>
+        <div style={{ display: 'flex', gap: 4, fontSize: 10, fontFamily: 'Impact, Arial Black, sans-serif' }}>
+          <Pill color={TEXT_DIM} bg={CARD2}>{ex.sets}×{ex.reps}</Pill>
+          {ex.tempo && ex.tempo !== '-' && <Pill color={PURPLE}>{ex.tempo}</Pill>}
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 8 }}>{ex.note}</div>
+
+      {/* Suggestion */}
+      <div style={{ background: CARD2, padding: 8, borderRadius: 6, marginBottom: 8, borderLeft: `3px solid ${suggestion.color}` }}>
+        <div style={{ fontSize: 11, fontFamily: 'Impact, Arial Black, sans-serif', color: suggestion.color, letterSpacing: 1 }}>
+          <span style={{ fontSize: 14, marginRight: 4 }}>{suggestion.arrow}</span>
+          {suggestion.weight != null ? `${suggestion.weight} lbs` : 'Find your weight'}
+        </div>
+        <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 2 }}>{suggestion.note}</div>
+      </div>
+
+      {/* Sets */}
+      {Array.from({ length: setCount }).map((_, si) => {
+        const k = setKey(ex.name, si);
+        const cur = (session?.setLogs || {})[k] || {};
+        const done = cur.done;
+        return (
+          <div key={si} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr 32px', gap: 6, marginBottom: 4, alignItems: 'center' }}>
+            <div style={{
+              background: done ? ACCENT : CARD2,
+              color: done ? '#000' : TEXT_DIM,
+              borderRadius: 4,
+              padding: '7px 0',
+              textAlign: 'center',
+              fontSize: 11,
+              fontFamily: 'Impact, Arial Black, sans-serif',
+            }}>{si + 1}</div>
+            <Input
+              type="number"
+              placeholder="lbs"
+              value={cur.weight || ''}
+              onChange={(e) => onSetUpdate(ex.name, si, { weight: e.target.value })}
+              style={{ borderColor: done ? ACCENT : BORDER, padding: '7px 9px', fontSize: 13 }}
+            />
+            <Input
+              type="number"
+              placeholder="reps"
+              value={cur.reps || ''}
+              onChange={(e) => onSetUpdate(ex.name, si, { reps: e.target.value })}
+              style={{ borderColor: done ? ACCENT : BORDER, padding: '7px 9px', fontSize: 13 }}
+            />
+            <input
+              type="checkbox"
+              checked={done || false}
+              onChange={(e) => onSetUpdate(ex.name, si, { done: e.target.checked })}
+              style={{ width: 18, height: 18, cursor: 'pointer' }}
+            />
+          </div>
+        );
+      })}
+    </Card>
+  );
+};
+
+const RPMuscleFeedback = ({ muscle, feedback = {}, onUpdate }) => {
+  const fb = feedback || {};
+  const allFilled = fb.pump != null && fb.workload != null && fb.soreness != null;
+  return (
+    <Card style={{ background: CARD2, marginBottom: 10 }}>
+      <Label>{muscle.toUpperCase()} FEEDBACK</Label>
+      {[
+        { key: 'pump', label: 'PUMP', opts: RP_PUMP },
+        { key: 'workload', label: 'WORKLOAD', opts: RP_WORKLOAD },
+        { key: 'soreness', label: 'SORENESS', opts: RP_SORENESS },
+      ].map((row) => (
+        <div key={row.key} style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 4 }}>{row.label}</div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {row.opts.map((opt, i) => (
+              <button key={i} onClick={() => onUpdate(muscle, row.key, i)} style={{
+                flex: 1,
+                background: fb[row.key] === i ? ACCENT : CARD,
+                color: fb[row.key] === i ? '#000' : '#fff',
+                border: `1px solid ${fb[row.key] === i ? ACCENT : BORDER}`,
+                borderRadius: 4,
+                padding: '5px 2px',
+                cursor: 'pointer',
+                fontSize: 10,
+              }}>{opt}</button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {allFilled && (
+        <div style={{ fontSize: 10, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginTop: 6 }}>
+          ✓ FEEDBACK LOGGED — WILL ADJUST NEXT SESSION
+        </div>
+      )}
+    </Card>
+  );
+};
+
+// ============================================================
+// RUNS VIEW
+// ============================================================
+const Runs = ({ state, setState }) => {
+  const { runs } = state;
+  const [filter, setFilter] = useState('all');
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    date: todayISO(), type: 'easy',
+    distMi: '', distKm: '', useKm: false,
+    minutes: '', seconds: '0', hr: '', elev: '', route: '', notes: '',
+  });
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const filtered = filter === 'all' ? runs : runs.filter((r) => r.type === filter);
+  const sortedRuns = [...filtered].sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  // PRs: best time at each distance
+  const prs = PR_DISTANCES.map((pd) => {
+    const matches = runs
+      .filter((r) => Math.abs((r.distMi || 0) - pd.miles) / pd.miles <= pd.tol && r.totalSec > 0)
+      .sort((a, b) => a.totalSec - b.totalSec);
+    return { ...pd, run: matches[0] };
+  });
+
+  // Stats
+  const totalMi = runs.reduce((a, r) => a + (r.distMi || 0), 0);
+  const totalRuns = runs.length;
+  const longest = runs.reduce((acc, r) => (r.distMi > (acc?.distMi || 0) ? r : acc), null);
+
+  const fmtSec = (sec) => {
+    if (!sec) return '—';
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  const fmtPace = (paceSec) => {
+    if (!paceSec) return '—';
+    const m = Math.floor(paceSec / 60);
+    const s = Math.round(paceSec % 60);
+    return `${m}:${String(s).padStart(2, '0')}/mi`;
+  };
+
+  const submitRun = () => {
+    let distMi, distKm;
+    if (form.useKm) {
+      distKm = +form.distKm;
+      distMi = +(distKm * 0.621371).toFixed(3);
+    } else {
+      distMi = +form.distMi;
+      distKm = +(distMi * 1.609344).toFixed(3);
+    }
+    if (!distMi) return;
+    const totalSec = (+form.minutes || 0) * 60 + (+form.seconds || 0);
+    const paceSec = totalSec && distMi ? totalSec / distMi : 0;
+    const paceKmSec = totalSec && distKm ? totalSec / distKm : 0;
+    const newRun = {
+      id: 'r_' + Date.now(),
+      date: form.date,
+      type: form.type,
+      distMi, distKm,
+      totalSec,
+      paceSec, paceKmSec,
+      hr: +form.hr || null,
+      elev: +form.elev || null,
+      route: form.route || '',
+      notes: form.notes || '',
+    };
+    const allRuns = [...runs, newRun];
+    const newPRs = checkRunPR(newRun, allRuns);
+    if (newPRs.length) newRun.prs = newPRs;
+    setState((p) => ({ ...p, runs: allRuns }));
+    setForm({ date: todayISO(), type: 'easy', distMi: '', distKm: '', useKm: false, minutes: '', seconds: '0', hr: '', elev: '', route: '', notes: '' });
+    setShowForm(false);
+  };
+
+  const deleteRun = (id) => {
+    setState((p) => ({ ...p, runs: p.runs.filter((r) => r.id !== id) }));
+    setConfirmDelete(null);
+  };
+
+  return (
+    <div>
+      {/* Stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+        <Card>
+          <Label>RUNS</Label>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 26, color: '#fff' }}>{totalRuns}</div>
+        </Card>
+        <Card>
+          <Label>MILES</Label>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 26, color: '#fff' }}>{totalMi.toFixed(1)}</div>
+        </Card>
+        <Card>
+          <Label>LONGEST</Label>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 22, color: '#fff' }}>{longest ? `${longest.distMi.toFixed(1)}mi` : '—'}</div>
+          <div style={{ fontSize: 9, color: TEXT_MUTED }}>{longest ? fmtSec(longest.totalSec) : ''}</div>
+        </Card>
+      </div>
+
+      {/* PRs */}
+      <Card style={{ marginBottom: 12 }}>
+        <H size={13}>PERSONAL BESTS</H>
+        <div style={{ display: 'grid', gap: 4 }}>
+          {prs.map((p) => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: `1px solid ${BORDER}` }}>
+              <span style={{ flex: 1, fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 12, color: TEXT_DIM, letterSpacing: 1 }}>{p.name.toUpperCase()}</span>
+              {p.run ? (
+                <>
+                  <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 14, color: ACCENT }}>{fmtSec(p.run.totalSec)}</span>
+                  <span style={{ fontSize: 10, color: TEXT_MUTED, minWidth: 70, textAlign: 'right' }}>{formatDate(p.run.date)}</span>
+                </>
+              ) : (
+                <span style={{ fontSize: 11, color: TEXT_MUTED }}>—</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Add run button / form */}
+      {!showForm ? (
+        <Btn onClick={() => setShowForm(true)} style={{ width: '100%', marginBottom: 12 }}>+ LOG RUN</Btn>
+      ) : (
+        <Card style={{ marginBottom: 12 }}>
+          <H size={13}>LOG RUN</H>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <Label>DATE</Label>
+                <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              </div>
+              <div>
+                <Label>TYPE</Label>
+                <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                  {RUN_TYPES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </Select>
+              </div>
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <Label style={{ marginBottom: 0 }}>DISTANCE</Label>
+                <button onClick={() => setForm({ ...form, useKm: !form.useKm })} style={{
+                  background: 'transparent', color: ACCENT, border: `1px solid ${ACCENT}`,
+                  borderRadius: 12, padding: '2px 8px', fontSize: 9, cursor: 'pointer',
+                  fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+                }}>{form.useKm ? 'KM' : 'MI'}</button>
+              </div>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder={form.useKm ? 'km' : 'mi'}
+                value={form.useKm ? form.distKm : form.distMi}
+                onChange={(e) => form.useKm ? setForm({ ...form, distKm: e.target.value }) : setForm({ ...form, distMi: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>TIME (MIN : SEC)</Label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <Input type="number" placeholder="min" value={form.minutes} onChange={(e) => setForm({ ...form, minutes: e.target.value })} />
+                <Input type="number" placeholder="sec" value={form.seconds} onChange={(e) => setForm({ ...form, seconds: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <Label>HR (OPT)</Label>
+                <Input type="number" placeholder="bpm" value={form.hr} onChange={(e) => setForm({ ...form, hr: e.target.value })} />
+              </div>
+              <div>
+                <Label>ELEV (OPT)</Label>
+                <Input type="number" placeholder="ft" value={form.elev} onChange={(e) => setForm({ ...form, elev: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>ROUTE / NOTES (OPT)</Label>
+              <Input value={form.route} onChange={(e) => setForm({ ...form, route: e.target.value })} placeholder="Trinity Park loop" />
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <Btn variant="ghost" onClick={() => setShowForm(false)}>CANCEL</Btn>
+              <div style={{ flex: 1 }} />
+              <Btn onClick={submitRun}>SAVE RUN</Btn>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Filter chips with counts */}
+      <div style={{ display: 'flex', gap: 5, marginBottom: 10, overflowX: 'auto', paddingBottom: 4 }}>
+        {[{ id: 'all', name: 'ALL', color: '#fff' }, ...RUN_TYPES.map((t) => ({ ...t, name: t.name.toUpperCase() }))].map((t) => {
+          const count = t.id === 'all' ? runs.length : runs.filter((r) => r.type === t.id).length;
+          if (t.id !== 'all' && count === 0) return null;
+          const active = filter === t.id;
+          return (
+            <button key={t.id} onClick={() => setFilter(t.id)} style={{
+              background: active ? t.color : 'transparent',
+              color: active ? '#000' : t.color,
+              border: `1px solid ${t.color}`,
+              padding: '4px 9px', borderRadius: 12, fontSize: 9,
+              fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+              cursor: 'pointer', whiteSpace: 'nowrap',
+            }}>{t.name} ({count})</button>
+          );
+        })}
+      </div>
+
+      {/* Header for results */}
+      <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 6 }}>
+        {sortedRuns.length} RESULT{sortedRuns.length === 1 ? '' : 'S'}
+      </div>
+
+      {/* Run list */}
+      {sortedRuns.length === 0 && (
+        <Card style={{ textAlign: 'center' }}>
+          <div style={{ color: TEXT_DIM, fontSize: 12 }}>No runs logged yet.</div>
+        </Card>
+      )}
+      {sortedRuns.map((r) => {
+        const tInfo = RUN_TYPES.find((t) => t.id === r.type) || RUN_TYPES[0];
+        return (
+          <Card key={r.id} style={{ marginBottom: 8, borderLeft: `3px solid ${tInfo.color}`, padding: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+              <div>
+                <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>{formatDate(r.date).toUpperCase()}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2 }}>
+                  <Pill color={tInfo.color}>{tInfo.name}</Pill>
+                  <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 18, color: '#fff' }}>{r.distMi.toFixed(2)} mi</span>
+                  <span style={{ fontSize: 10, color: TEXT_MUTED }}>({r.distKm.toFixed(2)} km)</span>
+                </div>
+                <div style={{ fontSize: 11, color: TEXT_DIM, marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <span>{fmtSec(r.totalSec)}</span>
+                  <span>· {fmtPace(r.paceSec)}</span>
+                  {r.hr ? <span>· {r.hr}bpm</span> : null}
+                  {r.elev ? <span>· {r.elev}ft</span> : null}
+                </div>
+                {r.route && <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>{r.route}</div>}
+                {r.prs && r.prs.length > 0 && (
+                  <div style={{ marginTop: 6 }}>
+                    {r.prs.map((p) => <Pill key={p} color={ORANGE}>🏆 {PR_DISTANCES.find((pd) => pd.id === p)?.name} PR</Pill>)}
+                  </div>
+                )}
+              </div>
+              {confirmDelete === r.id ? (
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <Btn size="sm" variant="danger" onClick={() => deleteRun(r.id)}>YES, DELETE</Btn>
+                  <Btn size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>CANCEL</Btn>
+                </div>
+              ) : (
+                <Btn size="sm" variant="ghost" onClick={() => setConfirmDelete(r.id)}>×</Btn>
+              )}
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
+};
+
+// ============================================================
+// METRICS VIEW
+// ============================================================
+const Metrics = ({ state, setState }) => {
+  const { profile, wlog } = state;
+  const [newWeight, setNewWeight] = useState('');
+  const [newDate, setNewDate] = useState(todayISO());
+
+  const sortedLog = [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const currentWeight = sortedLog[0]?.weight || profile.weight;
+  const startW = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? -1 : 1))[0].weight : profile.weight;
+  const targetW = profile.target;
+  const macros = calcMacros(profile, currentWeight);
+
+  const wDelta = currentWeight - startW;
+  const lbsToGo = +(currentWeight - targetW).toFixed(1);
+  const totalNeeded = startW - targetW;
+  const pctToGoal = totalNeeded !== 0 ? Math.max(0, Math.min(100, ((startW - currentWeight) / totalNeeded) * 100)) : 0;
+  const cuttingGoal = profile.goal === 'fatloss';
+  const bulkingGoal = profile.goal === 'muscle';
+
+  const logWeight = () => {
+    if (!newWeight) return;
+    setState((p) => ({
+      ...p,
+      wlog: [...p.wlog.filter((w) => w.date !== newDate), { date: newDate, weight: +newWeight }],
+    }));
+    setNewWeight('');
+    setNewDate(todayISO());
+  };
+
+  const deleteWeight = (date) => {
+    setState((p) => ({ ...p, wlog: p.wlog.filter((w) => w.date !== date) }));
+  };
+
+  const lossOrGain = wDelta < 0 ? 'LOST' : wDelta > 0 ? 'GAINED' : 'CHANGED';
+  const goalProgressColor = cuttingGoal ? (wDelta < 0 ? GREEN : RED) : bulkingGoal ? (wDelta > 0 ? GREEN : RED) : TEXT_DIM;
+
+  return (
+    <div>
+      {/* Goal Progress */}
+      <Card style={{ marginBottom: 12 }}>
+        <Label>GOAL PROGRESS</Label>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 8 }}>
+          <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 30, color: '#fff' }}>{pctToGoal.toFixed(0)}%</span>
+          <span style={{ fontSize: 11, color: TEXT_DIM }}>to goal</span>
+        </div>
+        <div style={{ background: CARD2, borderRadius: 4, height: 8, overflow: 'hidden', marginBottom: 8 }}>
+          <div style={{ background: `linear-gradient(90deg, ${BLUE}, ${ACCENT})`, height: '100%', width: `${pctToGoal}%`, transition: 'width .3s' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+          <span>{startW} lbs</span>
+          <span>{targetW} lbs</span>
+        </div>
+        <div style={{ marginTop: 8, fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 12, color: goalProgressColor, letterSpacing: 1 }}>
+          {Math.abs(wDelta).toFixed(1)} lbs {lossOrGain} · {Math.abs(lbsToGo).toFixed(1)} lbs to go
+        </div>
+      </Card>
+
+      {/* Two col: Log Weight + Macros & Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+        <Card>
+          <Label>LOG WEIGHT</Label>
+          <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} style={{ marginBottom: 6 }} />
+          <Input type="number" step="0.1" placeholder="lbs" value={newWeight} onChange={(e) => setNewWeight(e.target.value)} />
+          <Btn onClick={logWeight} style={{ width: '100%', marginTop: 8 }}>SAVE</Btn>
+        </Card>
+
+        <Card>
+          <Label>MACROS & STATS</Label>
+          <div style={{ display: 'grid', gap: 4, fontSize: 11 }}>
+            {[
+              { l: 'START', v: `${startW} lbs` },
+              { l: 'CURRENT', v: `${currentWeight} lbs` },
+              { l: 'TARGET', v: `${targetW} lbs` },
+              { l: 'CHANGE', v: `${wDelta >= 0 ? '+' : ''}${wDelta.toFixed(1)} lbs`, color: goalProgressColor },
+              { l: 'CALORIES', v: macros.calories, color: ACCENT },
+              { l: 'PROTEIN', v: `${macros.protein}g`, color: BLUE },
+              { l: 'CARBS', v: `${macros.carbs}g`, color: ORANGE },
+              { l: 'FAT', v: `${macros.fat}g`, color: PURPLE },
+            ].map((s) => (
+              <div key={s.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: `1px solid ${BORDER}` }}>
+                <span style={{ color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 10 }}>{s.l}</span>
+                <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', color: s.color || '#fff', fontSize: 12 }}>{s.v}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      {/* Weight history with d-o-d delta */}
+      <Card>
+        <H size={13}>HISTORY</H>
+        {sortedLog.length === 0 && <div style={{ color: TEXT_DIM, fontSize: 12 }}>No entries yet.</div>}
+        {sortedLog.map((w, i) => {
+          const next = sortedLog[i + 1]; // older entry
+          const dod = next ? +(w.weight - next.weight).toFixed(1) : null;
+          const dodColor = dod == null ? TEXT_DIM : dod < 0 ? GREEN : dod > 0 ? RED : TEXT_DIM;
+          return (
+            <div key={w.date} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: `1px solid ${BORDER}` }}>
+              <div style={{ flex: 1, fontSize: 11, color: TEXT_DIM }}>{formatDate(w.date)}</div>
+              <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 14, color: '#fff' }}>{w.weight} lbs</div>
+              {dod != null && <Pill color={dodColor}>{dod >= 0 ? '+' : ''}{dod}</Pill>}
+              <button onClick={() => deleteWeight(w.date)} style={{
+                background: 'transparent', color: TEXT_MUTED, border: 'none',
+                cursor: 'pointer', fontSize: 14, padding: 4,
+              }}>×</button>
+            </div>
+          );
+        })}
+      </Card>
+    </div>
+  );
+};
+
+// ============================================================
+// FOOD SEARCH (Claude API)
+// ============================================================
+const searchFoodDB = async (query) => {
+  try {
+    const sysPrompt = `You are a nutrition database. The user will search for a food item or restaurant menu item. Return a JSON array of 4-8 matching items. Cover USDA whole foods (eggs, chicken, rice, oats, etc.) and major US chains: Chipotle, Chick-fil-A, Starbucks, Subway, McDonald's, Burger King, Wendy's, Taco Bell, Domino's, Pizza Hut, Cava, Panera, Dunkin', Texas Roadhouse, Olive Garden, Five Guys, In-N-Out, Whataburger, Shake Shack, Sonic, Panda Express, Jersey Mike's, Jimmy John's, Raising Cane's, Popeyes. Each item must include: name (string, restaurant prefix if applicable, e.g., "Chipotle Chicken Burrito Bowl"), serving (string), cal (number), p (number), c (number), f (number). Return ONLY raw JSON array, no preamble, no markdown fences.`;
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: sysPrompt,
+        messages: [{ role: 'user', content: query }],
+      }),
+    });
+    const data = await response.json();
+    const text = (data.content || []).map((c) => c.text || '').join('').replace(/```json|```/g, '').trim();
+    const arr = JSON.parse(text);
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    console.error('food search', e);
+    return [];
+  }
+};
+
+// ============================================================
+// FOOD VIEW
+// ============================================================
+const Food = ({ state, setState, onCoachPrompt }) => {
+  const { profile, food, wlog } = state;
+  const [viewISO, setViewISO] = useState(todayISO());
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
+  const [manual, setManual] = useState({ name: '', cal: '', p: '', c: '', f: '', qty: 1 });
+
+  const currentWeight = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
+  const macros = calcMacros(profile, currentWeight);
+  const todaysFood = food[viewISO] || [];
+  const totals = todaysFood.reduce(
+    (acc, f) => ({
+      cal: acc.cal + (+f.cal || 0) * (f.qty || 1),
+      p: acc.p + (+f.p || 0) * (f.qty || 1),
+      c: acc.c + (+f.c || 0) * (f.qty || 1),
+      f: acc.f + (+f.f || 0) * (f.qty || 1),
+    }),
+    { cal: 0, p: 0, c: 0, f: 0 }
+  );
+  const remaining = {
+    cal: macros.calories - totals.cal,
+    p: macros.protein - totals.p,
+    c: macros.carbs - totals.c,
+    f: macros.fat - totals.f,
+  };
+  const anyNeg = remaining.cal < 0 || remaining.p < 0 || remaining.c < 0 || remaining.f < 0;
+
+  const search = async (q) => {
+    if (!q.trim()) return;
+    setSearching(true);
+    const items = await searchFoodDB(q);
+    setResults(items);
+    setSearching(false);
+  };
+
+  const addFood = (item) => {
+    setState((p) => {
+      const day = p.food[viewISO] || [];
+      return { ...p, food: { ...p.food, [viewISO]: [...day, { ...item, id: 'f_' + Date.now() + Math.random(), qty: item.qty || 1 }] } };
+    });
+  };
+
+  const removeFood = (id) => {
+    setState((p) => {
+      const day = (p.food[viewISO] || []).filter((f) => f.id !== id);
+      return { ...p, food: { ...p.food, [viewISO]: day } };
+    });
+  };
+
+  const submitManual = () => {
+    if (!manual.name) return;
+    addFood({
+      name: manual.name,
+      cal: +manual.cal || 0,
+      p: +manual.p || 0,
+      c: +manual.c || 0,
+      f: +manual.f || 0,
+      qty: +manual.qty || 1,
+    });
+    setManual({ name: '', cal: '', p: '', c: '', f: '', qty: 1 });
+    setManualMode(false);
+  };
+
+  const isAlreadyAdded = (item) => todaysFood.some((f) => f.name === item.name);
+
+  // 7-day rolling avg chart
+  const last7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = dateOffsetISO(-i);
+    const dayItems = food[d] || [];
+    const sum = dayItems.reduce((a, f) => a + (+f.cal || 0) * (f.qty || 1), 0);
+    last7.push({ date: d, cal: sum });
+  }
+  const maxCal = Math.max(macros.calories * 1.3, ...last7.map((d) => d.cal));
+
+  return (
+    <div>
+      {/* Date nav */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+        <Btn size="sm" variant="ghost" onClick={() => {
+          const d = isoToDate(viewISO); d.setDate(d.getDate() - 1); setViewISO(dateToISO(d));
+        }}>‹</Btn>
+        <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: TEXT_DIM, letterSpacing: 1 }}>
+          {viewISO === todayISO() ? 'TODAY' : viewISO === dateOffsetISO(-1) ? 'YESTERDAY' : formatDate(viewISO).toUpperCase()}
+        </div>
+        <Btn size="sm" variant="ghost" onClick={() => {
+          const d = isoToDate(viewISO); d.setDate(d.getDate() + 1); setViewISO(dateToISO(d));
+        }}>›</Btn>
+      </div>
+
+      {/* Day balance card */}
+      <Card style={{ marginBottom: 10, border: anyNeg ? `2px solid ${RED}` : `1px solid ${BORDER}` }}>
+        <Label>DAY BALANCE</Label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          {[
+            { l: 'CAL', cur: totals.cal, max: macros.calories, color: ACCENT, rem: remaining.cal },
+            { l: 'P', cur: totals.p, max: macros.protein, color: BLUE, rem: remaining.p, unit: 'g' },
+            { l: 'C', cur: totals.c, max: macros.carbs, color: ORANGE, rem: remaining.c, unit: 'g' },
+            { l: 'F', cur: totals.f, max: macros.fat, color: PURPLE, rem: remaining.f, unit: 'g' },
+          ].map((m) => (
+            <div key={m.l}>
+              <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>{m.l}</div>
+              <div style={{ fontSize: 14, color: '#fff', fontFamily: 'Impact, Arial Black, sans-serif' }}>{Math.round(m.cur)}</div>
+              <div style={{ fontSize: 9, color: m.rem < 0 ? RED : TEXT_MUTED }}>{m.rem >= 0 ? `${Math.round(m.rem)}${m.unit || ''} left` : `${Math.abs(Math.round(m.rem))}${m.unit || ''} OVER`}</div>
+              <ProgressBar value={m.cur} max={m.max} color={m.color} height={2} />
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Quick chips + search */}
+      <Card style={{ marginBottom: 10 }}>
+        <Label>QUICK PICK</Label>
+        <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 4, marginBottom: 8 }}>
+          {RESTAURANT_CHIPS.map((c) => (
+            <button key={c.name} onClick={() => { setQuery(c.name); search(c.name); }} style={{
+              background: CARD2, color: '#fff', border: `1px solid ${BORDER}`, borderRadius: 14,
+              padding: '5px 10px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontFamily: 'Helvetica, Arial, sans-serif',
+            }}>
+              <span>{c.emoji}</span><span style={{ fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 10 }}>{c.name.toUpperCase()}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Input placeholder="Search foods or chains..." value={query} onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && search(query)} />
+          <Btn onClick={() => search(query)} disabled={searching}>{searching ? '…' : 'GO'}</Btn>
+        </div>
+        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          <Btn size="sm" variant="ghost" onClick={() => setManualMode(!manualMode)}>
+            {manualMode ? 'HIDE MANUAL' : '+ MANUAL ENTRY'}
+          </Btn>
+          <Btn size="sm" variant="accent2" onClick={() => onCoachPrompt(`Suggest foods to fill: ${Math.round(remaining.cal)}cal, ${Math.round(remaining.p)}p, ${Math.round(remaining.c)}c, ${Math.round(remaining.f)}f remaining today and add them`)}>FILL MACROS</Btn>
+        </div>
+
+        {manualMode && (
+          <div style={{ marginTop: 10, padding: 10, background: CARD2, borderRadius: 6 }}>
+            <Input placeholder="Food name" value={manual.name} onChange={(e) => setManual({ ...manual, name: e.target.value })} />
+            <div style={{ height: 6 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6 }}>
+              <Input type="number" placeholder="cal" value={manual.cal} onChange={(e) => setManual({ ...manual, cal: e.target.value })} />
+              <Input type="number" placeholder="p" value={manual.p} onChange={(e) => setManual({ ...manual, p: e.target.value })} />
+              <Input type="number" placeholder="c" value={manual.c} onChange={(e) => setManual({ ...manual, c: e.target.value })} />
+              <Input type="number" placeholder="f" value={manual.f} onChange={(e) => setManual({ ...manual, f: e.target.value })} />
+            </div>
+            <Btn onClick={submitManual} style={{ marginTop: 8, width: '100%' }}>ADD</Btn>
+          </div>
+        )}
+
+        {/* Search results */}
+        {results.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>{results.length} RESULTS · TAP TO ADD</span>
+              <span style={{ flex: 1 }} />
+              <button onClick={() => { setResults([]); setQuery(''); }} style={{ background: 'transparent', color: TEXT_MUTED, border: 'none', cursor: 'pointer', fontSize: 14 }}>×</button>
+            </div>
+            {results.map((r, i) => {
+              const added = isAlreadyAdded(r);
+              return (
+                <button key={i} onClick={() => addFood(r)} style={{
+                  display: 'block', width: '100%',
+                  background: added ? `${GREEN}14` : CARD2,
+                  color: '#fff', border: `1px solid ${BORDER}`,
+                  borderRadius: 6, padding: 8, marginBottom: 4,
+                  cursor: 'pointer', textAlign: 'left',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, color: '#fff' }}>{r.name}</div>
+                      <div style={{ fontSize: 10, color: TEXT_DIM, marginTop: 2 }}>{r.serving || ''} · {r.cal} cal · {r.p}p {r.c}c {r.f}f</div>
+                    </div>
+                    {added ? (
+                      <Pill color={GREEN}>✓ ADDED</Pill>
+                    ) : (
+                      <Pill color={ACCENT}>+ ADD</Pill>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      {/* Today's food log */}
+      <Card style={{ marginBottom: 10 }}>
+        <H size={13}>LOGGED ({todaysFood.length})</H>
+        {todaysFood.length === 0 && <div style={{ color: TEXT_DIM, fontSize: 12 }}>Nothing logged yet.</div>}
+        {todaysFood.map((f) => (
+          <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: `1px solid ${BORDER}` }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: '#fff' }}>{f.name}{f.qty > 1 ? ` ×${f.qty}` : ''}</div>
+              <div style={{ fontSize: 10, color: TEXT_MUTED }}>{Math.round((+f.cal || 0) * (f.qty || 1))} cal · {Math.round((+f.p || 0) * (f.qty || 1))}p {Math.round((+f.c || 0) * (f.qty || 1))}c {Math.round((+f.f || 0) * (f.qty || 1))}f</div>
+            </div>
+            <button onClick={() => removeFood(f.id)} style={{ background: 'transparent', color: TEXT_MUTED, border: 'none', cursor: 'pointer', fontSize: 14 }}>×</button>
+          </div>
+        ))}
+      </Card>
+
+      {/* 7-day rolling avg chart */}
+      <Card>
+        <H size={13}>7-DAY CALORIES</H>
+        <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 8 }}>
+          RP method: weekly average matters more than daily perfection
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, alignItems: 'end', height: 100 }}>
+          {last7.map((d) => {
+            const target = macros.calories;
+            const ratio = d.cal / Math.max(1, target);
+            const color = Math.abs(ratio - 1) < 0.15 ? GREEN : ratio < 0.85 ? ORANGE : RED;
+            const h = (d.cal / Math.max(1, maxCal)) * 90;
+            return (
+              <button key={d.date} onClick={() => setViewISO(d.date)} style={{
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%',
+              }}>
+                <div style={{
+                  background: color,
+                  width: '100%',
+                  height: `${h}px`,
+                  minHeight: 2,
+                  borderRadius: '3px 3px 0 0',
+                  opacity: d.date === viewISO ? 1 : 0.6,
+                }} />
+                <div style={{ fontSize: 9, color: TEXT_MUTED, marginTop: 2, fontFamily: 'Impact, Arial Black, sans-serif' }}>{DAY_LETTERS[getDayIdx(d.date)]}</div>
+                <div style={{ fontSize: 8, color: d.cal > 0 ? color : TEXT_MUTED }}>{Math.round(d.cal)}</div>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: 8, fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, textAlign: 'center' }}>
+          AVG: {Math.round(last7.reduce((a, d) => a + d.cal, 0) / 7)} CAL · TARGET: {macros.calories}
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+// ============================================================
+// JOURNAL VIEW
+// ============================================================
+const Journal = ({ state, setState }) => {
+  const { jlog } = state;
+  const [viewISO, setViewISO] = useState(todayISO());
+  const todayEntry = jlog.find((e) => e.date === viewISO);
+  const [mood, setMood] = useState(todayEntry?.mood ?? null);
+  const [notes, setNotes] = useState(todayEntry?.notes || '');
+
+  useEffect(() => {
+    const e = jlog.find((x) => x.date === viewISO);
+    setMood(e?.mood ?? null);
+    setNotes(e?.notes || '');
+  }, [viewISO]);
+
+  const save = () => {
+    if (mood == null && !notes.trim()) return;
+    setState((p) => ({
+      ...p,
+      jlog: [...p.jlog.filter((e) => e.date !== viewISO), { date: viewISO, mood, notes }],
+    }));
+  };
+
+  const recent = [...jlog].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 10);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+        <Btn size="sm" variant="ghost" onClick={() => {
+          const d = isoToDate(viewISO); d.setDate(d.getDate() - 1); setViewISO(dateToISO(d));
+        }}>‹</Btn>
+        <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: TEXT_DIM, letterSpacing: 1 }}>
+          {viewISO === todayISO() ? 'TODAY' : viewISO === dateOffsetISO(-1) ? 'YESTERDAY' : formatDate(viewISO).toUpperCase()}
+        </div>
+        <Btn size="sm" variant="ghost" onClick={() => {
+          const d = isoToDate(viewISO); d.setDate(d.getDate() + 1); setViewISO(dateToISO(d));
+        }}>›</Btn>
+      </div>
+
+      <Card style={{ marginBottom: 12 }}>
+        <Label>MOOD</Label>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+          {MOOD_OPTIONS.map((emoji, i) => (
+            <button key={i} onClick={() => setMood(i)} style={{
+              flex: 1,
+              background: mood === i ? `${ACCENT}33` : CARD2,
+              border: `1px solid ${mood === i ? ACCENT : BORDER}`,
+              borderRadius: 6, padding: 10, cursor: 'pointer',
+              fontSize: 26,
+            }}>
+              <div>{emoji}</div>
+              <div style={{ fontSize: 8, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginTop: 2 }}>{MOOD_LABELS[i].toUpperCase()}</div>
+            </button>
+          ))}
+        </div>
+        <Label>NOTES</Label>
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What went well? What's hard right now?" style={{
+          width: '100%', minHeight: 100, background: CARD2, border: `1px solid ${BORDER}`,
+          borderRadius: 6, color: '#fff', padding: 8, fontSize: 13,
+          fontFamily: 'Helvetica, Arial, sans-serif', outline: 'none', boxSizing: 'border-box',
+          resize: 'vertical',
+        }} />
+        <Btn onClick={save} style={{ marginTop: 8, width: '100%' }}>SAVE ENTRY</Btn>
+      </Card>
+
+      <Card>
+        <H size={13}>RECENT</H>
+        {recent.length === 0 && <div style={{ color: TEXT_DIM, fontSize: 12 }}>No entries yet.</div>}
+        {recent.map((e) => (
+          <button key={e.date} onClick={() => setViewISO(e.date)} style={{
+            display: 'block', width: '100%', textAlign: 'left',
+            background: 'transparent', border: 'none', borderBottom: `1px solid ${BORDER}`,
+            color: '#fff', padding: '8px 0', cursor: 'pointer',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ fontSize: 11, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, minWidth: 90 }}>{formatDate(e.date).toUpperCase()}</div>
+              <div style={{ fontSize: 20 }}>{e.mood != null ? MOOD_OPTIONS[e.mood] : ''}</div>
+              <div style={{ flex: 1, fontSize: 11, color: TEXT_DIM, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {(e.notes || '').slice(0, 160)}
+              </div>
+            </div>
+          </button>
+        ))}
+      </Card>
+    </div>
+  );
+};
+
+// ============================================================
+// PROGRAM SUMMARY MODAL
+// ============================================================
+const ProgramSummary = ({ state, onClose, onAcknowledge, onStartNew }) => {
+  const { profile, sessions, wlog, runs } = state;
+
+  // Top 8 lifts by est 1RM
+  const lifts = {};
+  Object.values(sessions).forEach((s) => {
+    if (!s.setLogs) return;
+    Object.entries(s.setLogs).forEach(([k, v]) => {
+      const exName = k.split('__')[0];
+      if (v.weight && v.reps) {
+        const rm = est1RM(+v.weight, +v.reps);
+        if (!lifts[exName] || rm > lifts[exName].rm) {
+          lifts[exName] = { name: exName, rm, weight: +v.weight, reps: +v.reps, date: s.iso };
+        }
+      }
+    });
+  });
+  const topLifts = Object.values(lifts).sort((a, b) => b.rm - a.rm).slice(0, 8);
+
+  // Consistency
+  const totalSessions = Object.values(sessions).length;
+  const completed = Object.values(sessions).filter((s) => s.done).length;
+  const skipped = Object.values(sessions).filter((s) => s.skipped).length;
+  const completionRate = totalSessions ? Math.round((completed / totalSessions) * 100) : 0;
+
+  // Body weight
+  const sortedW = [...wlog].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const startW = sortedW[0]?.weight || profile.weight;
+  const endW = sortedW[sortedW.length - 1]?.weight || startW;
+  const wDelta = endW - startW;
+  const targetReached = Math.abs(endW - profile.target) <= 2;
+
+  // Running stats
+  const totalRuns = runs.length;
+  const totalMi = runs.reduce((a, r) => a + (r.distMi || 0), 0);
+  const longest = runs.reduce((acc, r) => (r.distMi > (acc?.distMi || 0) ? r : acc), null);
+  const fastest = [...runs].filter((r) => r.paceSec).sort((a, b) => a.paceSec - b.paceSec)[0];
+
+  const fmtSec = (sec) => {
+    if (!sec) return '—';
+    const h = Math.floor(sec / 3600); const m = Math.floor((sec % 3600) / 60); const s = Math.floor(sec % 60);
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  const wColor = wDelta < 0 ? GREEN : wDelta > 0 ? BLUE : TEXT_DIM;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      background: 'rgba(0,0,0,0.95)',
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      padding: 14, zIndex: 200, overflowY: 'auto',
+    }}>
+      <div style={{
+        background: BG,
+        border: `2px solid ${ACCENT}`,
+        borderRadius: 12,
+        padding: 20,
+        width: '100%',
+        maxWidth: 460,
+        marginTop: 30,
+        marginBottom: 40,
+        boxShadow: `0 0 40px ${ACCENT}55`,
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 14 }}>
+          <div style={{ fontSize: 14, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 2 }}>PROGRAM COMPLETE</div>
+          <H size={26} style={{ marginTop: 4 }}>
+            <span style={{ color: ACCENT }}>{profile.weeks} WEEK</span>
+            <span style={{ color: ORANGE }}> SUMMARY</span>
+          </H>
+          <div style={{ fontSize: 11, color: TEXT_DIM }}>{WORKOUT_STYLES.find((s) => s.id === profile.workoutStyle)?.name}</div>
+        </div>
+
+        {/* Body Weight */}
+        <Card style={{ marginBottom: 10 }}>
+          <Label>BODY WEIGHT</Label>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 24, color: '#fff' }}>{startW}</span>
+            <span style={{ color: wColor, fontSize: 18 }}>→</span>
+            <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 24, color: wColor }}>{endW}</span>
+            <span style={{ fontSize: 12, color: TEXT_DIM }}>lbs</span>
+            {targetReached && <Pill color={GREEN}>✓ TARGET REACHED</Pill>}
+          </div>
+          <div style={{ marginTop: 6, padding: 6, background: `${wColor}15`, borderRadius: 4, display: 'inline-block' }}>
+            <span style={{ color: wColor, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 12 }}>
+              {wDelta >= 0 ? '+' : ''}{wDelta.toFixed(1)} LBS
+            </span>
+          </div>
+        </Card>
+
+        {/* Top lifts */}
+        <Card style={{ marginBottom: 10 }}>
+          <Label>TOP LIFTS (EST. 1RM)</Label>
+          {topLifts.length === 0 && <div style={{ color: TEXT_DIM, fontSize: 12 }}>No lifts logged.</div>}
+          {topLifts.map((l) => (
+            <div key={l.name} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '4px 0', borderBottom: `1px solid ${BORDER}` }}>
+              <span style={{ flex: 1, fontSize: 12, color: '#fff' }}>{l.name}</span>
+              <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', color: ACCENT, fontSize: 14 }}>{l.rm} lbs</span>
+              <span style={{ fontSize: 9, color: TEXT_MUTED, minWidth: 70, textAlign: 'right' }}>{l.weight}×{l.reps} · {formatDate(l.date)}</span>
+            </div>
+          ))}
+        </Card>
+
+        {/* Consistency */}
+        <Card style={{ marginBottom: 10 }}>
+          <Label>CONSISTENCY</Label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, textAlign: 'center' }}>
+            <div>
+              <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 22, color: GREEN }}>{completed}</div>
+              <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>COMPLETED</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 22, color: RED }}>{skipped}</div>
+              <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>SKIPPED</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 22, color: YELLOW }}>{completionRate}%</div>
+              <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>RATE</div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Running */}
+        {totalRuns > 0 && (
+          <Card style={{ marginBottom: 14 }}>
+            <Label>RUNNING</Label>
+            <div style={{ fontSize: 12, color: '#fff', display: 'grid', gap: 4 }}>
+              <div>Total runs: <strong style={{ color: ACCENT }}>{totalRuns}</strong></div>
+              <div>Total miles: <strong style={{ color: ACCENT }}>{totalMi.toFixed(1)}</strong></div>
+              {longest && <div>Longest run: <strong style={{ color: ACCENT }}>{longest.distMi.toFixed(1)} mi</strong> ({fmtSec(longest.totalSec)})</div>}
+              {fastest && <div>Fastest pace: <strong style={{ color: ACCENT }}>{Math.floor(fastest.paceSec / 60)}:{String(Math.round(fastest.paceSec % 60)).padStart(2, '0')}/mi</strong> ({fastest.distMi.toFixed(1)} mi)</div>}
+            </div>
+          </Card>
+        )}
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          {onClose && <Btn variant="ghost" onClick={onClose}>VIEW LATER</Btn>}
+          <div style={{ flex: 1 }} />
+          {onStartNew && <Btn variant="orange" onClick={onStartNew}>START NEW PROGRAM</Btn>}
+          {!onStartNew && onAcknowledge && <Btn onClick={onAcknowledge}>OK</Btn>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// SCHEDULE EDITOR (used in Backup view)
+// ============================================================
+const ScheduleEditor = ({ profile, onSave }) => {
+  const [draft, setDraft] = useState([...profile.schedule]);
+  const [dirty, setDirty] = useState(false);
+  const dayTypes = DAY_TYPES_BY_STYLE[profile.workoutStyle] || [];
+  const presets = SPLIT_PRESETS[profile.workoutStyle] || [];
+
+  // If style changed and current schedule is invalid, auto-reset
+  useEffect(() => {
+    if (!validateSchedule(draft, profile.workoutStyle)) {
+      setDraft(defaultScheduleForStyle(profile.workoutStyle));
+      setDirty(true);
+    }
+  }, [profile.workoutStyle]);
+
+  const updateDay = (idx, val) => {
+    const next = [...draft]; next[idx] = val;
+    setDraft(next); setDirty(true);
+  };
+
+  const swap = (i, j) => {
+    if (j < 0 || j >= 7) return;
+    const next = [...draft]; [next[i], next[j]] = [next[j], next[i]];
+    setDraft(next); setDirty(true);
+  };
+
+  const reset = () => {
+    setDraft(defaultScheduleForStyle(profile.workoutStyle));
+    setDirty(true);
+  };
+
+  const apply = (preset) => {
+    setDraft([...preset.days]);
+    setDirty(true);
+  };
+
+  const save = () => {
+    onSave(draft);
+    setDirty(false);
+  };
+
+  const styleName = WORKOUT_STYLES.find((s) => s.id === profile.workoutStyle)?.name || '';
+  const workoutDayCount = draft.filter((d) => d !== 'REST').length;
+
+  return (
+    <Card style={{ marginBottom: 10 }}>
+      <H size={14}>SCHEDULE EDITOR</H>
+      <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 8 }}>
+        Style: <span style={{ color: ACCENT }}>{styleName}</span> · {workoutDayCount} workout days/wk
+      </div>
+      {dirty && (
+        <div style={{ background: `${YELLOW}22`, border: `1px solid ${YELLOW}88`, padding: 6, borderRadius: 4, fontSize: 10, color: YELLOW, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 8 }}>
+          ⚠ UNSAVED CHANGES
+        </div>
+      )}
+      {presets.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <Label>PRESETS</Label>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {presets.map((p) => (
+              <button key={p.name} onClick={() => apply(p)} style={{
+                background: 'transparent', color: ACCENT, border: `1px solid ${ACCENT}`,
+                padding: '4px 8px', borderRadius: 12, fontSize: 9,
+                fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, cursor: 'pointer',
+              }}>{p.name.toUpperCase()}</button>
+            ))}
+            <button onClick={reset} style={{
+              background: 'transparent', color: TEXT_DIM, border: `1px solid ${BORDER}`,
+              padding: '4px 8px', borderRadius: 12, fontSize: 9,
+              fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, cursor: 'pointer',
+            }}>RESET TO DEFAULT</button>
+          </div>
+        </div>
+      )}
+      <div style={{ display: 'grid', gap: 6 }}>
+        {DAYS.map((day, i) => {
+          const c = DAY_TYPE_COLOR[draft[i]] || TEXT_MUTED;
+          return (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '40px 1fr 28px 28px', gap: 6, alignItems: 'center' }}>
+              <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 12, color: TEXT_DIM, letterSpacing: 1 }}>{day}</div>
+              <Select value={draft[i]} onChange={(e) => updateDay(i, e.target.value)} style={{ color: c }}>
+                {dayTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+              </Select>
+              <button onClick={() => swap(i, i - 1)} disabled={i === 0} style={{
+                background: 'transparent', color: i === 0 ? TEXT_MUTED : '#fff',
+                border: `1px solid ${BORDER}`, borderRadius: 4, padding: 5, cursor: i === 0 ? 'not-allowed' : 'pointer', fontSize: 12,
+              }}>↑</button>
+              <button onClick={() => swap(i, i + 1)} disabled={i === 6} style={{
+                background: 'transparent', color: i === 6 ? TEXT_MUTED : '#fff',
+                border: `1px solid ${BORDER}`, borderRadius: 4, padding: 5, cursor: i === 6 ? 'not-allowed' : 'pointer', fontSize: 12,
+              }}>↓</button>
+            </div>
+          );
+        })}
+      </div>
+      {dirty && (
+        <Btn onClick={save} style={{ marginTop: 10, width: '100%' }}>SAVE SCHEDULE</Btn>
+      )}
+    </Card>
+  );
+};
+
+// ============================================================
+// BACKUP VIEW
+// ============================================================
+const Backup = ({ state, setState, onShowSummary }) => {
+  const { profile } = state;
+  const [editing, setEditing] = useState(false);
+  const [profileDraft, setProfileDraft] = useState({ ...profile });
+  const [setWeekVal, setSetWeekVal] = useState(state.week);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const exportData = () => {
+    const blob = new Blob([JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `recomp-backup-${todayISO()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const importData = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        if (!parsed.profile) {
+          alert('Invalid backup file');
+          return;
+        }
+        setState((p) => ({ ...defaultState(), ...parsed }));
+        alert('Backup imported successfully');
+      } catch {
+        alert('Could not parse backup file');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const saveProfile = () => {
+    setState((p) => {
+      // If style changed and current schedule invalid, reset to default
+      let schedule = profileDraft.schedule;
+      if (!validateSchedule(schedule, profileDraft.workoutStyle)) {
+        schedule = defaultScheduleForStyle(profileDraft.workoutStyle);
+      }
+      return { ...p, profile: { ...profileDraft, schedule } };
+    });
+    setEditing(false);
+  };
+
+  const saveSchedule = (newSchedule) => {
+    setState((p) => ({ ...p, profile: { ...p.profile, schedule: newSchedule } }));
+  };
+
+  const setWeek = () => {
+    setState((p) => ({ ...p, week: Math.max(1, Math.min(p.profile.weeks, +setWeekVal || 1)) }));
+  };
+
+  const resetAll = async () => {
+    if (window.storage) await window.storage.delete(STORAGE_KEY).catch(() => {});
+    setState(defaultState());
+    setConfirmReset(false);
+  };
+
+  const previewMacros = profileDraft.weight ? calcMacros(profileDraft, profileDraft.weight) : null;
+
+  return (
+    <div>
+      {/* Schedule editor at top */}
+      <ScheduleEditor profile={profile} onSave={saveSchedule} />
+
+      {/* Edit Profile */}
+      <Card style={{ marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <H size={14} mb={0}>EDIT PROFILE</H>
+          {!editing ? (
+            <Btn size="sm" variant="ghost" onClick={() => { setProfileDraft({ ...profile }); setEditing(true); }}>EDIT</Btn>
+          ) : (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <Btn size="sm" variant="ghost" onClick={() => setEditing(false)}>CANCEL</Btn>
+              <Btn size="sm" onClick={saveProfile}>SAVE</Btn>
+            </div>
+          )}
+        </div>
+        {editing && (
+          <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+            <div><Label>NAME</Label><Input value={profileDraft.name} onChange={(e) => setProfileDraft({ ...profileDraft, name: e.target.value })} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div><Label>AGE</Label><Input type="number" value={profileDraft.age} onChange={(e) => setProfileDraft({ ...profileDraft, age: +e.target.value })} /></div>
+              <div><Label>SEX</Label><Select value={profileDraft.sex} onChange={(e) => setProfileDraft({ ...profileDraft, sex: e.target.value })}><option value="male">Male</option><option value="female">Female</option></Select></div>
+            </div>
+            <div><Label>HEIGHT</Label><Input value={profileDraft.height} onChange={(e) => setProfileDraft({ ...profileDraft, height: e.target.value })} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div><Label>WEIGHT</Label><Input type="number" value={profileDraft.weight} onChange={(e) => setProfileDraft({ ...profileDraft, weight: +e.target.value })} /></div>
+              <div><Label>TARGET</Label><Input type="number" value={profileDraft.target} onChange={(e) => setProfileDraft({ ...profileDraft, target: +e.target.value })} /></div>
+            </div>
+            <div>
+              <Label>GOAL</Label>
+              <Select value={profileDraft.goal} onChange={(e) => setProfileDraft({ ...profileDraft, goal: e.target.value })}>
+                {GOAL_OPTIONS.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </Select>
+            </div>
+            <div>
+              <Label>ACTIVITY</Label>
+              <Select value={profileDraft.activity} onChange={(e) => setProfileDraft({ ...profileDraft, activity: e.target.value })}>
+                {ACTIVITY_LEVELS.map((a) => <option key={a.id} value={a.id}>{a.name} (×{a.mult})</option>)}
+              </Select>
+            </div>
+            <div>
+              <Label>PROGRAM LENGTH</Label>
+              <Select value={profileDraft.weeks} onChange={(e) => setProfileDraft({ ...profileDraft, weeks: +e.target.value })}>
+                {PROGRAM_LENGTHS.map((w) => <option key={w} value={w}>{w} weeks</option>)}
+              </Select>
+            </div>
+            <div>
+              <Label>WORKOUT STYLE</Label>
+              <Select value={profileDraft.workoutStyle} onChange={(e) => setProfileDraft({ ...profileDraft, workoutStyle: e.target.value })}>
+                {WORKOUT_STYLES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </Select>
+            </div>
+            {(profileDraft.workoutStyle === 'hyrox' || profileDraft.workoutStyle === 'hyrox_hybrid') && (
+              <>
+                <div><Label>RACE DATE</Label><Input type="date" value={profileDraft.raceDate || ''} onChange={(e) => setProfileDraft({ ...profileDraft, raceDate: e.target.value })} /></div>
+                <div><Label>DIVISION</Label>
+                  <Select value={profileDraft.raceDivision} onChange={(e) => setProfileDraft({ ...profileDraft, raceDivision: e.target.value })}>
+                    {HYROX_TARGETS.map((t) => <option key={t.div} value={t.div}>{t.div}</option>)}
+                  </Select>
+                </div>
+              </>
+            )}
+            {previewMacros && (
+              <div style={{ background: CARD2, padding: 8, borderRadius: 6 }}>
+                <div style={{ fontSize: 10, color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 4 }}>LIVE MACRO PREVIEW</div>
+                <div style={{ fontSize: 11, color: '#fff' }}>{previewMacros.calories} cal · {previewMacros.protein}p · {previewMacros.carbs}c · {previewMacros.fat}f</div>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* Export */}
+      <Card style={{ marginBottom: 10 }}>
+        <H size={13}>EXPORT BACKUP</H>
+        <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 8 }}>Download a JSON backup of all data.</div>
+        <Btn onClick={exportData} style={{ width: '100%' }}>DOWNLOAD .JSON</Btn>
+      </Card>
+
+      {/* Program Summary */}
+      <Card style={{ marginBottom: 10 }}>
+        <H size={13}>PROGRAM SUMMARY</H>
+        <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 8 }}>View achievements and consistency.</div>
+        <Btn variant="ghost" onClick={onShowSummary} style={{ width: '100%' }}>VIEW SUMMARY</Btn>
+      </Card>
+
+      {/* Import */}
+      <Card style={{ marginBottom: 10 }}>
+        <H size={13}>IMPORT BACKUP</H>
+        <input ref={fileInputRef} type="file" accept=".json" onChange={importData} style={{ display: 'none' }} />
+        <Btn variant="ghost" onClick={() => fileInputRef.current?.click()} style={{ width: '100%' }}>UPLOAD .JSON</Btn>
+      </Card>
+
+      {/* Set Week */}
+      <Card style={{ marginBottom: 10 }}>
+        <H size={13}>SET WEEK</H>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Input type="number" min="1" max={profile.weeks} value={setWeekVal} onChange={(e) => setSetWeekVal(e.target.value)} />
+          <Btn onClick={setWeek}>JUMP</Btn>
+        </div>
+      </Card>
+
+      {/* Reset */}
+      <Card style={{ marginBottom: 10, borderColor: RED }}>
+        <H size={13} color={RED}>RESET ALL DATA</H>
+        <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 8 }}>Wipes everything. Cannot be undone.</div>
+        {!confirmReset ? (
+          <Btn variant="danger" onClick={() => setConfirmReset(true)} style={{ width: '100%' }}>RESET</Btn>
+        ) : (
+          <div style={{ display: 'flex', gap: 6 }}>
+            <Btn variant="danger" onClick={resetAll}>YES, RESET</Btn>
+            <div style={{ flex: 1 }} />
+            <Btn variant="ghost" onClick={() => setConfirmReset(false)}>CANCEL</Btn>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+// ============================================================
+// AI COACH — TOOLS
+// ============================================================
+const COACH_TOOLS = [
+  {
+    name: 'update_profile',
+    description: 'Update one or more athlete profile fields (weight, target, goal, height, age, activity, weeks, workoutStyle, raceDate, raceDivision).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        weight: { type: 'number' }, target: { type: 'number' }, age: { type: 'number' },
+        height: { type: 'string' }, goal: { type: 'string' }, activity: { type: 'string' },
+        weeks: { type: 'number' }, workoutStyle: { type: 'string' },
+        raceDate: { type: 'string' }, raceDivision: { type: 'string' },
+      },
+    },
+  },
+  { name: 'set_week', description: 'Jump to a specific program week.', input_schema: { type: 'object', properties: { week: { type: 'number' } }, required: ['week'] } },
+  { name: 'log_weight', description: 'Log a body weight entry.', input_schema: { type: 'object', properties: { weight: { type: 'number' }, date: { type: 'string', description: 'YYYY-MM-DD' } }, required: ['weight'] } },
+  { name: 'add_food', description: 'Add a food entry to a date.', input_schema: { type: 'object', properties: { name: { type: 'string' }, cal: { type: 'number' }, p: { type: 'number' }, c: { type: 'number' }, f: { type: 'number' }, date: { type: 'string' }, qty: { type: 'number' } }, required: ['name'] } },
+  { name: 'clear_food_day', description: 'Clear all food logged on a date.', input_schema: { type: 'object', properties: { date: { type: 'string' } }, required: ['date'] } },
+  { name: 'mark_session_done', description: 'Mark a workout session as done for a given date.', input_schema: { type: 'object', properties: { date: { type: 'string' } }, required: ['date'] } },
+  { name: 'save_journal', description: 'Save a journal entry with mood index 0-4 and text.', input_schema: { type: 'object', properties: { mood: { type: 'number' }, notes: { type: 'string' }, date: { type: 'string' } } } },
+  { name: 'set_schedule', description: 'Set the recurring weekly schedule. Array of 7 day types matching current style.', input_schema: { type: 'object', properties: { schedule: { type: 'array', items: { type: 'string' }, minItems: 7, maxItems: 7 } }, required: ['schedule'] } },
+  { name: 'swap_days', description: 'Swap day type for a specific day this week (week-override).', input_schema: { type: 'object', properties: { dayIdx: { type: 'number', description: '0=Mon...6=Sun' }, dayType: { type: 'string' } }, required: ['dayIdx', 'dayType'] } },
+  { name: 'skip_day', description: 'Mark a date as skipped.', input_schema: { type: 'object', properties: { date: { type: 'string' } }, required: ['date'] } },
+  { name: 'log_run', description: 'Log a run.', input_schema: { type: 'object', properties: { distMi: { type: 'number' }, totalSec: { type: 'number' }, type: { type: 'string' }, date: { type: 'string' }, notes: { type: 'string' } }, required: ['distMi', 'totalSec'] } },
+  { name: 'switch_tab', description: 'Switch the visible tab.', input_schema: { type: 'object', properties: { tab: { type: 'string', enum: ['dashboard', 'workouts', 'runs', 'metrics', 'food', 'journal', 'backup'] } }, required: ['tab'] } },
+  { name: 'reset_week_overrides', description: 'Clear all per-day overrides for current week.', input_schema: { type: 'object', properties: {} } },
+];
+
+const handleToolCall = (name, input, state, setState, setActiveTab) => {
+  try {
+    if (name === 'update_profile') {
+      setState((p) => {
+        const next = { ...p.profile, ...input };
+        // Validate schedule on style change
+        if (input.workoutStyle && !validateSchedule(next.schedule, input.workoutStyle)) {
+          next.schedule = defaultScheduleForStyle(input.workoutStyle);
+        }
+        return { ...p, profile: next };
+      });
+      return `✓ Profile updated: ${Object.keys(input).join(', ')}`;
+    }
+    if (name === 'set_week') {
+      setState((p) => ({ ...p, week: Math.max(1, Math.min(p.profile.weeks, input.week)) }));
+      return `✓ Set week to ${input.week}`;
+    }
+    if (name === 'log_weight') {
+      const date = input.date || todayISO();
+      setState((p) => ({ ...p, wlog: [...p.wlog.filter((w) => w.date !== date), { date, weight: input.weight }] }));
+      return `✓ Logged ${input.weight} lbs on ${date}`;
+    }
+    if (name === 'add_food') {
+      const date = input.date || todayISO();
+      const item = {
+        id: 'f_' + Date.now() + Math.random(),
+        name: input.name, cal: input.cal || 0, p: input.p || 0, c: input.c || 0, f: input.f || 0, qty: input.qty || 1,
+      };
+      setState((p) => {
+        const day = p.food[date] || [];
+        return { ...p, food: { ...p.food, [date]: [...day, item] } };
+      });
+      return `✓ Added ${input.name} to ${date}`;
+    }
+    if (name === 'clear_food_day') {
+      setState((p) => ({ ...p, food: { ...p.food, [input.date]: [] } }));
+      return `✓ Cleared food on ${input.date}`;
+    }
+    if (name === 'mark_session_done') {
+      const date = input.date || todayISO();
+      const sk = sessionKey(date);
+      setState((p) => {
+        const cur = p.sessions[sk] || { iso: date, dayType: getDayTypeForDate(p.profile, date).type, setLogs: {}, feedback: {}, exercises: [] };
+        return { ...p, sessions: { ...p.sessions, [sk]: { ...cur, done: true, completedAt: new Date().toISOString() } } };
+      });
+      return `✓ Marked ${date} session done`;
+    }
+    if (name === 'save_journal') {
+      const date = input.date || todayISO();
+      setState((p) => ({
+        ...p,
+        jlog: [...p.jlog.filter((e) => e.date !== date), { date, mood: input.mood ?? null, notes: input.notes || '' }],
+      }));
+      return `✓ Saved journal for ${date}`;
+    }
+    if (name === 'set_schedule') {
+      if (!Array.isArray(input.schedule) || input.schedule.length !== 7) return '✗ Schedule must be array of 7';
+      if (!validateSchedule(input.schedule, state.profile.workoutStyle)) {
+        return `✗ Invalid types for ${state.profile.workoutStyle}. Allowed: ${(DAY_TYPES_BY_STYLE[state.profile.workoutStyle] || []).join(', ')}`;
+      }
+      setState((p) => ({ ...p, profile: { ...p.profile, schedule: input.schedule } }));
+      return `✓ Schedule updated`;
+    }
+    if (name === 'swap_days') {
+      const programWeek = getProgramWeek(todayISO(), state.profile.startDate, state.profile.weeks);
+      const wKey = `w${programWeek}`;
+      setState((p) => {
+        const overrides = { ...(p.profile.weekOverrides || {}) };
+        overrides[wKey] = { ...(overrides[wKey] || {}), [input.dayIdx]: input.dayType };
+        return { ...p, profile: { ...p.profile, weekOverrides: overrides } };
+      });
+      return `✓ Day ${input.dayIdx} → ${input.dayType} for week ${programWeek}`;
+    }
+    if (name === 'skip_day') {
+      const date = input.date || todayISO();
+      const sk = sessionKey(date);
+      setState((p) => {
+        const cur = p.sessions[sk] || { iso: date, dayType: getDayTypeForDate(p.profile, date).type, setLogs: {}, feedback: {}, exercises: [] };
+        return { ...p, sessions: { ...p.sessions, [sk]: { ...cur, skipped: true } } };
+      });
+      return `✓ Skipped ${date}`;
+    }
+    if (name === 'log_run') {
+      const distMi = input.distMi;
+      const distKm = +(distMi * 1.609344).toFixed(3);
+      const paceSec = input.totalSec / distMi;
+      const newRun = {
+        id: 'r_' + Date.now(),
+        date: input.date || todayISO(),
+        type: input.type || 'easy',
+        distMi, distKm,
+        totalSec: input.totalSec,
+        paceSec, paceKmSec: input.totalSec / distKm,
+        notes: input.notes || '',
+      };
+      setState((p) => ({ ...p, runs: [...p.runs, newRun] }));
+      return `✓ Logged ${distMi.toFixed(2)} mi run`;
+    }
+    if (name === 'switch_tab') {
+      setActiveTab(input.tab);
+      return `✓ Switched to ${input.tab}`;
+    }
+    if (name === 'reset_week_overrides') {
+      const programWeek = getProgramWeek(todayISO(), state.profile.startDate, state.profile.weeks);
+      const wKey = `w${programWeek}`;
+      setState((p) => {
+        const overrides = { ...(p.profile.weekOverrides || {}) };
+        delete overrides[wKey];
+        return { ...p, profile: { ...p.profile, weekOverrides: overrides } };
+      });
+      return `✓ Cleared overrides for week ${programWeek}`;
+    }
+    return `✗ Unknown tool: ${name}`;
+  } catch (e) {
+    return `✗ Error: ${e.message}`;
+  }
+};
+
+// ============================================================
+// AI COACH SYSTEM PROMPT BUILDER
+// ============================================================
+const buildSystemPrompt = (state) => {
+  const { profile, week, wlog, food, jlog, sessions, runs } = state;
+  const currentWeight = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
+  const macros = calcMacros(profile, currentWeight);
+
+  // Phase / week info per style
+  let phaseLine = '';
+  if (profile.workoutStyle === 'rp_hyp') {
+    const wd = rpWeekData(week, profile.weeks);
+    phaseLine = `RP Mesocycle Wk ${week}/${profile.weeks}: ${wd.phase}, RIR ${wd.rir}, ${(wd.setMult * 100).toFixed(0)}% MEV, reps ${wd.repRange}. Volume landmarks per muscle (sets/wk): ${Object.entries(RP_LANDMARKS).map(([m, lm]) => `${m} MEV${lm.MEV}/MAV${lm.MAV}/MRV${lm.MRV}`).join(', ')}.`;
+  } else if (profile.workoutStyle === 'hyrox' || profile.workoutStyle === 'hyrox_hybrid') {
+    const ph = hyroxPhase(week, profile.weeks);
+    phaseLine = `HYROX Phase: ${ph.name} (Wk ${week}/${profile.weeks}). Intervals: ${HYROX_INTERVALS_BY_PHASE[ph.name]?.run}. Race target: ${HYROX_TARGETS.find((t) => t.div === profile.raceDivision)?.target || 'n/a'}.`;
+  } else {
+    const ph = phaseForWeek(week, profile.weeks);
+    phaseLine = `${ph.phase} Wk ${week}/${profile.weeks}: ${ph.sets}×${ph.reps} @ RPE ${ph.rpe}, ${ph.tempo} tempo. Note: ${ph.note}`;
+  }
+
+  // Recent sessions (last 5)
+  const recentSessions = Object.values(sessions)
+    .sort((a, b) => (a.iso < b.iso ? 1 : -1))
+    .slice(0, 5)
+    .map((s) => {
+      const setSummary = Object.entries(s.setLogs || {})
+        .filter(([, v]) => v.weight && v.reps)
+        .map(([k, v]) => `${k.split('__')[0]} ${v.weight}×${v.reps}${v.done ? '✓' : ''}`)
+        .join('; ');
+      const fb = s.feedback ? Object.entries(s.feedback).map(([m, v]) => `${m}: pump ${v.pump ?? '-'}/wkld ${v.workload ?? '-'}/sore ${v.soreness ?? '-'}`).join(' | ') : '';
+      return `${s.iso} ${s.dayType}${s.done ? ' [done]' : s.skipped ? ' [skipped]' : ''}${setSummary ? ' — ' + setSummary : ''}${fb ? ' · feedback: ' + fb : ''}`;
+    });
+
+  // Weight history (last 5)
+  const recentW = [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 5).map((w) => `${w.date}: ${w.weight}lbs`);
+
+  // Today's nutrition
+  const todaysFood = food[todayISO()] || [];
+  const totals = todaysFood.reduce((acc, f) => ({
+    cal: acc.cal + (+f.cal || 0) * (f.qty || 1), p: acc.p + (+f.p || 0) * (f.qty || 1),
+    c: acc.c + (+f.c || 0) * (f.qty || 1), f: acc.f + (+f.f || 0) * (f.qty || 1),
+  }), { cal: 0, p: 0, c: 0, f: 0 });
+  const remaining = `${Math.round(macros.calories - totals.cal)}cal, ${Math.round(macros.protein - totals.p)}p, ${Math.round(macros.carbs - totals.c)}c, ${Math.round(macros.fat - totals.f)}f remaining`;
+
+  // Recent journal (last 3)
+  const recentJ = [...jlog].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 3)
+    .map((e) => `${e.date} ${MOOD_OPTIONS[e.mood] || ''} ${(e.notes || '').slice(0, 80)}`);
+
+  // Recent runs (last 3)
+  const recentRuns = [...runs].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 3)
+    .map((r) => `${r.date} ${r.type}: ${r.distMi.toFixed(2)}mi in ${Math.floor(r.totalSec / 60)}:${String(Math.round(r.totalSec % 60)).padStart(2, '0')}`);
+  const totalMi = runs.reduce((a, r) => a + (r.distMi || 0), 0);
+
+  return `You are an elite strength & conditioning coach inside the Recomp fitness app. Be direct, energetic, and specific. Use the tools to take action — don't just describe.
+
+ATHLETE: ${profile.name || 'Athlete'} | ${profile.age}yo ${profile.sex} | ${profile.height} | ${currentWeight}lbs → ${profile.target}lbs target
+GOAL: ${GOAL_OPTIONS.find((g) => g.id === profile.goal)?.name} | ACTIVITY: ${ACTIVITY_LEVELS.find((a) => a.id === profile.activity)?.name} | ${profile.experience} | ${profile.equipment}
+MACROS: ${macros.calories}cal / ${macros.protein}p / ${macros.carbs}c / ${macros.fat}f (BMR ${macros.bmr}, TDEE ${macros.tdee})
+
+TRAINING STYLE: ${WORKOUT_STYLES.find((s) => s.id === profile.workoutStyle)?.name}
+${phaseLine}
+
+SCHEDULE: ${(profile.schedule || []).map((d, i) => `${DAYS[i]}=${d}`).join(', ')}
+${profile.raceDate ? `RACE: ${profile.raceDate} (${daysUntil(profile.raceDate)} days, ${profile.raceDivision || 'Open M'})` : ''}
+
+RECENT SESSIONS:
+${recentSessions.join('\n') || '(none yet)'}
+
+WEIGHT HISTORY: ${recentW.join(' · ') || '(none)'}
+
+TODAY: ${Math.round(totals.cal)}cal / ${Math.round(totals.p)}p / ${Math.round(totals.c)}c / ${Math.round(totals.f)}f logged · ${remaining}
+
+RECENT JOURNAL: ${recentJ.join(' · ') || '(none)'}
+
+RUNS: total ${runs.length} runs / ${totalMi.toFixed(1)}mi · recent: ${recentRuns.join(' · ') || '(none)'}
+
+CAPABILITIES: You can call tools to update profile, log weight, add foods, mark sessions done, save journals, set schedule, swap days, skip days, log runs, switch tabs, set week, reset overrides. When the user says "do X", actually do it via tools rather than describing it.
+
+IMPORTANT: Distinguish between *temporary* week-only changes (use swap_days) vs *permanent* schedule changes (use set_schedule). Always confirm what you did with a 1-line summary. Use **bold** for emphasis.`;
+};
+
+// ============================================================
+// AI COACH DRAWER
+// ============================================================
+const CoachDrawer = ({ open, onClose, state, setState, setActiveTab, pendingPrompt, clearPendingPrompt }) => {
+  const { profile, conv } = state;
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const messagesRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Auto-fire pending prompt
+  useEffect(() => {
+    if (pendingPrompt && open && !sending) {
+      sendMessage(pendingPrompt);
+      clearPendingPrompt();
+    }
+  }, [pendingPrompt, open]);
+
+  useEffect(() => {
+    if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+  }, [conv, sending, open]);
+
+  const sendMessage = async (text) => {
+    const message = (text || input).trim();
+    if (!message || sending) return;
+    setInput('');
+    setSending(true);
+
+    const newConv = [...(conv || []), { role: 'user', content: message }];
+    setState((p) => ({ ...p, conv: newConv }));
+
+    try {
+      const sysPrompt = buildSystemPrompt({ ...state, conv: newConv });
+      // Only send user/assistant turns to the API. Tool entries are UI-only
+      // (the Anthropic API rejects role:'tool' — proper tool_use/tool_result
+      // pairs are reconstructed inside the multi-turn loop below).
+      const lastN = newConv.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-20);
+      let messages = lastN.map((m) => ({ role: m.role, content: m.content }));
+      let iter = 0;
+      let workingConv = [...newConv];
+
+      while (iter < 5) {
+        iter++;
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1500,
+            system: sysPrompt,
+            tools: COACH_TOOLS,
+            messages,
+          }),
+        });
+        const data = await response.json();
+        if (!data.content) {
+          workingConv.push({ role: 'assistant', content: '⚠ Coach unavailable. Try again.' });
+          break;
+        }
+
+        const textBlocks = data.content.filter((b) => b.type === 'text').map((b) => b.text).filter(Boolean);
+        const toolUses = data.content.filter((b) => b.type === 'tool_use');
+
+        if (textBlocks.length) {
+          const text = textBlocks.join('\n\n');
+          workingConv.push({ role: 'assistant', content: text });
+          setState((p) => ({ ...p, conv: [...workingConv] }));
+        }
+
+        if (toolUses.length === 0) break;
+
+        // Execute tools and feed results back
+        const toolResults = [];
+        for (const tu of toolUses) {
+          const result = handleToolCall(tu.name, tu.input || {}, state, setState, setActiveTab);
+          workingConv.push({ role: 'tool', name: tu.name, content: result });
+          setState((p) => ({ ...p, conv: [...workingConv] }));
+          toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: result });
+        }
+
+        messages = [
+          ...messages,
+          { role: 'assistant', content: data.content },
+          { role: 'user', content: toolResults },
+        ];
+
+        if (data.stop_reason !== 'tool_use') break;
+      }
+    } catch (e) {
+      console.error('coach send', e);
+      const errConv = [...newConv, { role: 'assistant', content: `⚠ Error: ${e.message}` }];
+      setState((p) => ({ ...p, conv: errConv }));
+    }
+    setSending(false);
+  };
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = Math.min(120, inputRef.current.scrollHeight) + 'px';
+    }
+  }, [input]);
+
+  // Render bold **text** as accent
+  const renderContent = (text) => {
+    if (!text) return null;
+    const sanitized = String(text).replace(/<[^>]*>/g, '');
+    const parts = sanitized.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} style={{ color: ACCENT }}>{part.slice(2, -2)}</strong>;
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
+  const quickPrompts = ['HOW AM I DOING?', 'WHAT SHOULD I EAT?', 'TODAY\'S WORKOUT?', 'ADJUST MY MACROS'];
+  const userInitial = (profile.name || 'A').charAt(0).toUpperCase();
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: 0, left: 0, right: 0,
+      background: BG,
+      border: `1px solid ${BORDER}`,
+      borderTopLeftRadius: 14, borderTopRightRadius: 14,
+      maxWidth: 420, margin: '0 auto',
+      height: '68vh',
+      transform: open ? 'translateY(0)' : 'translateY(100%)',
+      transition: 'transform .3s ease',
+      zIndex: 90,
+      display: 'flex', flexDirection: 'column',
+      boxShadow: `0 -8px 30px rgba(0,0,0,.6)`,
+    }}>
+      <div style={{ padding: '10px 12px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{
+          width: 30, height: 30, borderRadius: '50%',
+          background: `linear-gradient(135deg, ${ACCENT}, ${ORANGE})`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 16,
+        }}>🤖</div>
+        <div style={{ flex: 1 }}>
+          <H size={14} mb={0}>COACH</H>
+          <div style={{ fontSize: 9, color: TEXT_MUTED }}>{sending ? 'Thinking...' : 'Online'}</div>
+        </div>
+        <button onClick={onClose} style={{ background: 'transparent', color: TEXT_DIM, border: 'none', cursor: 'pointer', fontSize: 22, padding: 4 }}>×</button>
+      </div>
+
+      {/* Quick prompts */}
+      <div style={{ padding: '6px 10px', borderBottom: `1px solid ${BORDER}`, display: 'flex', gap: 4, overflowX: 'auto' }}>
+        {quickPrompts.map((p) => (
+          <button key={p} onClick={() => sendMessage(p)} style={{
+            background: 'transparent', color: ACCENT, border: `1px solid ${ACCENT}55`,
+            padding: '4px 8px', borderRadius: 12, fontSize: 9,
+            fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, cursor: 'pointer', whiteSpace: 'nowrap',
+          }}>{p}</button>
+        ))}
+      </div>
+
+      {/* Messages */}
+      <div ref={messagesRef} style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {(!conv || conv.length === 0) && (
+          <div style={{ textAlign: 'center', color: TEXT_DIM, fontSize: 12, padding: 20 }}>
+            Ask anything — workouts, nutrition, recovery, programming.
+          </div>
+        )}
+        {(conv || []).map((m, i) => {
+          if (m.role === 'tool') {
+            return (
+              <div key={i} style={{
+                background: `${GREEN}15`,
+                border: `1px solid ${GREEN}55`,
+                color: GREEN,
+                padding: '6px 10px',
+                borderRadius: 6,
+                fontFamily: 'Menlo, Monaco, monospace',
+                fontSize: 11,
+                alignSelf: 'flex-start',
+                maxWidth: '90%',
+              }}>🔧 {m.name}: {m.content}</div>
+            );
+          }
+          if (m.role === 'user') {
+            return (
+              <div key={i} style={{ display: 'flex', gap: 6, alignSelf: 'flex-end', maxWidth: '85%' }}>
+                <div style={{
+                  background: CARD2, color: '#fff', padding: '8px 10px', borderRadius: 12,
+                  fontSize: 13, lineHeight: 1.4,
+                }}>{m.content}</div>
+                <div style={{
+                  width: 26, height: 26, borderRadius: '50%',
+                  background: CARD2, border: `1px solid ${BORDER}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif',
+                  flexShrink: 0,
+                }}>{userInitial}</div>
+              </div>
+            );
+          }
+          return (
+            <div key={i} style={{ display: 'flex', gap: 6, alignSelf: 'flex-start', maxWidth: '90%' }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: '50%',
+                background: `linear-gradient(135deg, ${ACCENT}, ${ORANGE})`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, flexShrink: 0,
+              }}>🤖</div>
+              <div style={{
+                background: CARD,
+                borderLeft: `3px solid ${GREEN}`,
+                color: '#fff',
+                padding: '8px 12px',
+                borderRadius: 8,
+                fontSize: 13,
+                lineHeight: 1.45,
+                whiteSpace: 'pre-wrap',
+              }}>{renderContent(m.content)}</div>
+            </div>
+          );
+        })}
+        {sending && (
+          <div style={{ display: 'flex', gap: 6, alignSelf: 'flex-start' }}>
+            <div style={{
+              width: 26, height: 26, borderRadius: '50%',
+              background: `linear-gradient(135deg, ${ACCENT}, ${ORANGE})`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13,
+            }}>🤖</div>
+            <div style={{ background: CARD, borderLeft: `3px solid ${GREEN}`, padding: '10px 14px', borderRadius: 8, display: 'flex', gap: 4 }}>
+              {[0, 1, 2].map((d) => (
+                <div key={d} style={{
+                  width: 6, height: 6, borderRadius: '50%', background: ACCENT,
+                  animation: `recomp-blink 1.4s infinite ease-in-out ${d * 0.2}s`,
+                }} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div style={{ padding: 8, borderTop: `1px solid ${BORDER}`, display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+        <textarea
+          ref={inputRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage();
+            }
+          }}
+          placeholder="Ask the coach..."
+          rows={1}
+          style={{
+            flex: 1, background: CARD2, border: `1px solid ${BORDER}`, borderRadius: 16,
+            color: '#fff', padding: '8px 12px', fontSize: 13, resize: 'none', outline: 'none',
+            fontFamily: 'Helvetica, Arial, sans-serif', minHeight: 36, maxHeight: 120,
+            boxSizing: 'border-box',
+          }}
+        />
+        <Btn onClick={() => sendMessage()} disabled={sending || !input.trim()}>SEND</Btn>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// MAIN APP
+// ============================================================
+const RecompApp = () => {
+  const [state, _setState] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [coachOpen, setCoachOpen] = useState(false);
+  const [pendingPrompt, setPendingPrompt] = useState(null);
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryDismissed, setSummaryDismissed] = useState(false);
+  const saveTimerRef = useRef(null);
+  const welcomeFiredRef = useRef(false);
 
   // Load on mount
-  useEffect(()=>{
-    load().then(d=>{
-      try{
-        if(d?.profile){
-          // Migrate old data — ensure all expected fields exist
-          const safeProfile={...d.profile};
-          if(!safeProfile.workoutStyle)safeProfile.workoutStyle="functional_bb";
-          if(!safeProfile.weeks)safeProfile.weeks="8";
-          // Validate schedule against current style's valid types (defensive — constants may not be loaded yet)
-          try{
-            if(safeProfile.schedule&&Array.isArray(safeProfile.schedule)&&typeof STYLE_DAY_TYPES!=="undefined"){
-              const styleConfig=STYLE_DAY_TYPES[safeProfile.workoutStyle]||STYLE_DAY_TYPES.functional_bb;
-              const validTypes=styleConfig.map(t=>t.type);
-              if(!safeProfile.schedule.every(t=>validTypes.includes(t))||safeProfile.schedule.length!==7){
-                safeProfile.schedule=DEFAULT_SCHEDULES[safeProfile.workoutStyle]||DEFAULT_SCHEDULES.functional_bb;
-              }
-            }
-          }catch(e){console.warn("Schedule validation skipped:",e);}
-          setProfile(safeProfile);
-          setWeek(parseInt(d.week)||1);
-          setSessions(d.sessions&&typeof d.sessions==="object"?d.sessions:{});
-          setWlog(Array.isArray(d.wlog)?d.wlog:[]);
-          setFood(d.food&&typeof d.food==="object"?d.food:{});
-          setJlog(d.jlog&&typeof d.jlog==="object"?d.jlog:{});
-          setRuns(Array.isArray(d.runs)?d.runs:[]);
-          setConv(Array.isArray(d.conv)?d.conv:[]);
+  useEffect(() => {
+    (async () => {
+      const s = await loadState();
+      _setState(s);
+      setLoaded(true);
+    })();
+  }, []);
+
+  // Wrapped setter with debounced save
+  const setState = useCallback((updater) => {
+    _setState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => saveState(next), 1000);
+      return next;
+    });
+  }, []);
+
+  // Auto-show summary when program complete
+  useEffect(() => {
+    if (!state || !loaded) return;
+    if (state.profile.summaryAcknowledged || summaryDismissed) return;
+    const { profile, sessions, week } = state;
+    if (week >= profile.weeks) {
+      // Check all non-rest sessions of final week are done/skipped
+      const weekStartDate = new Date(profile.startDate);
+      weekStartDate.setDate(weekStartDate.getDate() + (week - 1) * 7);
+      let allDone = true;
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStartDate);
+        d.setDate(d.getDate() + i);
+        const di = dateToISO(d);
+        const dInfo = getDayTypeForDate(profile, di);
+        if (dInfo.type === 'REST') continue;
+        const sk = sessionKey(di);
+        const s = sessions[sk];
+        if (!s || (!s.done && !s.skipped)) {
+          allDone = false;
+          break;
         }
-      }catch(e){
-        console.error("Load error:",e);
       }
-      setReady(true);
-    }).catch(e=>{
-      console.error("Storage error:",e);
-      setReady(true);
-    });
-  },[]);
-
-  // Save on change
-  useEffect(()=>{
-    if(!ready||!profile)return;
-    clearTimeout(saveTimer.current);
-    saveTimer.current=setTimeout(()=>{
-      save({profile,week,sessions,wlog,food,jlog,runs,conv});
-    },1000);
-  },[profile,week,sessions,wlog,food,jlog,runs,conv,ready]);
-
-  // Detect program completion — show summary when user reaches final week and all sessions done
-  useEffect(()=>{
-    if(!profile||!ready)return;
-    const tw=parseInt(profile.weeks)||8;
-    if(week<tw)return;
-    if(profile.summaryAcknowledged)return;
-    // Check if all non-rest sessions of the final week are done or skipped
-    const schedule=getSchedule(profile);
-    const finalWeekDone=schedule.every((d,i)=>{
-      if(d.type==="REST")return true;
-      const s=sessions[`w${tw}d${i}`];
-      return s?.done||s?.skipped;
-    });
-    if(finalWeekDone&&Object.keys(sessions).length>0){
-      setShowSummary(true);
+      if (allDone && Object.keys(sessions).length > 0) {
+        setShowSummary(true);
+      }
     }
-  },[profile,week,sessions,ready]);
+  }, [state, loaded, summaryDismissed]);
 
-  // Inject keyframe styles
-  useEffect(()=>{
-    if(document.getElementById("recomp-styles"))return;
-    const s=document.createElement("style");s.id="recomp-styles";
-    s.textContent="@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}*{box-sizing:border-box}::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:#2f2f3a;border-radius:2px}";
-    document.head.appendChild(s);
-  },[]);
+  // Welcome message when conv is empty AND setupComplete just happened
+  useEffect(() => {
+    if (!state || !loaded || welcomeFiredRef.current) return;
+    if (state.profile.setupComplete && (!state.conv || state.conv.length === 0)) {
+      welcomeFiredRef.current = true;
+      const macros = calcMacros(state.profile, state.profile.weight);
+      const styleName = WORKOUT_STYLES.find((s) => s.id === state.profile.workoutStyle)?.name;
+      const goalName = GOAL_OPTIONS.find((g) => g.id === state.profile.goal)?.name;
+      const welcomeText = `🔥 **Let's go, ${state.profile.name || 'athlete'}!** Locked in for **${state.profile.weeks} weeks** of **${styleName}** — focus: **${goalName}**.\n\n**Daily targets:** ${macros.calories} cal · ${macros.protein}p · ${macros.carbs}c · ${macros.fat}f\n\nI've built your program around your schedule. Hit your sessions, log honestly, and I'll adapt your weights week-to-week. Ask me anything — workout questions, food swaps, pace targets, recovery. **Let's build.**`;
+      setState((p) => ({ ...p, conv: [{ role: 'assistant', content: welcomeText }] }));
+    }
+  }, [state, loaded]);
 
-  const handleStart=p=>{
-    const mac=calcMacros(p,p.weight);
-    const full={...p,...mac};
-    setProfile(full);setWeek(1);setSessions({});setWlog([]);setFood({});setJlog({});setRuns([]);setConv([]);
-    save({profile:full,week:1,sessions:{},wlog:[],food:{},jlog:{},runs:[],conv:[]});
+  // Onboarding complete handler
+  const completeSetup = (newProfile) => {
+    setState((p) => ({
+      ...p,
+      profile: newProfile,
+      week: 1,
+      conv: [],
+    }));
+    welcomeFiredRef.current = false;
+  };
+
+  const acknowledgeSummary = () => {
+    setState((p) => ({ ...p, profile: { ...p.profile, summaryAcknowledged: true } }));
+    setShowSummary(false);
+  };
+
+  const startNewProgram = () => {
+    setState((p) => ({
+      ...p,
+      profile: { ...p.profile, summaryAcknowledged: true, setupComplete: false },
+      week: 1,
+      sessions: {},
+      conv: [],
+    }));
+    welcomeFiredRef.current = false;
+    setShowSummary(false);
+  };
+
+  const handleCoachPrompt = (text) => {
+    setPendingPrompt(text);
     setCoachOpen(true);
-    setPendingMsg(`Greet ${p.name} and welcome them to their ${p.weeks}-week FBB program for ${p.goal.replace("_"," ")}. Split: Mon=Push, Tue=Pull, Wed=Cardio, Thu=Legs, Fri=Full Body, weekends off. A/B alternate weekly with progressive overload. Macros: ${mac.targetCals}cal, ${mac.protein}gP, ${mac.carbs}gC, ${mac.fat}gF. Target weight: ${p.targetWeight||"not set"} lbs. Be energetic and brief.`);
   };
 
-  const handleReset=async()=>{await clear();setProfile(null);setWeek(1);setSessions({});setWlog([]);setFood({});setJlog({});setRuns([]);setConv([]);setCoachOpen(false);setShowSummary(false);};
-  const handleImport=d=>{const p={...d.profile,...calcMacros(d.profile,d.profile.weight)};setProfile(p);setWeek(d.week||1);setWlog(d.wlog||[]);setFood(d.food||{});setJlog(d.jlog||{});setRuns(d.runs||[]);setSessions(d.sessions||{});setConv(d.conversation||[]);save({profile:p,week:d.week||1,sessions:d.sessions||{},wlog:d.wlog||[],food:d.food||{},jlog:d.jlog||{},runs:d.runs||[],conv:d.conversation||[]});alert("Restored!");};
-  const handleUpdateProfile=updated=>{
-    // If workout style changed, validate schedule against new style's valid types
-    try{
-      if(profile&&updated.workoutStyle&&updated.workoutStyle!==profile.workoutStyle&&typeof STYLE_DAY_TYPES!=="undefined"){
-        const validTypes=(STYLE_DAY_TYPES[updated.workoutStyle]||STYLE_DAY_TYPES.functional_bb).map(t=>t.type);
-        const currentSched=updated.schedule||profile.schedule;
-        if(currentSched&&Array.isArray(currentSched)){
-          const allValid=currentSched.every(t=>validTypes.includes(t));
-          if(!allValid){
-            updated.schedule=DEFAULT_SCHEDULES[updated.workoutStyle]||DEFAULT_SCHEDULES.functional_bb;
-          }
-        }
-      }
-    }catch(e){console.warn("Profile validation skipped:",e);}
-    setProfile(updated);
-  };
-  const openCoach=msg=>{setCoachOpen(true);if(msg)setPendingMsg(msg);};
-
-  // Coach action handlers — let the AI directly modify app state
-  const coachLogWeight=(w)=>setWlog(l=>[...l,{date:new Date().toISOString(),weight:w}]);
-  const coachAddFood=(date,entry)=>setFood(prev=>({...prev,[date]:[...(prev[date]||[]),entry]}));
-  const coachClearFoodDay=(date)=>setFood(prev=>{const c={...prev};delete c[date];return c;});
-  const coachSetSession=(sk,patch)=>setSessions(prev=>({...prev,[sk]:{...(prev[sk]||{}),...patch,savedAt:new Date().toISOString()}}));
-  const coachSaveJournal=(date,entry)=>setJlog(prev=>({...prev,[date]:{...entry,savedAt:new Date().toISOString()}}));
-  const coachSwitchTab=(t)=>setTab(t);
-
-  // Compute live macros
-  const currentWeight=wlog.length?wlog[wlog.length-1].weight:profile?.weight;
-  const activeProfile=profile&&currentWeight?{...profile,...calcMacros(profile,currentWeight)}:profile;
-  if(!ready)return(
-    <div style={{background:C.bg,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
-      <div style={{...IMP,fontSize:30,letterSpacing:5,color:C.acc}}>RE<span style={{color:C.a2}}>COMP</span></div>
-      <div style={{width:120,height:3,background:C.bd,borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:"60%",background:C.acc,animation:"pulse 1.5s ease-in-out infinite"}}/></div>
-    </div>
-  );
-
-  if(!profile)return <Setup onStart={handleStart}/>;
-
-  const isRP=profile.workoutStyle==="rp_hypertrophy";
-  const isHyrox=profile.workoutStyle==="hyrox";
-  const isHybrid=profile.workoutStyle==="hyrox_hybrid";
-  const tw=parseInt(profile.weeks)||8;
-  const wk=parseInt(week)||1;
-  let phName="WEEK", phCol=C.acc;
-  if(isRP){
-    const phData=getRPWeek(wk,tw);
-    phName=phData.type;phCol=phData.type==="DELOAD"?C.a5:C.acc;
-  } else if(isHyrox||isHybrid){
-    const phasePct=wk/tw;
-    phName=phasePct<=0.4?"BASE":phasePct<=0.75?"BUILD":phasePct<1?(isHybrid?"PEAK":"RACE PREP"):"TAPER";
-    phCol=phName==="BASE"?C.a3:phName==="BUILD"?C.a6:phName==="TAPER"?C.a5:C.a2;
-  } else {
-    const phData=getPhase(wk,tw);
-    phName=phData.ph||"WEEK";phCol=PC[phData.ph]||C.acc;
+  // Loading state
+  if (!loaded || !state) {
+    return (
+      <ErrorBoundary>
+        <GlobalStyles />
+        <div className="recomp-app" style={{
+          background: BG, minHeight: '100vh', color: '#fff',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'Helvetica, Arial, sans-serif', padding: 20,
+        }}>
+          <div style={{ animation: 'recomp-pulse 2s ease-in-out infinite', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 48, letterSpacing: 2, marginBottom: 18 }}>
+              <span style={{ color: ACCENT }}>RE</span><span style={{ color: ORANGE }}>COMP</span>
+            </div>
+            <div style={{ width: 120, height: 6, background: CARD2, borderRadius: 3, overflow: 'hidden', margin: '0 auto' }}>
+              <div style={{
+                width: '60%', height: '100%',
+                background: ACCENT,
+                animation: 'recomp-pulse 1.4s ease-in-out infinite',
+              }} />
+            </div>
+          </div>
+        </div>
+      </ErrorBoundary>
+    );
   }
-  const tabs=["dashboard","workouts","runs","metrics","food","journal","backup"];
 
-  return(
-    <div style={{background:C.bg,color:C.tx,fontFamily:"Helvetica,Arial,sans-serif",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
-      <div style={{background:C.s1,borderBottom:`1px solid ${C.bd}`,height:50,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 14px",flexShrink:0,position:"relative"}}>
-        <div style={{position:"absolute",bottom:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${C.acc},${C.a2},transparent)`}}/>
-        <div style={{display:"flex",alignItems:"center",gap:10,position:"relative"}}>
-          <div style={{...IMP,fontSize:22,letterSpacing:4,color:C.acc}}>RE<span style={{color:C.a2}}>COMP</span></div>
-          <div style={{...IMP,fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",padding:"3px 9px",borderRadius:20,border:`1px solid ${phCol}`,color:phCol,background:"rgba(0,0,0,.4)"}}>{phName} WK{week}</div>
+  // Setup wizard
+  if (!state.profile.setupComplete) {
+    return (
+      <ErrorBoundary>
+        <GlobalStyles />
+        <div className="recomp-app" style={{
+          background: BG, minHeight: '100vh', color: '#fff', fontFamily: 'Helvetica, Arial, sans-serif',
+        }}>
+          <SetupScreen onComplete={completeSetup} />
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:8,position:"relative"}}>
-          <span style={{...IMP,fontSize:11,color:C.mu,letterSpacing:1}}>{currentWeight} lbs</span>
-          <button onClick={()=>setTab("backup")} style={hbtn}>BACKUP</button>
-          <button onClick={handleReset} style={{...hbtn,borderColor:"#f87171",color:"#f87171"}}>RESET</button>
+      </ErrorBoundary>
+    );
+  }
+
+  const { profile, week, wlog } = state;
+  const currentWeight = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
+
+  // Phase pill
+  let phaseName = '';
+  let phaseColor = ACCENT;
+  if (profile.workoutStyle === 'rp_hyp') {
+    const wd = rpWeekData(week, profile.weeks);
+    phaseName = wd.phase;
+    phaseColor = wd.phase === 'RP DELOAD' ? PURPLE : ACCENT;
+  } else if (profile.workoutStyle === 'hyrox' || profile.workoutStyle === 'hyrox_hybrid') {
+    const ph = hyroxPhase(week, profile.weeks);
+    phaseName = ph.name;
+    phaseColor = ph.color;
+  } else {
+    const ph = phaseForWeek(week, profile.weeks);
+    phaseName = ph.phase;
+    phaseColor = PHASE_COLORS[ph.phase] || ACCENT;
+  }
+
+  return (
+    <ErrorBoundary>
+      <GlobalStyles />
+      <div className="recomp-app" style={{
+        background: BG, minHeight: '100vh', color: '#fff',
+        fontFamily: 'Helvetica, Arial, sans-serif',
+        maxWidth: 480, margin: '0 auto',
+        position: 'relative',
+        paddingBottom: 60,
+      }}>
+        {/* Header */}
+        <div style={{
+          height: 50,
+          display: 'flex', alignItems: 'center',
+          padding: '0 12px',
+          gap: 8,
+          borderBottom: `1px solid ${BORDER}`,
+          position: 'relative',
+          background: BG,
+        }}>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 22, letterSpacing: 1.5 }}>
+            <span style={{ color: ACCENT }}>RE</span><span style={{ color: ORANGE }}>COMP</span>
+          </div>
+          <div style={{
+            background: `${phaseColor}22`,
+            color: phaseColor,
+            padding: '3px 8px',
+            borderRadius: 999,
+            fontSize: 9,
+            fontFamily: 'Impact, Arial Black, sans-serif',
+            letterSpacing: 1,
+          }}>{phaseName} WK{week}</div>
+          <div style={{ flex: 1 }} />
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: TEXT_DIM, letterSpacing: 1 }}>
+            {currentWeight}<span style={{ fontSize: 9 }}>LBS</span>
+          </div>
+          <button onClick={() => setActiveTab('backup')} style={{
+            background: 'transparent', color: TEXT_DIM, border: `1px solid ${BORDER}`,
+            padding: '4px 8px', borderRadius: 6, fontSize: 9, cursor: 'pointer',
+            fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+          }}>BACKUP</button>
+          {/* Bottom gradient line */}
+          <div style={{
+            position: 'absolute', bottom: -1, left: 0, right: 0, height: 2,
+            background: `linear-gradient(90deg, ${ACCENT}, ${ORANGE}, transparent)`,
+          }} />
         </div>
+
+        {/* Tab strip */}
+        <div style={{
+          display: 'flex',
+          gap: 0,
+          overflowX: 'auto',
+          borderBottom: `1px solid ${BORDER}`,
+          padding: '0 6px',
+          background: BG,
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+        }}>
+          {TABS.map((t) => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+              background: 'transparent',
+              color: activeTab === t.id ? ACCENT : TEXT_MUTED,
+              border: 'none',
+              borderBottom: `2px solid ${activeTab === t.id ? ACCENT : 'transparent'}`,
+              padding: '9px 14px',
+              cursor: 'pointer',
+              fontFamily: 'Impact, Arial Black, sans-serif',
+              letterSpacing: 1,
+              fontSize: 11,
+              whiteSpace: 'nowrap',
+            }}>{t.label}</button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div style={{ padding: 12 }}>
+          {activeTab === 'dashboard' && <Dashboard state={state} onTab={setActiveTab} onCoachPrompt={handleCoachPrompt} />}
+          {activeTab === 'workouts' && <Workouts state={state} setState={setState} />}
+          {activeTab === 'runs' && <Runs state={state} setState={setState} />}
+          {activeTab === 'metrics' && <Metrics state={state} setState={setState} />}
+          {activeTab === 'food' && <Food state={state} setState={setState} onCoachPrompt={handleCoachPrompt} />}
+          {activeTab === 'journal' && <Journal state={state} setState={setState} />}
+          {activeTab === 'backup' && <Backup state={state} setState={setState} onShowSummary={() => setShowSummary(true)} />}
+        </div>
+
+        {/* Coach FAB */}
+        {!coachOpen && (
+          <button onClick={() => setCoachOpen(true)} style={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            zIndex: 80,
+            width: 54, height: 54,
+            borderRadius: '50%',
+            background: `linear-gradient(135deg, ${ACCENT}, ${ORANGE})`,
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 22,
+            boxShadow: `0 6px 20px rgba(232,255,71,.4)`,
+          }}>🤖</button>
+        )}
+
+        {/* Coach drawer */}
+        <CoachDrawer
+          open={coachOpen}
+          onClose={() => setCoachOpen(false)}
+          state={state}
+          setState={setState}
+          setActiveTab={setActiveTab}
+          pendingPrompt={pendingPrompt}
+          clearPendingPrompt={() => setPendingPrompt(null)}
+        />
+
+        {/* Program Summary modal */}
+        {showSummary && (
+          <ProgramSummary
+            state={state}
+            onClose={() => { setShowSummary(false); setSummaryDismissed(true); }}
+            onAcknowledge={acknowledgeSummary}
+            onStartNew={startNewProgram}
+          />
+        )}
       </div>
-      <div style={{background:C.s1,borderBottom:`1px solid ${C.bd}`,display:"flex",flexShrink:0,overflowX:"auto"}}>
-        {tabs.map(t=><div key={t} onClick={()=>setTab(t)} style={{padding:"9px 14px",...IMP,fontSize:12,letterSpacing:"1.5px",textTransform:"uppercase",color:tab===t?C.acc:C.mu,cursor:"pointer",borderBottom:tab===t?`2px solid ${C.acc}`:"2px solid transparent",whiteSpace:"nowrap",flexShrink:0}}>{t.toUpperCase()}</div>)}
-      </div>
-      <div style={{flex:1,overflow:"hidden"}}>
-        {tab==="dashboard"&&<Dashboard profile={activeProfile} week={week} wlog={wlog} food={food} openCoach={openCoach} onUpdateProfile={handleUpdateProfile}/>}
-        {tab==="workouts"&&<WorkoutView profile={activeProfile} week={week} sessions={sessions} setSessions={setSessions} coachMsg={m=>openCoach(m)} onUpdateProfile={handleUpdateProfile}/>}
-        {tab==="runs"&&<RunsView runs={runs} setRuns={setRuns} coachMsg={openCoach}/>}
-        {tab==="metrics"&&<MetricsView profile={activeProfile} wlog={wlog} setWlog={setWlog}/>}
-        {tab==="food"&&<FoodView profile={activeProfile} food={food} setFood={setFood}/>}
-        {tab==="journal"&&<JournalView jlog={jlog} setJlog={setJlog}/>}
-        {tab==="backup"&&<BackupView profile={activeProfile} week={week} wlog={wlog} food={food} jlog={jlog} sessions={sessions} runs={runs} conv={conv} onImport={handleImport} onReset={handleReset} onUpdateProfile={handleUpdateProfile} onShowSummary={()=>setShowSummary(true)} onSetWeek={v=>{setWeek(v);setTab("workouts");openCoach(`I set my program to Week ${v}. Briefly confirm the phase and the key focus this week.`);}}/>}
-      </div>
-      <button onClick={()=>setCoachOpen(o=>!o)} style={{position:"fixed",bottom:18,right:18,zIndex:200,width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${C.acc},${C.a2})`,color:"#000",border:"none",fontSize:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 4px 20px rgba(232,255,71,.25)`}}>🤖</button>
-      <CoachDrawer open={coachOpen} onClose={()=>setCoachOpen(false)} profile={activeProfile} week={week} initMsg={pendingMsg} onInitConsumed={()=>setPendingMsg(null)} sessions={sessions} wlog={wlog} food={food} jlog={jlog} runs={runs}
-        onUpdateProfile={handleUpdateProfile}
-        onSetWeek={setWeek}
-        onLogWeight={coachLogWeight}
-        onAddFood={coachAddFood}
-        onClearFoodDay={coachClearFoodDay}
-        onSetSession={coachSetSession}
-        onSaveJournal={coachSaveJournal}
-        onSwitchTab={coachSwitchTab}
-        onAddRun={(entry)=>setRuns(r=>[...r,{id:Date.now(),...entry}])}
-      />
-      {showSummary&&<ProgramSummary profile={activeProfile} wlog={wlog} sessions={sessions} runs={runs} onAcknowledge={()=>{handleUpdateProfile({...profile,summaryAcknowledged:true});setShowSummary(false);}} onStartNew={()=>{handleReset();setShowSummary(false);}}/>}
-    </div>
+    </ErrorBoundary>
   );
-}
+};
 
-export default function Recomp(){
-  return <ErrorBoundary><RecompCore/></ErrorBoundary>;
-}
+export default RecompApp;
