@@ -3289,11 +3289,13 @@ const BarcodeScanner = ({ onResult, onClose }) => {
         if (!window.ZXing) {
           await new Promise((resolve, reject) => {
             const s = document.createElement('script');
-            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/zxing-js/0.21.3/zxing.min.js';
+            s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
             s.onload = resolve;
             s.onerror = () => reject(new Error('Could not load barcode library'));
             document.head.appendChild(s);
           });
+          // jsDelivr exposes it as window.ZXingLibrary
+          if (!window.ZXing && window.ZXingLibrary) window.ZXing = window.ZXingLibrary;
         }
         if (cancelled) return;
         const stream = await navigator.mediaDevices.getUserMedia({
