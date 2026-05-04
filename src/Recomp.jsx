@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 // ============================================================
@@ -3243,25 +3244,48 @@ const Metrics = ({ state, setState }) => {
 // FOOD SEARCH (Claude API)
 // ============================================================
 const searchFoodDB = async (query) => {
+  const sysPrompt = `You are a nutrition database. Return a JSON array of 4-8 matching food items for the user's query. Cover USDA whole foods (eggs, chicken, rice, oats, milk, banana, etc.) and major US chains: Chipotle, Chick-fil-A, Starbucks, Subway, McDonald's, Burger King, Wendy's, Taco Bell, Domino's, Pizza Hut, Cava, Panera, Dunkin', Texas Roadhouse, Olive Garden, Five Guys, In-N-Out, Whataburger, Shake Shack, Sonic, Panda Express, Jersey Mike's, Jimmy John's, Raising Cane's, Popeyes. Each item must include: name (string, with restaurant prefix if applicable like "Chipotle Chicken Burrito Bowl"), serving (string like "1 bowl" or "100g"), cal (number), p (number), c (number), f (number). Return ONLY a raw JSON array starting with [ and ending with ]. No preamble, no markdown fences, no explanation.`;
+  let response;
   try {
-    const sysPrompt = `You are a nutrition database. The user will search for a food item or restaurant menu item. Return a JSON array of 4-8 matching items. Cover USDA whole foods (eggs, chicken, rice, oats, etc.) and major US chains: Chipotle, Chick-fil-A, Starbucks, Subway, McDonald's, Burger King, Wendy's, Taco Bell, Domino's, Pizza Hut, Cava, Panera, Dunkin', Texas Roadhouse, Olive Garden, Five Guys, In-N-Out, Whataburger, Shake Shack, Sonic, Panda Express, Jersey Mike's, Jimmy John's, Raising Cane's, Popeyes. Each item must include: name (string, restaurant prefix if applicable, e.g., "Chipotle Chicken Burrito Bowl"), serving (string), cal (number), p (number), c (number), f (number). Return ONLY raw JSON array, no preamble, no markdown fences.`;
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        max_tokens: 2000,
         system: sysPrompt,
-        messages: [{ role: 'user', content: query }],
+        messages: [{ role: 'user', content: `Search: ${query}` }],
       }),
     });
-    const data = await response.json();
-    const text = (data.content || []).map((c) => c.text || '').join('').replace(/```json|```/g, '').trim();
-    const arr = JSON.parse(text);
-    return Array.isArray(arr) ? arr : [];
   } catch (e) {
-    console.error('food search', e);
-    return [];
+    return { ok: false, error: `Network error: ${e.message}`, items: [] };
+  }
+  if (!response.ok) {
+    let detail = '';
+    try { detail = await response.text(); } catch {}
+    return { ok: false, error: `API ${response.status}: ${detail.slice(0, 200) || response.statusText}`, items: [] };
+  }
+  let data;
+  try {
+    data = await response.json();
+  } catch (e) {
+    return { ok: false, error: 'Could not parse API response', items: [] };
+  }
+  const text = (data.content || []).map((c) => c.text || '').join('').trim();
+  if (!text) return { ok: false, error: 'Empty response from search', items: [] };
+  // Try to extract JSON array even if model wrapped it in fences or preamble
+  let jsonText = text.replace(/```(?:json)?/g, '').trim();
+  const firstBracket = jsonText.indexOf('[');
+  const lastBracket = jsonText.lastIndexOf(']');
+  if (firstBracket >= 0 && lastBracket > firstBracket) {
+    jsonText = jsonText.slice(firstBracket, lastBracket + 1);
+  }
+  try {
+    const arr = JSON.parse(jsonText);
+    if (!Array.isArray(arr)) return { ok: false, error: 'Search returned non-array', items: [] };
+    return { ok: true, items: arr };
+  } catch (e) {
+    return { ok: false, error: `Could not parse results: ${e.message}`, items: [] };
   }
 };
 
@@ -3273,6 +3297,7 @@ const Food = ({ state, setState, onCoachPrompt }) => {
   const [viewISO, setViewISO] = useState(todayISO());
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
+  const [searchError, setSearchError] = useState('');
   const [searching, setSearching] = useState(false);
   const [manualMode, setManualMode] = useState(false);
   const [manual, setManual] = useState({ name: '', cal: '', p: '', c: '', f: '', qty: 1 });
@@ -3300,8 +3325,16 @@ const Food = ({ state, setState, onCoachPrompt }) => {
   const search = async (q) => {
     if (!q.trim()) return;
     setSearching(true);
-    const items = await searchFoodDB(q);
-    setResults(items);
+    setSearchError('');
+    setResults([]);
+    const result = await searchFoodDB(q);
+    if (!result.ok) {
+      setSearchError(result.error || 'Search failed');
+    } else if (result.items.length === 0) {
+      setSearchError('No matches found — try manual entry');
+    } else {
+      setResults(result.items);
+    }
     setSearching(false);
   };
 
@@ -3400,6 +3433,22 @@ const Food = ({ state, setState, onCoachPrompt }) => {
             onKeyDown={(e) => e.key === 'Enter' && search(query)} />
           <Btn onClick={() => search(query)} disabled={searching}>{searching ? '…' : 'GO'}</Btn>
         </div>
+        {searching && (
+          <div style={{ marginTop: 8, fontSize: 11, color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+            🔍 SEARCHING NUTRITION DATABASE...
+          </div>
+        )}
+        {searchError && !searching && (
+          <div style={{
+            marginTop: 8,
+            padding: 8,
+            background: `${RED}15`,
+            border: `1px solid ${RED}55`,
+            borderRadius: 6,
+            fontSize: 11,
+            color: RED,
+          }}>⚠ {searchError}</div>
+        )}
         <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
           <Btn size="sm" variant="ghost" onClick={() => setManualMode(!manualMode)}>
             {manualMode ? 'HIDE MANUAL' : '+ MANUAL ENTRY'}
