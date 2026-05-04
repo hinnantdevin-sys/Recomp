@@ -3275,6 +3275,9 @@ const lookupBarcode = async (upc) => {
 
 const BarcodeScanner = ({ onResult, onClose }) => {
   const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const rafRef = useRef(null);
   const readerRef = useRef(null);
   const [status, setStatus] = useState('starting');
   const [errorMsg, setErrorMsg] = useState('');
@@ -3284,74 +3287,157 @@ const BarcodeScanner = ({ onResult, onClose }) => {
 
   useEffect(() => {
     let cancelled = false;
-    const start = async () => {
+
+    const handleCode = async (code) => {
+      if (cancelled || doneRef.current || !code) return;
+      doneRef.current = true;
+      setFoundCode(code);
+      setStatus('found');
+      setLookingUp(true);
+      const lookup = await lookupBarcode(code);
+      if (cancelled) return;
+      setLookingUp(false);
+      if (lookup.ok) {
+        onResult(lookup.item);
+      } else {
+        setErrorMsg(`UPC ${code} — ${lookup.error}. Try manual entry.`);
+        setStatus('error');
+      }
+    };
+
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        });
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        const vid = videoRef.current;
+        vid.srcObject = stream;
+        vid.setAttribute('playsinline', true);
+        await vid.play();
+        if (cancelled) return;
+        setStatus('scanning');
+        return stream;
+      } catch (e) {
+        if (!cancelled) {
+          setStatus('error');
+          if (e.name === 'NotAllowedError') setErrorMsg('Camera permission denied. Tap Settings → Safari → Camera → Allow, then try again.');
+          else if (e.name === 'NotFoundError') setErrorMsg('No camera found.');
+          else if (e.name === 'NotReadableError') setErrorMsg('Camera in use by another app.');
+          else setErrorMsg(e.message || 'Camera error');
+        }
+      }
+    };
+
+    // Strategy 1: Native BarcodeDetector API (iOS 17+, Android Chrome)
+    // Best quality, fastest, built into the browser
+    const tryNativeDetector = async () => {
+      if (!('BarcodeDetector' in window)) return false;
+      const formats = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'data_matrix'];
+      let supported = [];
+      try { supported = await window.BarcodeDetector.getSupportedFormats(); } catch {}
+      const useFormats = supported.length > 0 ? supported.filter(f => formats.includes(f)) : formats;
+      const detector = new window.BarcodeDetector({ formats: useFormats.length ? useFormats : formats });
+
+      const tick = async () => {
+        if (cancelled || doneRef.current) return;
+        const vid = videoRef.current;
+        if (!vid || vid.readyState < 2) { rafRef.current = requestAnimationFrame(tick); return; }
+        try {
+          const barcodes = await detector.detect(vid);
+          if (barcodes.length > 0 && barcodes[0].rawValue) {
+            await handleCode(barcodes[0].rawValue);
+            return;
+          }
+        } catch {}
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+      return true;
+    };
+
+    // Strategy 2: Canvas + ZXing (fallback for older Safari / unsupported browsers)
+    const tryZXing = async () => {
       if (!window.ZXing) {
         try {
           await new Promise((resolve, reject) => {
             const s = document.createElement('script');
             s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
             s.onload = resolve;
-            s.onerror = () => reject(new Error('Could not load barcode library'));
+            s.onerror = () => reject(new Error('Failed to load ZXing'));
             document.head.appendChild(s);
           });
         } catch (e) {
-          if (!cancelled) { setStatus('error'); setErrorMsg(e.message); }
+          setStatus('error');
+          setErrorMsg('Could not load barcode library. Check internet connection.');
+          return false;
+        }
+      }
+      if (cancelled) return false;
+      const ZXing = window.ZXing;
+      if (!ZXing?.BrowserMultiFormatReader) {
+        setStatus('error'); setErrorMsg('Barcode library failed to initialize.');
+        return false;
+      }
+
+      // Use canvas-snapshot approach instead of decodeFromVideoDevice
+      // More reliable on mobile: grab a frame every 200ms and decode it
+      const hints = new Map();
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      const reader = new ZXing.MultiFormatReader();
+      reader.setHints(hints);
+      readerRef.current = reader;
+
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+
+      const tick = () => {
+        if (cancelled || doneRef.current) return;
+        const vid = videoRef.current;
+        if (!vid || vid.readyState < 2 || vid.videoWidth === 0) {
+          rafRef.current = setTimeout(tick, 200);
           return;
         }
-      }
-      if (cancelled) return;
-      const ZXing = window.ZXing;
-      if (!ZXing || !ZXing.BrowserMultiFormatReader) {
-        if (!cancelled) { setStatus('error'); setErrorMsg('Barcode library failed to initialize'); }
-        return;
-      }
-      try {
-        const hints = new Map();
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-        const reader = new ZXing.BrowserMultiFormatReader(hints, 500);
-        readerRef.current = reader;
-        // decodeFromVideoDevice(null) auto-selects rear camera
-        await reader.decodeFromVideoDevice(null, videoRef.current, async (result, err) => {
-          if (cancelled || doneRef.current) return;
-          if (err) {
-            // NotFoundException fires constantly when no barcode visible — ignore it
-            if (err.name === 'NotFoundException') return;
-            if (!cancelled) { setStatus('error'); setErrorMsg(err.message || 'Scan error'); }
+        canvas.width = vid.videoWidth;
+        canvas.height = vid.videoHeight;
+        ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        try {
+          const luminance = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+          const binary = new ZXing.HybridBinarizer(luminance);
+          const bmp = new ZXing.BinaryBitmap(binary);
+          const result = reader.decode(bmp);
+          if (result) {
+            handleCode(result.getText());
             return;
           }
-          if (!result) return;
-          const code = result.getText();
-          if (!code) return;
-          doneRef.current = true;
-          reader.reset();
-          setFoundCode(code);
-          setStatus('found');
-          setLookingUp(true);
-          const lookup = await lookupBarcode(code);
-          if (cancelled) return;
-          setLookingUp(false);
-          if (lookup.ok) {
-            onResult(lookup.item);
-          } else {
-            setErrorMsg(`UPC ${code} — ${lookup.error}. Try manual entry.`);
-            setStatus('error');
-          }
-        });
-        if (!cancelled) setStatus('scanning');
-      } catch (e) {
-        if (!cancelled) {
-          setStatus('error');
-          if (e.name === 'NotAllowedError') setErrorMsg('Camera permission denied. Allow camera access in your browser settings.');
-          else if (e.name === 'NotFoundError') setErrorMsg('No camera found on this device.');
-          else if (e.name === 'NotReadableError') setErrorMsg('Camera is in use by another app. Close other apps and try again.');
-          else setErrorMsg(e.message || 'Could not start camera');
+        } catch (e) {
+          // NotFoundException is normal — no barcode in frame yet
         }
+        rafRef.current = setTimeout(tick, 150);
+      };
+      rafRef.current = setTimeout(tick, 300);
+      return true;
+    };
+
+    const run = async () => {
+      const stream = await startCamera();
+      if (!stream || cancelled) return;
+      // Try native first, fall back to ZXing
+      const nativeOk = await tryNativeDetector();
+      if (!nativeOk && !cancelled) {
+        await tryZXing();
       }
     };
-    start();
+
+    run();
+
     return () => {
       cancelled = true;
-      if (readerRef.current) { try { readerRef.current.reset(); } catch {} }
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); clearTimeout(rafRef.current); }
+      if (readerRef.current) { try { readerRef.current.reset?.(); } catch {} }
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     };
   }, []);
 
@@ -3363,17 +3449,18 @@ const BarcodeScanner = ({ onResult, onClose }) => {
         <button onClick={onClose} style={{ background: 'transparent', color: '#fff', border: 'none', fontSize: 26, cursor: 'pointer', lineHeight: 1 }}>×</button>
       </div>
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#000' }}>
-        <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} playsInline muted />
+        <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} playsInline muted autoPlay />
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
         {status === 'scanning' && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-            <div style={{ width: 260, height: 160, border: `3px solid ${ACCENT}`, borderRadius: 10, boxShadow: `0 0 0 9999px rgba(0,0,0,0.5), 0 0 20px ${ACCENT}66`, position: 'relative' }}>
+            <div style={{ width: 280, height: 170, border: `3px solid ${ACCENT}`, borderRadius: 10, boxShadow: `0 0 0 9999px rgba(0,0,0,0.5), 0 0 20px ${ACCENT}66`, position: 'relative' }}>
               <div style={{ position: 'absolute', left: 8, right: 8, height: 2, background: `linear-gradient(90deg, transparent, ${ACCENT}, transparent)`, top: '50%', animation: 'recomp-stripe 1.8s ease-in-out infinite' }} />
               {[
                 { top: -2, left: -2, borderTop: `3px solid ${ORANGE}`, borderLeft: `3px solid ${ORANGE}` },
                 { top: -2, right: -2, borderTop: `3px solid ${ORANGE}`, borderRight: `3px solid ${ORANGE}` },
                 { bottom: -2, left: -2, borderBottom: `3px solid ${ORANGE}`, borderLeft: `3px solid ${ORANGE}` },
                 { bottom: -2, right: -2, borderBottom: `3px solid ${ORANGE}`, borderRight: `3px solid ${ORANGE}` },
-              ].map((s, i) => <div key={i} style={{ position: 'absolute', width: 18, height: 18, borderRadius: 2, ...s }} />)}
+              ].map((s, i) => <div key={i} style={{ position: 'absolute', width: 20, height: 20, borderRadius: 2, ...s }} />)}
             </div>
           </div>
         )}
@@ -3385,7 +3472,7 @@ const BarcodeScanner = ({ onResult, onClose }) => {
         </div>
       </div>
       <div style={{ padding: '10px 14px', fontSize: 10, color: TEXT_MUTED, textAlign: 'center', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
-        UPC · EAN · CODE 128 · 3M+ PRODUCTS VIA OPEN FOOD FACTS
+        UPC · EAN · CODE 128 · POWERED BY OPEN FOOD FACTS
       </div>
     </div>
   );
