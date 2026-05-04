@@ -130,16 +130,46 @@ const RP_LANDMARKS = {
   Calves:    { MV: 6,  MEV: 8,  MAV: 14, MRV: 20 },
 };
 
+// Each muscle has TWO sessions worth of exercises (A and B).
+// When a muscle is trained 2x/week, day 1 = A, day 2 = B (different exercises,
+// same muscle target). When trained 1x/week, alternates A/B by week parity.
 const RP_EXERCISES = {
-  Chest:     [ 'BB Bench Press', 'DB Incline Press', 'Cable Fly' ],
-  Back:      [ 'Lat Pulldown', 'Barbell Row', 'Seated Cable Row', 'Face Pull' ],
-  Shoulders: [ 'Overhead Press', 'Cable Lateral Raise', 'DB Lateral Raise' ],
-  Biceps:    [ 'DB Hammer Curl', 'Incline DB Curl' ],
-  Triceps:   [ 'Rope Pushdown', 'Overhead Tricep Extension' ],
-  Quads:     [ 'Back Squat', 'Leg Press', 'Leg Extension' ],
-  Hamstrings:[ 'Romanian Deadlift', 'Seated Leg Curl' ],
-  Glutes:    [ 'Hip Thrust' ],
-  Calves:    [ 'Standing Calf Raise' ],
+  Chest: {
+    A: ['BB Bench Press', 'DB Incline Press', 'Cable Fly'],
+    B: ['DB Flat Press', 'Incline BB Press', 'Pec Deck'],
+  },
+  Back: {
+    A: ['Lat Pulldown', 'Barbell Row', 'Seated Cable Row', 'Face Pull'],
+    B: ['Pull-Up', 'Single-Arm DB Row', 'Chest-Supported Row', 'Straight-Arm Pulldown'],
+  },
+  Shoulders: {
+    A: ['Overhead Press', 'Cable Lateral Raise', 'DB Lateral Raise'],
+    B: ['Seated DB Press', 'Cable Y-Raise', 'Machine Lateral Raise'],
+  },
+  Biceps: {
+    A: ['DB Hammer Curl', 'Incline DB Curl'],
+    B: ['EZ-Bar Curl', 'Cable Curl'],
+  },
+  Triceps: {
+    A: ['Rope Pushdown', 'Overhead Tricep Extension'],
+    B: ['Skull Crusher', 'Dip'],
+  },
+  Quads: {
+    A: ['Back Squat', 'Leg Press', 'Leg Extension'],
+    B: ['Front Squat', 'Hack Squat', 'Bulgarian Split Squat'],
+  },
+  Hamstrings: {
+    A: ['Romanian Deadlift', 'Seated Leg Curl'],
+    B: ['Stiff-Leg Deadlift', 'Lying Leg Curl'],
+  },
+  Glutes: {
+    A: ['Hip Thrust'],
+    B: ['Cable Pull-Through'],
+  },
+  Calves: {
+    A: ['Standing Calf Raise'],
+    B: ['Seated Calf Raise'],
+  },
 };
 
 // RP feedback emoji scales (5-point each)
@@ -260,66 +290,136 @@ const AB_EXERCISES = {
   },
 };
 
-// Body-part split for trad BB (no A/B variation)
+// Body-part split for trad BB — A/B variants per part
 const TRADBB_EXERCISES = {
-  CHEST: [
-    { name: 'BB Bench Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Retract scapula' },
-    { name: 'Incline DB Press', sets: '4', reps: '8-12', tempo: '20X1', note: '30-degree bench' },
-    { name: 'Cable Fly', sets: '3', reps: '12-15', tempo: '21X1', note: 'Slight bend in elbows' },
-    { name: 'Push-Up', sets: '3', reps: 'AMRAP', tempo: '20X1', note: 'Burnout finisher' },
-  ],
-  BACK: [
-    { name: 'Pull-Up', sets: '4', reps: '6-10', tempo: '20X1', note: 'Full hang' },
-    { name: 'Barbell Row', sets: '4', reps: '6-10', tempo: '20X1', note: 'Hinge to 45°' },
-    { name: 'Lat Pulldown', sets: '3', reps: '10-12', tempo: '20X1', note: 'Pull to upper chest' },
-    { name: 'Seated Cable Row', sets: '3', reps: '10-12', tempo: '20X1', note: 'Squeeze scaps' },
-  ],
-  SHOULDERS: [
-    { name: 'Overhead Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Glutes tight' },
-    { name: 'DB Lateral Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Slight forward lean' },
-    { name: 'Cable Front Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Controlled tempo' },
-    { name: 'Face Pull', sets: '3', reps: '12-15', tempo: '20X1', note: 'External rotation' },
-  ],
-  ARMS: [
-    { name: 'EZ-Bar Curl', sets: '4', reps: '8-12', tempo: '20X1', note: 'No swing' },
-    { name: 'Skull Crusher', sets: '4', reps: '8-12', tempo: '31X0', note: 'Elbows still' },
-    { name: 'Hammer Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Neutral grip' },
-    { name: 'Tricep Pushdown', sets: '3', reps: '10-15', tempo: '20X1', note: 'Squeeze at lockout' },
-    { name: 'Preacher Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric' },
-    { name: 'Overhead Tricep Ext', sets: '3', reps: '10-12', tempo: '31X0', note: 'Elbows tight' },
-  ],
-  // LEGS uses LEGS A/B from AB_EXERCISES
+  CHEST: {
+    A: [
+      { name: 'BB Bench Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Retract scapula' },
+      { name: 'Incline DB Press', sets: '4', reps: '8-12', tempo: '20X1', note: '30-degree bench' },
+      { name: 'Cable Fly', sets: '3', reps: '12-15', tempo: '21X1', note: 'Slight bend in elbows' },
+      { name: 'Push-Up', sets: '3', reps: 'AMRAP', tempo: '20X1', note: 'Burnout finisher' },
+    ],
+    B: [
+      { name: 'Incline BB Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Upper chest emphasis' },
+      { name: 'DB Flat Press', sets: '4', reps: '8-12', tempo: '20X1', note: 'Squeeze chest at top' },
+      { name: 'Pec Deck', sets: '3', reps: '12-15', tempo: '21X1', note: 'Hold contraction 1s' },
+      { name: 'Dip', sets: '3', reps: 'AMRAP', tempo: '20X1', note: 'Lean forward for chest' },
+    ],
+  },
+  BACK: {
+    A: [
+      { name: 'Pull-Up', sets: '4', reps: '6-10', tempo: '20X1', note: 'Full hang' },
+      { name: 'Barbell Row', sets: '4', reps: '6-10', tempo: '20X1', note: 'Hinge to 45°' },
+      { name: 'Lat Pulldown', sets: '3', reps: '10-12', tempo: '20X1', note: 'Pull to upper chest' },
+      { name: 'Seated Cable Row', sets: '3', reps: '10-12', tempo: '20X1', note: 'Squeeze scaps' },
+    ],
+    B: [
+      { name: 'Chin-Up', sets: '4', reps: '6-10', tempo: '20X1', note: 'Underhand grip' },
+      { name: 'T-Bar Row', sets: '4', reps: '8-12', tempo: '20X1', note: 'Mid-back focus' },
+      { name: 'Single-Arm DB Row', sets: '3', reps: '10/side', tempo: '20X1', note: 'Drive elbow up' },
+      { name: 'Straight-Arm Pulldown', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lats only' },
+    ],
+  },
+  SHOULDERS: {
+    A: [
+      { name: 'Overhead Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Glutes tight' },
+      { name: 'DB Lateral Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Slight forward lean' },
+      { name: 'Cable Front Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Controlled tempo' },
+      { name: 'Face Pull', sets: '3', reps: '12-15', tempo: '20X1', note: 'External rotation' },
+    ],
+    B: [
+      { name: 'Seated DB Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Strict, no leg drive' },
+      { name: 'Cable Lateral Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Constant tension' },
+      { name: 'Rear Delt Fly', sets: '3', reps: '12-15', tempo: '20X1', note: 'Slight elbow bend' },
+      { name: 'Upright Row', sets: '3', reps: '10-12', tempo: '20X1', note: 'Wide grip, elbows lead' },
+    ],
+  },
+  ARMS: {
+    A: [
+      { name: 'EZ-Bar Curl', sets: '4', reps: '8-12', tempo: '20X1', note: 'No swing' },
+      { name: 'Skull Crusher', sets: '4', reps: '8-12', tempo: '31X0', note: 'Elbows still' },
+      { name: 'Hammer Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Neutral grip' },
+      { name: 'Tricep Pushdown', sets: '3', reps: '10-15', tempo: '20X1', note: 'Squeeze at lockout' },
+      { name: 'Preacher Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric' },
+      { name: 'Overhead Tricep Ext', sets: '3', reps: '10-12', tempo: '31X0', note: 'Elbows tight' },
+    ],
+    B: [
+      { name: 'Incline DB Curl', sets: '4', reps: '8-12', tempo: '31X0', note: 'Stretch at bottom' },
+      { name: 'Close-Grip Bench', sets: '4', reps: '6-10', tempo: '20X1', note: 'Tricep mass builder' },
+      { name: 'Cable Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Constant tension' },
+      { name: 'Rope Overhead Ext', sets: '3', reps: '10-12', tempo: '31X0', note: 'Stretch the long head' },
+      { name: 'Reverse Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Brachialis focus' },
+      { name: 'Dip', sets: '3', reps: 'AMRAP', tempo: '20X1', note: 'Upright torso' },
+    ],
+  },
+  // LEGS uses LEGS A/B from AB_EXERCISES (already has A/B)
 };
 
-// Powerlifting exercises by day
+// Powerlifting exercises by day — A/B variants for repeated sessions
+// A = heavy/competition focus, B = volume/variation work
 const PL_EXERCISES = {
-  SQUAT: [
-    { name: 'Back Squat', sets: '5', reps: '3-5', tempo: '20X1', note: 'Heavy primary, work to top set' },
-    { name: 'Pause Squat', sets: '3', reps: '4-6', tempo: '21X1', note: '1s pause at depth' },
-    { name: 'Bulgarian Split Squat', sets: '3', reps: '8/leg', tempo: '20X1', note: 'Quad accessory' },
-    { name: 'Leg Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Hamstring health' },
-    { name: 'Plank', sets: '3', reps: '45s', tempo: '-', note: 'Brace, neutral spine' },
-  ],
-  BENCH: [
-    { name: 'Bench Press', sets: '5', reps: '3-5', tempo: '20X1', note: 'Heavy primary' },
-    { name: 'Close-Grip Bench', sets: '3', reps: '6-8', tempo: '20X1', note: 'Tricep + lockout' },
-    { name: 'DB Press', sets: '3', reps: '8-12', tempo: '20X1', note: 'Hypertrophy work' },
-    { name: 'Tricep Pushdown', sets: '3', reps: '10-12', tempo: '20X1', note: 'Lockout strength' },
-    { name: 'Face Pull', sets: '3', reps: '12-15', tempo: '20X1', note: 'Shoulder health' },
-  ],
-  DEADLIFT: [
-    { name: 'Deadlift', sets: '5', reps: '1-3', tempo: '20X1', note: 'Heavy primary, RPE 8-9' },
-    { name: 'Deficit Deadlift', sets: '3', reps: '4-6', tempo: '20X1', note: 'Off 2" plate' },
-    { name: 'Barbell Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Back strength' },
-    { name: 'Hip Thrust', sets: '3', reps: '8-10', tempo: '20X1', note: 'Glute primer' },
-  ],
-  ACCESSORY: [
-    { name: 'Pause Bench', sets: '4', reps: '5-6', tempo: '21X1', note: '2s pause on chest' },
-    { name: 'Front Squat', sets: '3', reps: '5-8', tempo: '20X1', note: 'Quads + core' },
-    { name: 'Pull-Up', sets: '3', reps: '6-10', tempo: '20X1', note: 'Lats + grip' },
-    { name: 'Overhead Press', sets: '3', reps: '6-8', tempo: '20X1', note: 'Shoulders' },
-    { name: 'Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Biceps' },
-  ],
+  SQUAT: {
+    A: [
+      { name: 'Back Squat', sets: '5', reps: '3-5', tempo: '20X1', note: 'Heavy primary, work to top set' },
+      { name: 'Pause Squat', sets: '3', reps: '4-6', tempo: '21X1', note: '1s pause at depth' },
+      { name: 'Bulgarian Split Squat', sets: '3', reps: '8/leg', tempo: '20X1', note: 'Quad accessory' },
+      { name: 'Leg Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Hamstring health' },
+      { name: 'Plank', sets: '3', reps: '45s', tempo: '-', note: 'Brace, neutral spine' },
+    ],
+    B: [
+      { name: 'Front Squat', sets: '4', reps: '5-8', tempo: '20X1', note: 'Quads + core' },
+      { name: 'Tempo Squat', sets: '3', reps: '6-8', tempo: '40X1', note: '4s eccentric' },
+      { name: 'Romanian Deadlift', sets: '3', reps: '8-10', tempo: '31X0', note: 'Hamstring strength' },
+      { name: 'Leg Extension', sets: '3', reps: '12-15', tempo: '20X1', note: 'Quad pump' },
+      { name: 'Hanging Leg Raise', sets: '3', reps: '10-15', tempo: '-', note: 'Core control' },
+    ],
+  },
+  BENCH: {
+    A: [
+      { name: 'Bench Press', sets: '5', reps: '3-5', tempo: '20X1', note: 'Heavy primary' },
+      { name: 'Close-Grip Bench', sets: '3', reps: '6-8', tempo: '20X1', note: 'Tricep + lockout' },
+      { name: 'DB Press', sets: '3', reps: '8-12', tempo: '20X1', note: 'Hypertrophy work' },
+      { name: 'Tricep Pushdown', sets: '3', reps: '10-12', tempo: '20X1', note: 'Lockout strength' },
+      { name: 'Face Pull', sets: '3', reps: '12-15', tempo: '20X1', note: 'Shoulder health' },
+    ],
+    B: [
+      { name: 'Pause Bench', sets: '5', reps: '4-6', tempo: '22X1', note: '2s pause on chest' },
+      { name: 'Incline Bench', sets: '4', reps: '6-8', tempo: '20X1', note: 'Upper chest emphasis' },
+      { name: 'Spoto Press', sets: '3', reps: '6-8', tempo: '21X1', note: '1" off chest pause' },
+      { name: 'Skull Crusher', sets: '3', reps: '8-12', tempo: '31X0', note: 'Tricep mass' },
+      { name: 'Band Pull-Apart', sets: '3', reps: '15-20', tempo: '-', note: 'Rear delt' },
+    ],
+  },
+  DEADLIFT: {
+    A: [
+      { name: 'Deadlift', sets: '5', reps: '1-3', tempo: '20X1', note: 'Heavy primary, RPE 8-9' },
+      { name: 'Deficit Deadlift', sets: '3', reps: '4-6', tempo: '20X1', note: 'Off 2" plate' },
+      { name: 'Barbell Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Back strength' },
+      { name: 'Hip Thrust', sets: '3', reps: '8-10', tempo: '20X1', note: 'Glute primer' },
+    ],
+    B: [
+      { name: 'Block Pull', sets: '5', reps: '3-5', tempo: '20X1', note: 'From mid-shin blocks' },
+      { name: 'Pause Deadlift', sets: '3', reps: '3-5', tempo: '21X1', note: '2s pause off floor' },
+      { name: 'Pendlay Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Explosive pull' },
+      { name: 'Good Morning', sets: '3', reps: '8-10', tempo: '31X0', note: 'Hamstring/lower back' },
+    ],
+  },
+  ACCESSORY: {
+    A: [
+      { name: 'Pause Bench', sets: '4', reps: '5-6', tempo: '21X1', note: '2s pause on chest' },
+      { name: 'Front Squat', sets: '3', reps: '5-8', tempo: '20X1', note: 'Quads + core' },
+      { name: 'Pull-Up', sets: '3', reps: '6-10', tempo: '20X1', note: 'Lats + grip' },
+      { name: 'Overhead Press', sets: '3', reps: '6-8', tempo: '20X1', note: 'Shoulders' },
+      { name: 'Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Biceps' },
+    ],
+    B: [
+      { name: 'Spoto Press', sets: '4', reps: '5-6', tempo: '21X1', note: '1" off chest' },
+      { name: 'Romanian Deadlift', sets: '3', reps: '6-8', tempo: '31X0', note: 'Posterior chain' },
+      { name: 'DB Row', sets: '3', reps: '8-12', tempo: '20X1', note: 'Lat hypertrophy' },
+      { name: 'Lateral Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Side delts' },
+      { name: 'Tricep Extension', sets: '3', reps: '10-12', tempo: '31X0', note: 'Lockout' },
+    ],
+  },
 };
 
 // ============================================================
@@ -600,6 +700,118 @@ const PHASE_COLORS = {
   'RP DELOAD': PURPLE,
 };
 
+// ============================================================
+// EXERCISE PROGRESSION — apply phase to base exercise prescription
+// ============================================================
+// Heuristic for "compound" exercises that should shift to the phase rep range
+// (e.g., Bench, Squat, Deadlift, OHP, Row, Pull-Up). Accessories keep their
+// hypertrophy/isolation range but still progress in set count + tempo.
+const COMPOUND_KEYWORDS = [
+  'bench', 'squat', 'deadlift', 'press', 'row', 'pull-up', 'pullup',
+  'chin-up', 'chinup', 'rdl', 'romanian', 'hex bar', 'trap bar',
+  'sumo', 'block pull', 'pause', 'spoto', 'pendlay', 'front squat',
+  'back squat', 'goblet squat', 'overhead', 'ohp', 'snatch', 'clean',
+];
+
+const isCompound = (name) => {
+  const n = String(name).toLowerCase();
+  return COMPOUND_KEYWORDS.some((k) => n.includes(k));
+};
+
+// Add a delta to each end of a "min-max" rep range string, clamped to >=1
+const shiftRepRange = (range, delta) => {
+  const m = String(range).match(/(\d+)\s*-\s*(\d+)/);
+  if (!m) return range;
+  const lo = Math.max(1, parseInt(m[1], 10) + delta);
+  const hi = Math.max(lo, parseInt(m[2], 10) + delta);
+  return `${lo}-${hi}`;
+};
+
+// Apply the program phase to a base exercise. Returns a new exercise object.
+const progressExercise = (baseEx, week, totalWeeks) => {
+  const phase = phaseForWeek(week, totalWeeks);
+  const compound = isCompound(baseEx.name);
+  const baseSets = parseInt(baseEx.sets, 10) || 3;
+  let sets = baseSets;
+  let reps = baseEx.reps;
+  let tempo = baseEx.tempo;
+  let progressionNote = '';
+
+  // Accumulation: build volume by adding sets, keep reps in upper range
+  if (phase.phase === 'ACCUMULATION') {
+    if (phase.week === 1) {
+      sets = baseSets;
+      progressionNote = 'Establish baseline';
+    } else if (phase.week === 2) {
+      sets = baseSets + 1;
+      tempo = '21X1';
+      progressionNote = '+1 set, same load';
+    } else { // wk 3
+      sets = baseSets + 1;
+      reps = compound ? shiftRepRange(reps, -2) : reps;
+      progressionNote = '+5 lbs, drop reps';
+    }
+  } else if (phase.phase === 'HYPERTROPHY') {
+    if (phase.week === 4) {
+      sets = baseSets + 1;
+      tempo = '31X1';
+      progressionNote = 'Eccentric 3s, +5-10 lbs';
+    } else if (phase.week === 5) {
+      sets = baseSets + 1;
+      reps = compound ? shiftRepRange(reps, -2) : reps;
+      progressionNote = '+5 lbs';
+    } else { // wk 6
+      sets = baseSets + 2;
+      reps = compound ? shiftRepRange(reps, -2) : reps;
+      progressionNote = 'Peak volume';
+    }
+  } else if (phase.phase === 'INTENSIFICATION') {
+    // Compounds shift to heavy 4-6 range; accessories drop to 6-10
+    if (compound) {
+      reps = '4-6';
+      sets = phase.week === 7 ? baseSets : baseSets + 1;
+      tempo = '21X0';
+      progressionNote = phase.week === 7 ? '+10-15 lbs, 3min rest' : 'Heaviest set';
+    } else {
+      reps = shiftRepRange(reps, -2);
+      sets = baseSets;
+      progressionNote = 'Same vol, heavier loads';
+    }
+  } else if (phase.phase === 'REALIZATION') {
+    // Compounds: max load 2-4 reps. Accessories: drop volume, maintain.
+    if (compound) {
+      reps = '2-4';
+      sets = baseSets;
+      tempo = '10X0';
+      progressionNote = 'Max load, 4min rest';
+    } else {
+      reps = shiftRepRange(reps, -2);
+      sets = Math.max(2, baseSets - 1);
+      progressionNote = 'Reduced accessory volume';
+    }
+  } else if (phase.phase === 'DELOAD' || phase.phase === 'RP DELOAD') {
+    // Cut volume by ~40%, RPE drops, light tempo
+    sets = Math.max(2, Math.round(baseSets * 0.6));
+    if (compound) reps = shiftRepRange(reps, 2); // higher reps, lighter
+    tempo = '20X1';
+    progressionNote = '60% volume — recover';
+  } else if (phase.phase === 'NEW BLOCK') {
+    // Restart progression at higher load
+    sets = baseSets + (phase.week === 12 ? 1 : 0);
+    if (phase.week === 12 && compound) reps = shiftRepRange(reps, -2);
+    progressionNote = phase.week === 11 ? 'New block — +10 lbs over Wk 1' : '+10-15 lbs over Wk 4';
+  }
+
+  return {
+    ...baseEx,
+    sets: String(sets),
+    reps,
+    tempo,
+    progressionNote,
+    phase: phase.phase,
+  };
+};
+
 // RP mesocycle math
 const rpWeekData = (week, totalWeeks) => {
   // Final week = deload
@@ -693,10 +905,45 @@ const warmupForDayType = (dayType) => {
 // ============================================================
 const isAWeek = (week) => week % 2 === 1;
 
-const getExercisesForDay = (style, dayType, week, totalWeeks) => {
+// Returns 0-indexed occurrence of dayType within schedule up to and including dayIdx.
+// E.g., schedule = [PUSH, PULL, REST, PUSH, PULL, REST, REST]
+//   dayIdx=0 (PUSH) → 0 (1st PUSH)
+//   dayIdx=3 (PUSH) → 1 (2nd PUSH)
+const occurrenceInWeek = (schedule, dayIdx, dayType) => {
+  if (!Array.isArray(schedule)) return 0;
+  let count = 0;
+  for (let i = 0; i <= dayIdx && i < schedule.length; i++) {
+    if (schedule[i] === dayType) {
+      if (i === dayIdx) return count;
+      count++;
+    }
+  }
+  return 0;
+};
+
+// Pick A/B variant for a session.
+// Within-week 1st occurrence = A, 2nd = B, 3rd = A, etc.
+// On weeks where the muscle is only trained once (occurrence always 0),
+// alternates A/B by week parity for cross-week variation.
+// schedule + dayIdx + dayType together determine occurrence; week handles parity.
+const variantFor = (schedule, dayIdx, dayType, week) => {
+  const occ = occurrenceInWeek(schedule, dayIdx, dayType);
+  // Total occurrences in week
+  const total = (schedule || []).filter((d) => d === dayType).length;
+  if (total <= 1) {
+    // Only trained once this week — alternate by week parity
+    return isAWeek(week) ? 'A' : 'B';
+  }
+  // Multiple times this week — alternate within week
+  return occ % 2 === 0 ? 'A' : 'B';
+};
+
+const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx) => {
   const t = String(dayType).toUpperCase();
   // Rest day
   if (t === 'REST') return null;
+  // Progresses base exercises through the program phase
+  const progress = (exercises) => exercises.map((ex) => progressExercise(ex, week, totalWeeks));
 
   // RP Hypertrophy — by muscle landmarks
   if (style === 'rp_hyp') {
@@ -714,23 +961,35 @@ const getExercisesForDay = (style, dayType, week, totalWeeks) => {
     };
     const muscles = muscleMap[t] || [];
     const wd = rpWeekData(week, totalWeeks);
+    // Pick A/B variant for THIS session based on occurrence of this day-type
+    const variant = variantFor(schedule, dayIdx, dayType, week);
+    // How many sessions per week train this muscle? Count days in schedule whose
+    // muscle map intersects this muscle.
+    const sessionsPerMuscle = (m) => {
+      if (!Array.isArray(schedule)) return 1;
+      return schedule.filter((d) => {
+        const muscles2 = muscleMap[String(d).toUpperCase()] || [];
+        return muscles2.includes(m);
+      }).length || 1;
+    };
     const exes = [];
     muscles.forEach((m) => {
-      RP_EXERCISES[m].forEach((ex) => {
-        const targetWeekly = rpTargetSets(m, week, totalWeeks);
-        const sessionsPerWeek = 2; // typical PPL
-        const setsPerSession = Math.max(2, Math.round(targetWeekly / sessionsPerWeek / RP_EXERCISES[m].length));
+      const pool = (RP_EXERCISES[m] && RP_EXERCISES[m][variant]) || [];
+      const targetWeekly = rpTargetSets(m, week, totalWeeks);
+      const sessions = sessionsPerMuscle(m);
+      const setsPerSession = Math.max(2, Math.round(targetWeekly / sessions / Math.max(1, pool.length)));
+      pool.forEach((ex) => {
         exes.push({
           name: ex,
           muscle: m,
           sets: String(setsPerSession),
           reps: wd.repRange,
           tempo: '20X1',
-          note: `${m} — MEV ${RP_LANDMARKS[m].MEV} / MAV ${RP_LANDMARKS[m].MAV} / MRV ${RP_LANDMARKS[m].MRV} sets/wk · RIR ${wd.rir}`,
+          note: `${m} (${variant}) — MEV ${RP_LANDMARKS[m].MEV} / MAV ${RP_LANDMARKS[m].MAV} / MRV ${RP_LANDMARKS[m].MRV} sets/wk · RIR ${wd.rir}`,
         });
       });
     });
-    return { exercises: exes, finisher: null, isRP: true, wd };
+    return { exercises: exes, finisher: null, isRP: true, wd, variant };
   }
 
   // HYROX
@@ -738,11 +997,14 @@ const getExercisesForDay = (style, dayType, week, totalWeeks) => {
     const phase = hyroxPhase(week, totalWeeks);
     const intervals = HYROX_INTERVALS_BY_PHASE[phase.name] || HYROX_INTERVALS_BY_PHASE.BASE;
     if (t === 'STRENGTH_LOWER') {
+      const compounds = progress([
+        { name: 'Back Squat', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
+        { name: 'Romanian Deadlift', sets: '3', reps: '8-10', tempo: '31X0', note: 'Hamstring strength' },
+        { name: 'Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Race transfer' },
+      ]);
       return {
         exercises: [
-          { name: 'Back Squat', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
-          { name: 'Romanian Deadlift', sets: '3', reps: '8-10', tempo: '31X0', note: 'Hamstring strength' },
-          { name: 'Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Race transfer' },
+          ...compounds,
           { name: 'Sled Push (50m)', sets: '4', reps: 'race weight', tempo: '-', note: HYROX_STATIONS[1].note },
           { name: 'Farmer Carry (200m)', sets: '3', reps: '24kg/16kg KB ea', tempo: '-', note: HYROX_STATIONS[5].note },
         ],
@@ -751,11 +1013,14 @@ const getExercisesForDay = (style, dayType, week, totalWeeks) => {
       };
     }
     if (t === 'STRENGTH_UPPER') {
+      const compounds = progress([
+        { name: 'Pull-Up', sets: '4', reps: '6-10', tempo: '20X1', note: 'Strict' },
+        { name: 'Overhead Press', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
+        { name: 'Pendlay Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Explosive' },
+      ]);
       return {
         exercises: [
-          { name: 'Pull-Up', sets: '4', reps: '6-10', tempo: '20X1', note: 'Strict' },
-          { name: 'Overhead Press', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
-          { name: 'Pendlay Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Explosive' },
+          ...compounds,
           { name: 'SkiErg (1000m)', sets: '3', reps: 'race effort', tempo: '-', note: HYROX_STATIONS[0].note },
           { name: 'Wall Balls', sets: '3', reps: '20-25', tempo: '-', note: HYROX_STATIONS[7].note },
           { name: 'Burpee Broad Jumps', sets: '3', reps: '15', tempo: '-', note: HYROX_STATIONS[3].note },
@@ -809,13 +1074,16 @@ const getExercisesForDay = (style, dayType, week, totalWeeks) => {
   if (style === 'hyrox_hybrid') {
     const phase = hyroxPhase(week, totalWeeks);
     if (t === 'STRENGTH_LOWER') {
+      const compounds = progress([
+        { name: 'Back Squat', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
+        { name: 'Trap Bar Deadlift', sets: '3', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
+        { name: 'Bulgarian Split Squat', sets: '3', reps: '8/leg', tempo: '20X1', note: 'Quad focus' },
+        { name: 'Single-Leg RDL', sets: '3', reps: '8/leg', tempo: '21X1', note: 'Balance + posterior' },
+      ]);
       return {
         exercises: [
-          { name: 'Back Squat', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
-          { name: 'Trap Bar Deadlift', sets: '3', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
-          { name: 'Bulgarian Split Squat', sets: '3', reps: '8/leg', tempo: '20X1', note: 'Quad focus' },
+          ...compounds,
           { name: 'KB Goblet Squat', sets: '3', reps: '10', tempo: '20X1', note: `${KB_SIZING.standard.m}/${KB_SIZING.standard.w}` },
-          { name: 'Single-Leg RDL', sets: '3', reps: '8/leg', tempo: '21X1', note: 'Balance + posterior' },
           { name: 'Sled Push (50m)', sets: '3', reps: 'race weight', tempo: '-', note: 'Race transfer' },
           { name: 'Heavy Farmer Carry (200m)', sets: '2', reps: 'heavy', tempo: '-', note: 'Grip + core' },
         ],
@@ -836,11 +1104,14 @@ const getExercisesForDay = (style, dayType, week, totalWeeks) => {
       };
     }
     if (t === 'STRENGTH_UPPER') {
+      const compounds = progress([
+        { name: 'Weighted Pull-Up', sets: '4', reps: '5-8', tempo: '20X1', note: 'Add weight, full ROM' },
+        { name: 'Overhead Press', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
+        { name: 'Pendlay Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Explosive pull' },
+      ]);
       return {
         exercises: [
-          { name: 'Weighted Pull-Up', sets: '4', reps: '5-8', tempo: '20X1', note: 'Add weight, full ROM' },
-          { name: 'Overhead Press', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
-          { name: 'Pendlay Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Explosive pull' },
+          ...compounds,
           { name: 'KB Push Press', sets: '3', reps: '8/side', tempo: '20X1', note: `Use leg drive` },
           { name: 'Renegade Row', sets: '3', reps: '8/side', tempo: '-', note: 'Plank stable' },
           { name: 'Wall Balls', sets: '3', reps: '20-25', tempo: '-', note: 'Race standards' },
@@ -885,9 +1156,12 @@ const getExercisesForDay = (style, dayType, week, totalWeeks) => {
   // Powerlifting
   if (style === 'powerlifting') {
     if (PL_EXERCISES[t]) {
+      const variant = variantFor(schedule, dayIdx, dayType, week);
+      const base = PL_EXERCISES[t][variant] || PL_EXERCISES[t].A;
       return {
-        exercises: PL_EXERCISES[t],
+        exercises: progress(base),
         finisher: null,
+        variant,
       };
     }
     if (t === 'CARDIO') {
@@ -920,7 +1194,9 @@ const getExercisesForDay = (style, dayType, week, totalWeeks) => {
       ],
     };
     if (wodMap[t]) {
-      return { exercises: wodMap[t], finisher: t === 'STRENGTH' ? null : conditioningFinisher(week, totalWeeks) };
+      // Only progress STRENGTH (heavy lifts). WOD/OLY/GYMNASTICS have own scheme.
+      const exes = t === 'STRENGTH' ? progress(wodMap[t]) : wodMap[t];
+      return { exercises: exes, finisher: t === 'STRENGTH' ? null : conditioningFinisher(week, totalWeeks) };
     }
   }
 
@@ -951,7 +1227,11 @@ const getExercisesForDay = (style, dayType, week, totalWeeks) => {
         { name: 'Run Intervals', sets: '1', reps: '6×400m at 5K pace', tempo: '-', note: '90s rest' },
       ],
     };
-    if (athMap[t]) return { exercises: athMap[t], finisher: t === 'CONDITIONING' ? null : conditioningFinisher(week, totalWeeks) };
+    if (athMap[t]) {
+      // Only progress STRENGTH; SPEED/POWER/CONDITIONING use fixed neural-quality protocols
+      const exes = t === 'STRENGTH' ? progress(athMap[t]) : athMap[t];
+      return { exercises: exes, finisher: t === 'CONDITIONING' ? null : conditioningFinisher(week, totalWeeks) };
+    }
     if (t === 'CARDIO') {
       const c = cardioProtocol('performance', week, totalWeeks);
       return { exercises: [{ name: c.name, sets: '1', reps: c.desc, tempo: '-', note: '' }], finisher: null };
@@ -970,23 +1250,30 @@ const getExercisesForDay = (style, dayType, week, totalWeeks) => {
         { name: 'Bent-Over Row', sets: '3', reps: '10', tempo: '20X1', note: 'Squeeze scaps' },
         { name: 'Plank', sets: '3', reps: '45s', tempo: '-', note: 'Brace' },
       ],
-      FULL: AB_EXERCISES.FULL[isAWeek(week) ? 'A' : 'B'],
+      FULL: AB_EXERCISES.FULL[variantFor(schedule, dayIdx, dayType, week)],
     };
-    if (hiitMap[t]) return { exercises: hiitMap[t], finisher: t === 'HIIT' ? null : conditioningFinisher(week, totalWeeks) };
+    if (hiitMap[t]) {
+      // STRENGTH and FULL get progression, HIIT itself stays fixed (interval scheme is the work)
+      const exes = (t === 'STRENGTH' || t === 'FULL') ? progress(hiitMap[t]) : hiitMap[t];
+      return { exercises: exes, finisher: t === 'HIIT' ? null : conditioningFinisher(week, totalWeeks) };
+    }
   }
 
-  // Traditional BB — body part split (no A/B)
+  // Traditional BB — body part split with A/B variants per body part
   if (style === 'trad_bb') {
     if (TRADBB_EXERCISES[t]) {
-      return { exercises: TRADBB_EXERCISES[t], finisher: null };
+      const variant = variantFor(schedule, dayIdx, dayType, week);
+      const base = TRADBB_EXERCISES[t][variant] || TRADBB_EXERCISES[t].A;
+      return { exercises: progress(base), finisher: null, variant };
     }
     if (t === 'LEGS') {
-      return { exercises: AB_EXERCISES.LEGS[isAWeek(week) ? 'A' : 'B'], finisher: null, variant: isAWeek(week) ? 'A' : 'B' };
+      const variant = variantFor(schedule, dayIdx, dayType, week);
+      return { exercises: progress(AB_EXERCISES.LEGS[variant]), finisher: null, variant };
     }
     // PUSH/PULL fallback to AB
     if (AB_EXERCISES[t]) {
-      const variant = isAWeek(week) ? 'A' : 'B';
-      return { exercises: AB_EXERCISES[t][variant], finisher: null, variant };
+      const variant = variantFor(schedule, dayIdx, dayType, week);
+      return { exercises: progress(AB_EXERCISES[t][variant]), finisher: null, variant };
     }
     if (t === 'CARDIO') {
       const c = cardioProtocol('fatloss', week, totalWeeks);
@@ -994,10 +1281,10 @@ const getExercisesForDay = (style, dayType, week, totalWeeks) => {
     }
   }
 
-  // Functional BB and default — A/B variation
+  // Functional BB and default — A/B variation by occurrence (and week parity for 1×/wk)
   if (AB_EXERCISES[t]) {
-    const variant = isAWeek(week) ? 'A' : 'B';
-    const exes = AB_EXERCISES[t][variant];
+    const variant = variantFor(schedule, dayIdx, dayType, week);
+    const exes = progress(AB_EXERCISES[t][variant]);
     // Mark supersets for func_bb (A1/A2 = ex 0+1, B1/B2 = ex 2+3, C1/C2 = ex 4+5)
     if (style === 'func_bb') {
       const tagged = exes.map((e, i) => {
@@ -2042,7 +2329,21 @@ const Workouts = ({ state, setState }) => {
   const dayProgramWeek = getProgramWeek(viewISO, profile.startDate, profile.weeks);
   const sessKey = sessionKey(viewISO);
   const session = sessions[sessKey];
-  const exData = getExercisesForDay(profile.workoutStyle, dayType, dayProgramWeek, profile.weeks);
+
+  // Build effective schedule for THIS program week, applying any week overrides,
+  // so getExercisesForDay can pick A/B variant based on occurrence within the week
+  const viewDayIdx = getDayIdx(viewISO);
+  const overridesForWeek = (profile.weekOverrides || {})[`w${dayProgramWeek}`] || {};
+  const effectiveSchedule = (profile.schedule || []).map((d, i) => overridesForWeek[i] || d);
+
+  const exData = getExercisesForDay(
+    profile.workoutStyle,
+    dayType,
+    dayProgramWeek,
+    profile.weeks,
+    effectiveSchedule,
+    viewDayIdx
+  );
 
   // Detect missed workouts in current week
   const weekStart = getWeekStartISO(todayISO());
@@ -2467,6 +2768,11 @@ const ExerciseBlock = ({ ex, session, sessions, currentISO, goal, onSetUpdate, r
         </div>
       </div>
       <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 8 }}>{ex.note}</div>
+      {ex.progressionNote && (
+        <div style={{ fontSize: 10, color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 8 }}>
+          📈 {ex.progressionNote.toUpperCase()}
+        </div>
+      )}
 
       {/* Suggestion */}
       <div style={{ background: CARD2, padding: 8, borderRadius: 6, marginBottom: 8, borderLeft: `3px solid ${suggestion.color}` }}>
