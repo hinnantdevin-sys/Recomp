@@ -5132,40 +5132,62 @@ const lookupBarcode = async (upc) => {
     // CORS block or timeout — fall through to Claude fallback
   }
 
-  // Strategy 2: Claude API with web search (handles CORS issue + unknown products)
+  // Strategy 2: Claude API with web search
   try {
     const response = await fetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 400,
-        system: 'You are a nutrition database. Given a UPC/EAN barcode number, look up the product and return ONLY a raw JSON object (no markdown) with: {"name":"Brand ProductName","serving":"amount","cal":0,"p":0,"c":0,"f":0}. Use real nutrition data per serving. If not found, return {"notFound":true}.',
+        max_tokens: 1024,
+        system: `You are a nutrition lookup assistant. Search for the product with the given UPC/EAN barcode. After searching, respond with ONLY a JSON object on the last line of your response, no other text after it:
+{"name":"Brand ProductName","serving":"1 cup (240g)","cal":150,"p":8,"c":22,"f":3}
+If you cannot find the product after searching, respond with exactly: {"notFound":true}
+Numbers must be per single serving. cal=calories, p=protein grams, c=carbs grams, f=fat grams.`,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{ role: 'user', content: `Look up barcode UPC: ${upc}. Return nutrition facts per serving as JSON.` }],
+        messages: [{ role: 'user', content: `Find nutrition facts for barcode: ${upc}` }],
       }),
     });
-    if (!response.ok) return { ok: false, error: `Could not identify barcode. Try manual entry.` };
+    if (!response.ok) {
+      const errText = await response.text();
+      return { ok: false, error: `API error. Try manual entry.` };
+    }
     const data = await response.json();
-    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-    const first = text.indexOf('{');
-    const last = text.lastIndexOf('}');
-    if (first < 0) return { ok: false, error: 'Product not found. Try manual entry.' };
-    const parsed = JSON.parse(text.slice(first, last + 1));
-    if (parsed.notFound) return { ok: false, error: `UPC ${upc} not found. Try manual entry.` };
-    return {
-      ok: true,
-      item: {
-        name: parsed.name || `UPC ${upc}`,
-        serving: parsed.serving || '1 serving',
-        cal: Math.round(+parsed.cal || 0),
-        p: Math.round((+parsed.p || 0) * 10) / 10,
-        c: Math.round((+parsed.c || 0) * 10) / 10,
-        f: Math.round((+parsed.f || 0) * 10) / 10,
-      },
-    };
+
+    // Extract all text blocks (Claude may use tool_use blocks too — skip those)
+    const textBlocks = (data.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text || '');
+
+    // Try each text block for valid JSON, starting from the last one
+    for (let i = textBlocks.length - 1; i >= 0; i--) {
+      const text = textBlocks[i].replace(/```json?/g, '').replace(/```/g, '').trim();
+      // Find all JSON objects in the text
+      const jsonMatches = [...text.matchAll(/\{[^{}]*\}/g)];
+      for (let j = jsonMatches.length - 1; j >= 0; j--) {
+        try {
+          const parsed = JSON.parse(jsonMatches[j][0]);
+          if (parsed.notFound) return { ok: false, error: `UPC ${upc} not found in database. Try manual entry.` };
+          if (parsed.name && (parsed.cal !== undefined || parsed.p !== undefined)) {
+            return {
+              ok: true,
+              item: {
+                name: String(parsed.name),
+                serving: String(parsed.serving || '1 serving'),
+                cal: Math.round(Math.abs(+parsed.cal || 0)),
+                p: Math.round(Math.abs(+parsed.p || 0) * 10) / 10,
+                c: Math.round(Math.abs(+parsed.c || 0) * 10) / 10,
+                f: Math.round(Math.abs(+parsed.f || 0) * 10) / 10,
+              },
+            };
+          }
+        } catch {}
+      }
+    }
+
+    return { ok: false, error: `Could not parse nutrition data. Try manual entry.` };
   } catch (e) {
-    return { ok: false, error: `Barcode lookup failed: ${e.message}` };
+    return { ok: false, error: `Lookup failed: ${e.message}` };
   }
 };
 
