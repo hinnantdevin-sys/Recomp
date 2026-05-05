@@ -5094,31 +5094,78 @@ const searchFoodDB = async (query) => {
 // BARCODE SCANNER — ZXing + Open Food Facts
 // ============================================================
 const lookupBarcode = async (upc) => {
+  // Strategy 1: Open Food Facts with a 5s timeout
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
     const url = `https://world.openfoodfacts.org/api/v2/product/${upc}.json?fields=product_name,brands,nutriments,serving_size,serving_quantity`;
-    const r = await fetch(url);
-    if (!r.ok) return { ok: false, error: `Open Food Facts: ${r.status}` };
-    const data = await r.json();
-    if (data.status !== 1 || !data.product) return { ok: false, error: 'Product not found in database' };
-    const p = data.product;
-    const n = p.nutriments || {};
-    const serving = parseFloat(p.serving_quantity) || 100;
-    const per100 = (key) => parseFloat(n[key + '_100g'] || n[key] || 0);
-    const perServing = (key) => parseFloat(n[key + '_serving'] || 0) || (per100(key) * serving / 100);
-    const name = [p.brands, p.product_name].filter(Boolean).join(' — ') || `UPC ${upc}`;
+    const r = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (r.ok) {
+      const data = await r.json();
+      if (data.status === 1 && data.product) {
+        const p = data.product;
+        const n = p.nutriments || {};
+        const serving = parseFloat(p.serving_quantity) || 100;
+        const per100 = (key) => parseFloat(n[key + '_100g'] || n[key] || 0);
+        const perServing = (key) => parseFloat(n[key + '_serving'] || 0) || (per100(key) * serving / 100);
+        const name = [p.brands, p.product_name].filter(Boolean).join(' — ') || `UPC ${upc}`;
+        const cal = Math.round(
+          perServing('energy-kcal') ||
+          (perServing('energy') / 4.184) ||
+          (per100('energy-kcal') * serving / 100)
+        );
+        return {
+          ok: true,
+          item: {
+            name,
+            serving: p.serving_size || `${serving}g`,
+            cal,
+            p: Math.round(perServing('proteins') * 10) / 10,
+            c: Math.round(perServing('carbohydrates') * 10) / 10,
+            f: Math.round(perServing('fat') * 10) / 10,
+          },
+        };
+      }
+    }
+  } catch (e) {
+    // CORS block or timeout — fall through to Claude fallback
+  }
+
+  // Strategy 2: Claude API with web search (handles CORS issue + unknown products)
+  try {
+    const response = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 400,
+        system: 'You are a nutrition database. Given a UPC/EAN barcode number, look up the product and return ONLY a raw JSON object (no markdown) with: {"name":"Brand ProductName","serving":"amount","cal":0,"p":0,"c":0,"f":0}. Use real nutrition data per serving. If not found, return {"notFound":true}.',
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: `Look up barcode UPC: ${upc}. Return nutrition facts per serving as JSON.` }],
+      }),
+    });
+    if (!response.ok) return { ok: false, error: `Could not identify barcode. Try manual entry.` };
+    const data = await response.json();
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+    const first = text.indexOf('{');
+    const last = text.lastIndexOf('}');
+    if (first < 0) return { ok: false, error: 'Product not found. Try manual entry.' };
+    const parsed = JSON.parse(text.slice(first, last + 1));
+    if (parsed.notFound) return { ok: false, error: `UPC ${upc} not found. Try manual entry.` };
     return {
       ok: true,
       item: {
-        name,
-        serving: p.serving_size || `${serving}g`,
-        cal: Math.round(perServing('energy-kcal') || perServing('energy') / 4.184 || per100('energy-kcal') * serving / 100),
-        p: Math.round(perServing('proteins') * 10) / 10,
-        c: Math.round(perServing('carbohydrates') * 10) / 10,
-        f: Math.round(perServing('fat') * 10) / 10,
+        name: parsed.name || `UPC ${upc}`,
+        serving: parsed.serving || '1 serving',
+        cal: Math.round(+parsed.cal || 0),
+        p: Math.round((+parsed.p || 0) * 10) / 10,
+        c: Math.round((+parsed.c || 0) * 10) / 10,
+        f: Math.round((+parsed.f || 0) * 10) / 10,
       },
     };
   } catch (e) {
-    return { ok: false, error: `Lookup failed: ${e.message}` };
+    return { ok: false, error: `Barcode lookup failed: ${e.message}` };
   }
 };
 
@@ -5143,13 +5190,19 @@ const BarcodeScanner = ({ onResult, onClose }) => {
       setFoundCode(code);
       setStatus('found');
       setLookingUp(true);
-      const lookup = await lookupBarcode(code);
+
+      // 15s overall timeout — if both lookup strategies stall, show an error
+      const timeoutPromise = new Promise(resolve =>
+        setTimeout(() => resolve({ ok: false, error: 'Lookup timed out. Try manual entry.' }), 15000)
+      );
+      const lookup = await Promise.race([lookupBarcode(code), timeoutPromise]);
+
       if (cancelled) return;
       setLookingUp(false);
       if (lookup.ok) {
         onResult(lookup.item);
       } else {
-        setErrorMsg(`UPC ${code} — ${lookup.error}. Try manual entry.`);
+        setErrorMsg(`UPC ${code} — ${lookup.error}`);
         setStatus('error');
       }
     };
