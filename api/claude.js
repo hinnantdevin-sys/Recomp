@@ -1,7 +1,7 @@
 // Vercel Serverless Function — proxies requests to Anthropic Messages API
 // so the API key stays server-side (never shipped to the browser).
 // Place this file at /api/claude.js in your Vercel project root.
- 
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -19,6 +19,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'web-search-2025-03-05',
       },
       body: JSON.stringify(req.body),
     });
@@ -28,4 +29,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: `Proxy error: ${e.message}` });
   }
 }
- 
