@@ -5387,10 +5387,267 @@ const BarcodeScanner = ({ onResult, onClose }) => {
   );
 };
 
+// ============================================================
+// FOOD DETAIL MODAL — serving size, measurements, editable macros
+// ============================================================
+const SERVING_UNITS = [
+  { label: 'serving', factor: 1 },
+  { label: 'g',       factor: null }, // entered by user
+  { label: 'oz',      factor: 28.35 },// oz to grams
+  { label: 'cup',     factor: 240 },
+  { label: '½ cup',   factor: 120 },
+  { label: '¼ cup',   factor: 60 },
+  { label: 'tbsp',    factor: 15 },
+  { label: 'tsp',     factor: 5 },
+  { label: 'fl oz',   factor: 29.6 },
+  { label: 'ml',      factor: 1 },
+  { label: 'slice',   factor: null },
+  { label: 'piece',   factor: null },
+  { label: 'scoop',   factor: null },
+  { label: 'packet',  factor: null },
+  { label: 'bar',     factor: null },
+  { label: 'can',     factor: null },
+  { label: 'bottle',  factor: null },
+];
+
+const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => {
+  // Base macros (per 1 serving as returned by search)
+  const base = {
+    cal: +(item.cal || 0),
+    p:   +(item.p   || 0),
+    c:   +(item.c   || 0),
+    f:   +(item.f   || 0),
+  };
+
+  // Detect serving weight in grams from the serving string, e.g. "28g", "1 oz (28g)"
+  const servingGrams = (() => {
+    const s = item.serving || '';
+    const gMatch = s.match(/(\d+(?:\.\d+)?)\s*g\b/i);
+    if (gMatch) return parseFloat(gMatch[1]);
+    const ozMatch = s.match(/(\d+(?:\.\d+)?)\s*oz/i);
+    if (ozMatch) return parseFloat(ozMatch[1]) * 28.35;
+    return null; // unknown
+  })();
+
+  const [qty, setQty]       = useState(item.qty || 1);
+  const [unitLabel, setUnitLabel] = useState('serving');
+  const [customGrams, setCustomGrams] = useState('');
+  const [overrideMacros, setOverrideMacros] = useState(false);
+  const [manCal, setManCal] = useState('');
+  const [manP,   setManP]   = useState('');
+  const [manC,   setManC]   = useState('');
+  const [manF,   setManF]   = useState('');
+
+  // Initialise from item when in edit mode
+  useEffect(() => {
+    if (editMode) {
+      setQty(item.qty || 1);
+      setManCal(String(item.cal || ''));
+      setManP(String(item.p   || ''));
+      setManC(String(item.c   || ''));
+      setManF(String(item.f   || ''));
+      setOverrideMacros(true);
+    }
+  }, []);
+
+  // Compute effective multiplier based on selected unit
+  const multiplier = (() => {
+    const unit = SERVING_UNITS.find(u => u.label === unitLabel);
+    if (!unit) return qty;
+    if (unitLabel === 'serving') return qty;
+    if (unit.factor === null) return qty; // count-based units (slice, piece…) just use qty
+    if (unitLabel === 'g' || unitLabel === 'ml') {
+      const grams = parseFloat(customGrams) || 0;
+      if (servingGrams && servingGrams > 0) return (grams / servingGrams) * qty;
+      return qty; // can't scale without base weight
+    }
+    // Volume/weight unit → convert to grams → divide by serving grams
+    if (servingGrams && servingGrams > 0) return (unit.factor * qty) / servingGrams;
+    return qty;
+  })();
+
+  // Final scaled macros
+  const scaled = overrideMacros ? {
+    cal: Math.round(Math.abs(+manCal || 0) * qty),
+    p:   Math.round(Math.abs(+manP   || 0) * qty * 10) / 10,
+    c:   Math.round(Math.abs(+manC   || 0) * qty * 10) / 10,
+    f:   Math.round(Math.abs(+manF   || 0) * qty * 10) / 10,
+  } : {
+    cal: Math.round(base.cal * multiplier),
+    p:   Math.round(base.p   * multiplier * 10) / 10,
+    c:   Math.round(base.c   * multiplier * 10) / 10,
+    f:   Math.round(base.f   * multiplier * 10) / 10,
+  };
+
+  const handleAdd = () => {
+    const finalItem = {
+      ...item,
+      cal: overrideMacros ? Math.abs(+manCal || 0) : base.cal * (multiplier / qty),
+      p:   overrideMacros ? Math.abs(+manP   || 0) : base.p   * (multiplier / qty),
+      c:   overrideMacros ? Math.abs(+manC   || 0) : base.c   * (multiplier / qty),
+      f:   overrideMacros ? Math.abs(+manF   || 0) : base.f   * (multiplier / qty),
+      qty,
+      servingLabel: unitLabel === 'serving' ? (item.serving || '1 serving') : `${qty} ${unitLabel}${unitLabel === 'g' || unitLabel === 'ml' ? ` (${customGrams}${unitLabel})` : ''}`,
+    };
+    editMode ? onSave(finalItem) : onAdd(finalItem);
+  };
+
+  const needsCustomInput = (unitLabel === 'g' || unitLabel === 'ml');
+  const showScaleNote = !overrideMacros && unitLabel !== 'serving' && !needsCustomInput;
+  const mc = GREEN;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 250,
+      display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+    }} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: CARD, borderRadius: '14px 14px 0 0', padding: '0 0 24px 0', maxHeight: '90vh', overflowY: 'auto' }}>
+        {/* Handle bar */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 6px' }}>
+          <div style={{ width: 36, height: 4, background: BORDER, borderRadius: 2 }} />
+        </div>
+
+        <div style={{ padding: '0 16px' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 14 }}>
+            <div style={{ flex: 1 }}>
+              <H size={15} mb={2}>{item.name}</H>
+              {item.serving && <div style={{ fontSize: 11, color: TEXT_DIM }}>Base serving: {item.serving}</div>}
+            </div>
+            <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: TEXT_MUTED, fontSize: 24, cursor: 'pointer', lineHeight: 1, padding: 4 }}>×</button>
+          </div>
+
+          {/* Quantity + Unit */}
+          <div style={{ marginBottom: 12 }}>
+            <Label>AMOUNT</Label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ width: 72 }}>
+                <Input
+                  type="number"
+                  min="0.25"
+                  step="0.25"
+                  value={qty}
+                  onChange={(e) => setQty(Math.max(0.25, +e.target.value || 1))}
+                  style={{ textAlign: 'center', fontSize: 16 }}
+                />
+              </div>
+              <Select
+                value={unitLabel}
+                onChange={(e) => { setUnitLabel(e.target.value); setCustomGrams(''); }}
+                style={{ flex: 1 }}
+              >
+                {SERVING_UNITS.map(u => (
+                  <option key={u.label} value={u.label}>{u.label}</option>
+                ))}
+              </Select>
+            </div>
+            {needsCustomInput && (
+              <div style={{ marginTop: 6 }}>
+                <Input
+                  type="number"
+                  placeholder={`Enter ${unitLabel} amount`}
+                  value={customGrams}
+                  onChange={(e) => setCustomGrams(e.target.value)}
+                  style={{ fontSize: 13 }}
+                />
+                {!servingGrams && (
+                  <div style={{ fontSize: 10, color: '#fbbf24', marginTop: 3 }}>
+                    ⚠ No gram weight in base serving — macros won't auto-scale. Use Override below.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Scaled macro preview */}
+          <div style={{ background: CARD2, borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
+            <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 6 }}>
+              {overrideMacros ? 'CUSTOM MACROS (per serving × qty)' : `SCALED MACROS (${qty} ${unitLabel})`}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+              {[
+                { l: 'CAL', v: scaled.cal, c: ACCENT },
+                { l: 'P',   v: scaled.p,   c: BLUE },
+                { l: 'C',   v: scaled.c,   c: ORANGE },
+                { l: 'F',   v: scaled.f,   c: PURPLE },
+              ].map(({ l, v, c }) => (
+                <div key={l} style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>{l}</div>
+                  <div style={{ fontSize: 18, fontFamily: 'Impact, Arial Black, sans-serif', color: c }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            {showScaleNote && servingGrams && (
+              <div style={{ fontSize: 9, color: TEXT_MUTED, marginTop: 6 }}>
+                Based on {servingGrams}g per serving
+              </div>
+            )}
+          </div>
+
+          {/* Override macros toggle */}
+          <div style={{ marginBottom: 12 }}>
+            <button
+              onClick={() => {
+                setOverrideMacros(!overrideMacros);
+                if (!overrideMacros) {
+                  setManCal(String(Math.round(base.cal * multiplier / qty) || base.cal));
+                  setManP(String(base.p));
+                  setManC(String(base.c));
+                  setManF(String(base.f));
+                }
+              }}
+              style={{
+                background: overrideMacros ? `${ORANGE}22` : 'transparent',
+                border: `1px solid ${overrideMacros ? ORANGE : BORDER}`,
+                color: overrideMacros ? ORANGE : TEXT_DIM,
+                borderRadius: 6, padding: '6px 12px', cursor: 'pointer',
+                fontSize: 10, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, width: '100%',
+              }}
+            >
+              {overrideMacros ? '✓ OVERRIDE ON — tap to disable' : '✏ OVERRIDE MACROS'}
+            </button>
+
+            {overrideMacros && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 6 }}>
+                  Enter macros per 1 serving (qty multiplies them)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
+                  {[
+                    { l: 'CAL', val: manCal, set: setManCal, c: ACCENT },
+                    { l: 'P (g)', val: manP, set: setManP, c: BLUE },
+                    { l: 'C (g)', val: manC, set: setManC, c: ORANGE },
+                    { l: 'F (g)', val: manF, set: setManF, c: PURPLE },
+                  ].map(({ l, val, set, c }) => (
+                    <div key={l}>
+                      <div style={{ fontSize: 9, color: c, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 3 }}>{l}</div>
+                      <Input
+                        type="number"
+                        value={val}
+                        onChange={(e) => set(e.target.value)}
+                        style={{ textAlign: 'center', borderColor: c, fontSize: 13 }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Add / Save button */}
+          <Btn onClick={handleAdd} style={{ width: '100%', fontSize: 14 }}>
+            {editMode ? `✓ SAVE CHANGES` : `+ ADD TO ${(item._targetMeal || 'MEAL').toUpperCase()}`}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Food = ({ state, setState, onCoachPrompt }) => {
   const { profile, food, fmeal, wlog } = state;
   const [viewISO, setViewISO] = useState(todayISO());
-  const [foodTab, setFoodTab] = useState('log'); // 'log' | 'plan'
+  const [foodTab, setFoodTab] = useState('log');
   const [activeMeal, setActiveMeal] = useState('Breakfast');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -5402,6 +5659,8 @@ const Food = ({ state, setState, onCoachPrompt }) => {
   const [collapsed, setCollapsed] = useState({});
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
+  // null = closed | { item, mode:'add'|'edit', editId? }
+  const [foodModal, setFoodModal] = useState(null);
   const [dragging, setDragging] = useState(null); // index being dragged
 
   const currentWeight = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
@@ -5445,9 +5704,11 @@ const Food = ({ state, setState, onCoachPrompt }) => {
 
   const addFood = (item) => {
     const loggedAt = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const mealTarget = item._targetMeal || activeMeal;
+    const { _targetMeal, ...cleanItem } = item;
     setState((p) => {
       const day = p.food[viewISO] || [];
-      return { ...p, food: { ...p.food, [viewISO]: [...day, { ...item, id: 'f_' + Date.now() + Math.random(), qty: item.qty || 1, meal: activeMeal, loggedAt }] } };
+      return { ...p, food: { ...p.food, [viewISO]: [...day, { ...cleanItem, id: 'f_' + Date.now() + Math.random(), qty: cleanItem.qty || 1, meal: mealTarget, loggedAt }] } };
     });
   };
 
@@ -5502,8 +5763,32 @@ const Food = ({ state, setState, onCoachPrompt }) => {
   }
   const maxCal = Math.max(macros.calories * 1.3, ...last7.map((d) => d.cal));
 
+  const editFood = (editId, updatedItem) => {
+    setState((p) => ({
+      ...p,
+      food: {
+        ...p.food,
+        [viewISO]: (p.food[viewISO] || []).map((f) =>
+          f.id === editId ? { ...f, ...updatedItem } : f
+        ),
+      },
+    }));
+    setFoodModal(null);
+  };
+
   return (
     <div>
+      {/* Food Detail Modal */}
+      {foodModal && (
+        <FoodDetailModal
+          item={foodModal.item}
+          editMode={foodModal.mode === 'edit'}
+          onAdd={(finalItem) => { addFood(finalItem); setFoodModal(null); }}
+          onSave={(finalItem) => editFood(foodModal.editId, finalItem)}
+          onClose={() => setFoodModal(null)}
+        />
+      )}
+
       {/* Date nav */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
         <Btn size="sm" variant="ghost" onClick={() => { const d = isoToDate(viewISO); d.setDate(d.getDate() - 1); setViewISO(dateToISO(d)); }}>‹</Btn>
@@ -5645,20 +5930,39 @@ const Food = ({ state, setState, onCoachPrompt }) => {
             {results.map((r, i) => {
               const added = isAlreadyAdded(r);
               return (
-                <button key={i} onClick={() => addFood(r)} style={{
-                  display: 'block', width: '100%',
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
                   background: added ? `${GREEN}14` : CARD2,
-                  color: '#fff', border: `1px solid ${BORDER}`,
-                  borderRadius: 6, padding: 8, marginBottom: 4, cursor: 'pointer', textAlign: 'left',
+                  border: `1px solid ${added ? GREEN + '44' : BORDER}`,
+                  borderRadius: 6, marginBottom: 4, overflow: 'hidden',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12 }}>{r.name}</div>
-                      <div style={{ fontSize: 10, color: TEXT_DIM, marginTop: 2 }}>{r.serving || ''} · {r.cal} cal · {r.p}p {r.c}c {r.f}f</div>
+                  <button
+                    onClick={() => setFoodModal({ item: { ...r, _targetMeal: activeMeal }, mode: 'add' })}
+                    style={{
+                      flex: 1, background: 'transparent', border: 'none',
+                      cursor: 'pointer', textAlign: 'left', padding: '8px 10px', color: '#fff',
+                    }}
+                  >
+                    <div style={{ fontSize: 12 }}>{r.name}</div>
+                    <div style={{ fontSize: 10, color: TEXT_DIM, marginTop: 2 }}>
+                      {r.serving || ''} · {r.cal} cal · {r.p}p {r.c}c {r.f}f
                     </div>
-                    {added ? <Pill color={GREEN}>✓ ADDED</Pill> : <Pill color={ACCENT}>+ ADD</Pill>}
+                  </button>
+                  <div style={{ paddingRight: 8, display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <button
+                      onClick={() => setFoodModal({ item: { ...r, _targetMeal: activeMeal }, mode: 'add' })}
+                      style={{
+                        background: added ? `${GREEN}33` : `${ACCENT}33`,
+                        color: added ? GREEN : ACCENT,
+                        border: `1px solid ${added ? GREEN : ACCENT}`,
+                        borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+                        fontSize: 10, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+                      }}
+                    >
+                      {added ? '✓ ADDED' : '+ ADD'}
+                    </button>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -5716,14 +6020,18 @@ const Food = ({ state, setState, onCoachPrompt }) => {
                 ) : (
                   items.map((f) => (
                     <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: `1px solid ${BORDER}` }}>
-                      <div style={{ flex: 1 }}>
+                      <button
+                        onClick={() => setFoodModal({ item: f, mode: 'edit', editId: f.id })}
+                        style={{ flex: 1, background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+                      >
                         <div style={{ fontSize: 12, color: '#fff' }}>{f.name}{f.qty > 1 ? ` ×${f.qty}` : ''}</div>
                         <div style={{ fontSize: 10, color: TEXT_MUTED, display: 'flex', gap: 6, marginTop: 2 }}>
                           <span>{Math.round((+f.cal || 0) * (f.qty || 1))} cal · {Math.round((+f.p || 0) * (f.qty || 1))}p {Math.round((+f.c || 0) * (f.qty || 1))}c {Math.round((+f.f || 0) * (f.qty || 1))}f</span>
-                          {f.loggedAt && <span style={{ color: TEXT_MUTED }}>· {f.loggedAt}</span>}
+                          {f.loggedAt && <span>· {f.loggedAt}</span>}
+                          <span style={{ color: mc, fontSize: 9, fontFamily: 'Impact, Arial Black, sans-serif' }}>✏ edit</span>
                         </div>
-                      </div>
-                      <button onClick={() => removeFood(f.id)} style={{ background: 'transparent', color: TEXT_MUTED, border: 'none', cursor: 'pointer', fontSize: 14 }}>×</button>
+                      </button>
+                      <button onClick={() => removeFood(f.id)} style={{ background: 'transparent', color: TEXT_MUTED, border: 'none', cursor: 'pointer', fontSize: 14, padding: '4px 6px' }}>×</button>
                     </div>
                   ))
                 )}
