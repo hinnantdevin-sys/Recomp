@@ -181,112 +181,449 @@ const RP_SORENESS = ['😴 None', '😌 Healed', '😬 A Bit', '🥵 Sore', '�
 // A/B EXERCISE VARIATION — non-RP styles
 // Form note included with each exercise
 // ============================================================
+// Each day type has 4 blocks (one per 4-week cycle).
+// Within each block, A = 1st session this week, B = 2nd session.
+// Block is determined by Math.floor((week-1) / 4) % 4
 const AB_EXERCISES = {
   PUSH: {
-    A: [
-      { name: 'Barbell Bench Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Drive heels, retract scapula' },
-      { name: 'DB Incline Press', sets: '3', reps: '8-12', tempo: '20X1', note: '30-degree bench, full ROM' },
-      { name: 'Cable Lateral Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Lead with elbow' },
-      { name: 'Tricep Rope Pushdown', sets: '3', reps: '10-15', tempo: '20X1', note: 'Spread rope at bottom' },
-      { name: 'Cable Fly', sets: '3', reps: '12-15', tempo: '21X1', note: 'Slight elbow bend' },
-      { name: 'Overhead Tricep Extension', sets: '3', reps: '10-12', tempo: '31X0', note: 'Elbows tight' },
-    ],
-    B: [
-      { name: 'Overhead Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Glutes tight, full lockout' },
-      { name: 'DB Flat Press', sets: '3', reps: '8-12', tempo: '20X1', note: 'Squeeze chest at top' },
-      { name: 'Cable Front Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lead with elbow' },
-      { name: 'Skull Crusher', sets: '3', reps: '8-12', tempo: '31X0', note: 'Elbows still' },
-      { name: 'DB Lateral Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Slight forward lean' },
-      { name: 'Tricep Dip', sets: '3', reps: '8-12', tempo: '20X1', note: 'Slight forward lean for chest assist' },
-    ],
+    // Block 1 — wk 1-4: horizontal + overhead foundation
+    1: {
+      A: [
+        { name: 'Barbell Bench Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Drive heels, retract scapula' },
+        { name: 'DB Incline Press', sets: '3', reps: '8-12', tempo: '20X1', note: '30-degree bench, full ROM' },
+        { name: 'Cable Lateral Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Lead with elbow' },
+        { name: 'Tricep Rope Pushdown', sets: '3', reps: '10-15', tempo: '20X1', note: 'Spread rope at bottom' },
+        { name: 'Cable Fly', sets: '3', reps: '12-15', tempo: '21X1', note: 'Slight elbow bend' },
+        { name: 'Overhead Tricep Extension', sets: '3', reps: '10-12', tempo: '31X0', note: 'Elbows tight' },
+      ],
+      B: [
+        { name: 'Overhead Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Glutes tight, full lockout' },
+        { name: 'DB Flat Press', sets: '3', reps: '8-12', tempo: '20X1', note: 'Squeeze chest at top' },
+        { name: 'Cable Front Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lead with elbow' },
+        { name: 'Skull Crusher', sets: '3', reps: '8-12', tempo: '31X0', note: 'Elbows still' },
+        { name: 'DB Lateral Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Slight forward lean' },
+        { name: 'Tricep Dip', sets: '3', reps: '8-12', tempo: '20X1', note: 'Upright torso' },
+      ],
+    },
+    // Block 2 — wk 5-8: incline focus + machine pump
+    2: {
+      A: [
+        { name: 'Incline Barbell Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Upper chest emphasis, 45° bench' },
+        { name: 'Machine Chest Press', sets: '3', reps: '10-12', tempo: '21X1', note: 'Drop set on last set' },
+        { name: 'DB Lateral Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Slight forward lean' },
+        { name: 'Close-Grip Bench Press', sets: '3', reps: '8-10', tempo: '20X1', note: 'Shoulder-width grip' },
+        { name: 'Incline Cable Fly', sets: '3', reps: '12-15', tempo: '21X1', note: 'Cables set low, upper chest' },
+        { name: 'Bar Pushdown', sets: '3', reps: '12-15', tempo: '20X1', note: 'Full lockout' },
+      ],
+      B: [
+        { name: 'Arnold Press', sets: '4', reps: '8-12', tempo: '20X1', note: 'Full rotation hits all 3 delt heads' },
+        { name: 'DB Decline Press', sets: '3', reps: '8-12', tempo: '20X1', note: 'Lower pec sweep' },
+        { name: 'Cable Y-Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap + rear delt' },
+        { name: 'JM Press', sets: '3', reps: '8-10', tempo: '20X1', note: 'Hybrid press/extension, elbow path' },
+        { name: 'Pec Deck', sets: '3', reps: '12-15', tempo: '21X1', note: 'Hold 1s at peak contraction' },
+        { name: 'Tate Press', sets: '3', reps: '12-15', tempo: '20X1', note: 'Elbows flared, touch chest' },
+      ],
+    },
+    // Block 3 — wk 9-12: strength + heavy pressing emphasis
+    3: {
+      A: [
+        { name: 'Push Press', sets: '5', reps: '4-6', tempo: '20X1', note: 'Leg drive, explosive concentric' },
+        { name: 'DB Incline Press', sets: '4', reps: '6-10', tempo: '31X1', note: '3s eccentric, heavier load' },
+        { name: 'Machine Lateral Raise', sets: '4', reps: '15-20', tempo: '20X1', note: 'Dropset on last set' },
+        { name: 'Weighted Dip', sets: '3', reps: '6-10', tempo: '20X1', note: 'Belt or DB between legs' },
+        { name: 'Cable Fly (low to high)', sets: '3', reps: '12-15', tempo: '21X1', note: 'Upper chest emphasis' },
+        { name: 'Overhead Tricep Extension', sets: '3', reps: '10-12', tempo: '31X0', note: 'Long head stretch' },
+      ],
+      B: [
+        { name: 'Barbell Bench Press', sets: '5', reps: '4-6', tempo: '20X1', note: 'Heavier than block 1, earn the weight' },
+        { name: 'Seated DB Press', sets: '3', reps: '8-10', tempo: '20X1', note: 'Strict, no leg drive' },
+        { name: 'Landmine Lateral Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Arc motion, joint friendly' },
+        { name: 'Skull Crusher', sets: '4', reps: '6-8', tempo: '31X0', note: 'Heavier than block 1' },
+        { name: 'Decline Cable Fly', sets: '3', reps: '12-15', tempo: '21X1', note: 'Lower pec, cables high' },
+        { name: 'Kickback', sets: '3', reps: '12-15', tempo: '20X1', note: 'Hold 1s at full extension' },
+      ],
+    },
+    // Block 4 — wk 13-16: volume accumulation, advanced techniques
+    4: {
+      A: [
+        { name: 'Barbell Bench Press', sets: '5', reps: '5-8', tempo: '20X1', note: 'Straight sets, minimal rest 90s' },
+        { name: 'Incline Barbell Press', sets: '3', reps: '8-10', tempo: '20X1', note: 'Upper/lower superset if able' },
+        { name: 'Cable Lateral Raise', sets: '4', reps: '15-20', tempo: '20X1', note: 'Constant tension, no momentum' },
+        { name: 'Close-Grip Bench Press', sets: '4', reps: '8-10', tempo: '20X1', note: 'Tricep mass' },
+        { name: 'Pec Deck', sets: '3', reps: '15-20', tempo: '21X1', note: 'High rep finisher' },
+        { name: 'Tricep Dip', sets: '3', reps: 'AMRAP', tempo: '20X1', note: 'Max reps bodyweight finisher' },
+      ],
+      B: [
+        { name: 'Overhead Press', sets: '5', reps: '4-6', tempo: '20X1', note: 'Top of program strength' },
+        { name: 'DB Flat Press', sets: '4', reps: '8-12', tempo: '31X1', note: '3s eccentric, controlled' },
+        { name: 'Arnold Press', sets: '3', reps: '10-12', tempo: '20X1', note: 'Rotation + overhead' },
+        { name: 'Rope Pushdown', sets: '4', reps: '12-15', tempo: '20X1', note: 'Full spread at bottom' },
+        { name: 'DB Lateral Raise', sets: '4', reps: '15-20', tempo: '20X1', note: 'High volume delts' },
+        { name: 'Overhead Tricep Extension', sets: '3', reps: '10-12', tempo: '31X0', note: 'Long head peak' },
+      ],
+    },
   },
   PULL: {
-    A: [
-      { name: 'Barbell Row', sets: '4', reps: '6-10', tempo: '20X1', note: 'Hinge to 45°, drive elbows' },
-      { name: 'Lat Pulldown', sets: '3', reps: '8-12', tempo: '20X1', note: 'Pull to upper chest' },
-      { name: 'Seated Cable Row', sets: '3', reps: '10-12', tempo: '20X1', note: 'Squeeze scaps at end range' },
-      { name: 'Hammer Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Neutral grip, no swing' },
-      { name: 'Rear Delt Fly', sets: '4', reps: '12-15', tempo: '20X1', note: 'Slight elbow bend' },
-      { name: 'Preacher Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric' },
-    ],
-    B: [
-      { name: 'Pull-Up', sets: '4', reps: '5-10', tempo: '20X1', note: 'Chin over bar, full hang' },
-      { name: 'Single-Arm DB Row', sets: '3', reps: '8-12', tempo: '20X1', note: 'Drive elbow up, no twist' },
-      { name: 'Face Pull', sets: '4', reps: '12-15', tempo: '20X1', note: 'External rotation at end' },
-      { name: 'Incline DB Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Stretch at bottom' },
-      { name: 'Straight-Arm Pulldown', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lats only, no elbow bend' },
-      { name: 'Reverse Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Knuckles up, brachialis focus' },
-    ],
+    1: {
+      A: [
+        { name: 'Barbell Row', sets: '4', reps: '6-10', tempo: '20X1', note: 'Hinge to 45°, drive elbows' },
+        { name: 'Lat Pulldown', sets: '3', reps: '8-12', tempo: '20X1', note: 'Pull to upper chest' },
+        { name: 'Seated Cable Row', sets: '3', reps: '10-12', tempo: '20X1', note: 'Squeeze scaps at end range' },
+        { name: 'Hammer Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Neutral grip, no swing' },
+        { name: 'Rear Delt Fly', sets: '4', reps: '12-15', tempo: '20X1', note: 'Slight elbow bend' },
+        { name: 'Preacher Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric' },
+      ],
+      B: [
+        { name: 'Pull-Up', sets: '4', reps: '5-10', tempo: '20X1', note: 'Chin over bar, full hang' },
+        { name: 'Single-Arm DB Row', sets: '3', reps: '8-12', tempo: '20X1', note: 'Drive elbow up, no twist' },
+        { name: 'Face Pull', sets: '4', reps: '12-15', tempo: '20X1', note: 'External rotation at end' },
+        { name: 'Incline DB Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Stretch at bottom' },
+        { name: 'Straight-Arm Pulldown', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lats only, no elbow bend' },
+        { name: 'Reverse Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Knuckles up, brachialis focus' },
+      ],
+    },
+    2: {
+      A: [
+        { name: 'Pendlay Row', sets: '4', reps: '5-8', tempo: '20X1', note: 'Dead stop from floor, explosive' },
+        { name: 'Close-Grip Pulldown', sets: '3', reps: '10-12', tempo: '20X1', note: 'Neutral grip, higher lat activation' },
+        { name: 'Chest-Supported DB Row', sets: '3', reps: '10-12', tempo: '20X1', note: 'Removes lower back, pure lat focus' },
+        { name: 'EZ-Bar Curl', sets: '3', reps: '8-12', tempo: '20X1', note: 'Joint friendly, no swing' },
+        { name: 'Cable Y-Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap + rear delt' },
+        { name: 'Cable Curl', sets: '3', reps: '12-15', tempo: '20X1', note: 'Constant tension finisher' },
+      ],
+      B: [
+        { name: 'Weighted Pull-Up', sets: '4', reps: '5-8', tempo: '20X1', note: 'Belt or vest, full hang' },
+        { name: 'T-Bar Row', sets: '3', reps: '8-12', tempo: '20X1', note: 'Mid-back thickness, neutral grip' },
+        { name: 'Straight-Arm Pulldown', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lat isolation, no elbow bend' },
+        { name: 'Concentration Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Peak isolation, slow controlled' },
+        { name: 'Face Pull', sets: '3', reps: '15-20', tempo: '20X1', note: 'External rotation, shoulder health' },
+        { name: 'Spider Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Over incline bench edge, max stretch' },
+      ],
+    },
+    3: {
+      A: [
+        { name: 'Barbell Row', sets: '5', reps: '5-8', tempo: '20X1', note: 'Heavier than block 1' },
+        { name: 'Lat Pulldown', sets: '4', reps: '8-10', tempo: '21X1', note: '1s pause at full contraction' },
+        { name: 'Cable Row (wide grip)', sets: '3', reps: '10-12', tempo: '20X1', note: 'Upper back/rear delt emphasis' },
+        { name: 'Barbell Curl', sets: '4', reps: '6-10', tempo: '20X1', note: 'Heavy bilateral strength' },
+        { name: 'Rear Delt Fly', sets: '4', reps: '15-20', tempo: '20X1', note: 'High rep rear delt health' },
+        { name: 'Hammer Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Brachialis + forearm' },
+      ],
+      B: [
+        { name: 'Chin-Up', sets: '4', reps: '6-10', tempo: '20X1', note: 'Underhand, more bicep' },
+        { name: 'Rack Pull', sets: '3', reps: '4-6', tempo: '20X1', note: 'From mid-shin, upper back overload' },
+        { name: 'Inverted Row', sets: '3', reps: '10-15', tempo: '21X1', note: 'Feet elevated, full scap retraction' },
+        { name: 'Incline DB Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Long head peak contraction' },
+        { name: 'Shrug', sets: '3', reps: '10-12', tempo: '20X1', note: 'Trap thickness, full ROM' },
+        { name: 'Preacher Curl', sets: '3', reps: '8-12', tempo: '31X0', note: 'Short head, no swing possible' },
+      ],
+    },
+    4: {
+      A: [
+        { name: 'Pendlay Row', sets: '5', reps: '4-6', tempo: '20X1', note: 'Top of program strength' },
+        { name: 'Pull-Up', sets: '4', reps: 'AMRAP', tempo: '20X1', note: 'Max reps, 3 sets' },
+        { name: 'Chest-Supported DB Row', sets: '4', reps: '10-12', tempo: '20X1', note: 'Volume accumulation' },
+        { name: 'EZ-Bar Curl', sets: '4', reps: '8-10', tempo: '20X1', note: 'Strength peak' },
+        { name: 'Face Pull', sets: '4', reps: '15-20', tempo: '20X1', note: 'Shoulder health priority' },
+        { name: 'Cable Curl', sets: '3', reps: '15-20', tempo: '20X1', note: 'High rep finisher' },
+      ],
+      B: [
+        { name: 'T-Bar Row', sets: '4', reps: '8-10', tempo: '20X1', note: 'Mid-back mass' },
+        { name: 'Weighted Pull-Up', sets: '4', reps: '4-6', tempo: '20X1', note: 'Heaviest of the program' },
+        { name: 'Seated Cable Row', sets: '3', reps: '10-12', tempo: '21X1', note: '1s pause, full stretch' },
+        { name: 'Concentration Curl', sets: '4', reps: '10-12', tempo: '20X1', note: 'Perfect peak isolation' },
+        { name: 'Straight-Arm Pulldown', sets: '3', reps: '15-20', tempo: '20X1', note: 'Lat pump finisher' },
+        { name: 'Hammer Curl', sets: '3', reps: '12-15', tempo: '20X1', note: 'Brachialis finish' },
+      ],
+    },
   },
   LEGS: {
-    A: [
-      { name: 'Back Squat', sets: '4', reps: '6-10', tempo: '20X1', note: 'Brace core, depth at parallel' },
-      { name: 'Romanian Deadlift', sets: '3', reps: '8-12', tempo: '31X0', note: 'Soft knees, hinge at hips' },
-      { name: 'Leg Press', sets: '3', reps: '10-12', tempo: '20X1', note: 'Feet shoulder width' },
-      { name: 'Nordic Curl', sets: '3', reps: '6-10', tempo: '40X0', note: 'Slow descent, eccentric focus' },
-      { name: 'Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Knee tracks toe' },
-      { name: 'Leg Extension', sets: '3', reps: '12-15', tempo: '20X1', note: 'Squeeze top, slow eccentric' },
-    ],
-    B: [
-      { name: 'Bulgarian Split Squat', sets: '3', reps: '8-10/leg', tempo: '20X1', note: 'Front foot forward, sit straight down' },
-      { name: 'Hex Bar Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
-      { name: 'Seated Leg Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric' },
-      { name: 'Leg Press (high & wide)', sets: '3', reps: '10-12', tempo: '20X1', note: 'Glute focus' },
-      { name: 'Hip Thrust', sets: '3', reps: '8-12', tempo: '20X1', note: 'Squeeze glutes hard at top' },
-      { name: 'Standing Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Pause at top + bottom' },
-    ],
+    1: {
+      A: [
+        { name: 'Back Squat', sets: '4', reps: '6-10', tempo: '20X1', note: 'Brace core, depth at parallel' },
+        { name: 'Romanian Deadlift', sets: '3', reps: '8-12', tempo: '31X0', note: 'Soft knees, hinge at hips' },
+        { name: 'Leg Press', sets: '3', reps: '10-12', tempo: '20X1', note: 'Feet shoulder width' },
+        { name: 'Nordic Curl', sets: '3', reps: '6-10', tempo: '40X0', note: 'Slow descent, eccentric focus' },
+        { name: 'Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Knee tracks toe' },
+        { name: 'Leg Extension', sets: '3', reps: '12-15', tempo: '20X1', note: 'Squeeze top, slow eccentric' },
+      ],
+      B: [
+        { name: 'Bulgarian Split Squat', sets: '3', reps: '8-10/leg', tempo: '20X1', note: 'Front foot forward, sit straight down' },
+        { name: 'Hex Bar Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
+        { name: 'Seated Leg Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric' },
+        { name: 'Leg Press (high & wide)', sets: '3', reps: '10-12', tempo: '20X1', note: 'Glute focus' },
+        { name: 'Hip Thrust', sets: '3', reps: '8-12', tempo: '20X1', note: 'Squeeze glutes hard at top' },
+        { name: 'Standing Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Pause at top + bottom' },
+      ],
+    },
+    2: {
+      A: [
+        { name: 'Front Squat', sets: '4', reps: '6-10', tempo: '20X1', note: 'Upright torso, elbows up, quad dominant' },
+        { name: 'Stiff-Leg Deadlift', sets: '3', reps: '8-12', tempo: '31X0', note: 'Straighter legs, more lower back' },
+        { name: 'Hack Squat', sets: '3', reps: '10-12', tempo: '20X1', note: 'Heels elevated, quad focus' },
+        { name: 'Lying Leg Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Full stretch important' },
+        { name: 'Step-Up', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Box at 90° knee. Drive through heel' },
+        { name: 'Seated Calf Raise', sets: '4', reps: '15-20', tempo: '20X1', note: 'Soleus focus, knee bent' },
+      ],
+      B: [
+        { name: 'Goblet Squat', sets: '4', reps: '10-15', tempo: '20X1', note: 'Elbows inside knees, tall chest' },
+        { name: 'Romanian Deadlift', sets: '4', reps: '8-12', tempo: '31X0', note: 'Heavier than block 1' },
+        { name: 'Leg Press', sets: '3', reps: '15-20', tempo: '20X1', note: 'Higher rep, quad pump' },
+        { name: 'Single-Leg RDL', sets: '3', reps: '10/leg', tempo: '21X1', note: 'Balance + hamstring' },
+        { name: 'Reverse Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Less knee stress, hip stability' },
+        { name: 'Leg Extension', sets: '3', reps: '15-20', tempo: '20X1', note: 'High rep quad finisher' },
+      ],
+    },
+    3: {
+      A: [
+        { name: 'Back Squat', sets: '5', reps: '4-6', tempo: '20X1', note: 'Heavier than block 1, intensification' },
+        { name: 'Romanian Deadlift', sets: '4', reps: '6-10', tempo: '31X0', note: 'Heavier, fewer reps' },
+        { name: 'Bulgarian Split Squat', sets: '3', reps: '8/leg', tempo: '20X1', note: 'Strength focus, add weight' },
+        { name: 'Nordic Curl', sets: '3', reps: '8-12', tempo: '40X0', note: 'More reps than block 1' },
+        { name: 'Leg Extension', sets: '4', reps: '12-15', tempo: '21X1', note: '1s hold at top' },
+        { name: 'Calf Raise (single-leg)', sets: '4', reps: '15/leg', tempo: '20X1', note: 'Full ROM, bodyweight or weighted' },
+      ],
+      B: [
+        { name: 'Hex Bar Deadlift', sets: '5', reps: '4-6', tempo: '20X1', note: 'Heavier than block 1' },
+        { name: 'Hack Squat', sets: '3', reps: '10-12', tempo: '31X1', note: 'Eccentric emphasis' },
+        { name: 'Hip Thrust', sets: '4', reps: '8-10', tempo: '20X1', note: 'Loaded heavier, glute peak' },
+        { name: 'Seated Leg Curl', sets: '4', reps: '10-12', tempo: '31X0', note: 'Heavier than block 1' },
+        { name: 'Step-Up', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Add weight from block 2' },
+        { name: 'Standing Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Pause at stretch' },
+      ],
+    },
+    4: {
+      A: [
+        { name: 'Front Squat', sets: '5', reps: '4-6', tempo: '20X1', note: 'Top of program strength' },
+        { name: 'Stiff-Leg Deadlift', sets: '4', reps: '6-8', tempo: '31X0', note: 'Heavy posterior chain' },
+        { name: 'Leg Press', sets: '4', reps: '10-15', tempo: '20X1', note: 'Volume accumulation' },
+        { name: 'Lying Leg Curl', sets: '4', reps: '10-12', tempo: '31X0', note: 'Full stretch + squeeze' },
+        { name: 'Walking Lunge', sets: '3', reps: '12/leg', tempo: '20X1', note: 'Heavy, controlled' },
+        { name: 'Seated Calf Raise', sets: '4', reps: '15-20', tempo: '20X1', note: 'High volume soleus finish' },
+      ],
+      B: [
+        { name: 'Back Squat', sets: '5', reps: '5-8', tempo: '20X1', note: 'Accumulated strength peak' },
+        { name: 'Romanian Deadlift', sets: '4', reps: '8-10', tempo: '31X0', note: 'Best of the program' },
+        { name: 'Hip Thrust', sets: '4', reps: '10-12', tempo: '20X1', note: 'Full glute peak' },
+        { name: 'Nordic Curl', sets: '3', reps: '10-15', tempo: '40X0', note: 'Strongest block' },
+        { name: 'Leg Extension', sets: '3', reps: '15-20', tempo: '20X1', note: 'Pump finisher' },
+        { name: 'Standing Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Full ROM' },
+      ],
+    },
   },
   UPPER: {
-    A: [
-      { name: 'Barbell Bench Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Drive heels, retract scapula' },
-      { name: 'Barbell Row', sets: '4', reps: '6-10', tempo: '20X1', note: 'Hinge to 45°' },
-      { name: 'DB Incline Press', sets: '3', reps: '8-12', tempo: '20X1', note: '30-degree bench' },
-      { name: 'Lat Pulldown', sets: '3', reps: '10-12', tempo: '20X1', note: 'Pull to upper chest' },
-      { name: 'DB Lateral Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Slight forward lean' },
-      { name: 'Hammer Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'No swing' },
-    ],
-    B: [
-      { name: 'Overhead Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Glutes tight' },
-      { name: 'Pull-Up', sets: '4', reps: '5-10', tempo: '20X1', note: 'Full hang to chin over' },
-      { name: 'DB Flat Press', sets: '3', reps: '8-12', tempo: '20X1', note: 'Squeeze chest at top' },
-      { name: 'Single-Arm DB Row', sets: '3', reps: '8-12', tempo: '20X1', note: 'Drive elbow up' },
-      { name: 'Face Pull', sets: '3', reps: '12-15', tempo: '20X1', note: 'External rotation' },
-      { name: 'Tricep Rope Pushdown', sets: '3', reps: '10-15', tempo: '20X1', note: 'Spread at bottom' },
-    ],
+    1: {
+      A: [
+        { name: 'Barbell Bench Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Drive heels, retract scapula' },
+        { name: 'Barbell Row', sets: '4', reps: '6-10', tempo: '20X1', note: 'Hinge to 45°' },
+        { name: 'DB Incline Press', sets: '3', reps: '8-12', tempo: '20X1', note: '30-degree bench' },
+        { name: 'Lat Pulldown', sets: '3', reps: '10-12', tempo: '20X1', note: 'Pull to upper chest' },
+        { name: 'DB Lateral Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Slight forward lean' },
+        { name: 'Hammer Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'No swing' },
+      ],
+      B: [
+        { name: 'Overhead Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Glutes tight' },
+        { name: 'Pull-Up', sets: '4', reps: '5-10', tempo: '20X1', note: 'Full hang to chin over' },
+        { name: 'DB Flat Press', sets: '3', reps: '8-12', tempo: '20X1', note: 'Squeeze chest at top' },
+        { name: 'Single-Arm DB Row', sets: '3', reps: '8-12', tempo: '20X1', note: 'Drive elbow up' },
+        { name: 'Face Pull', sets: '3', reps: '12-15', tempo: '20X1', note: 'External rotation' },
+        { name: 'Tricep Rope Pushdown', sets: '3', reps: '10-15', tempo: '20X1', note: 'Spread at bottom' },
+      ],
+    },
+    2: {
+      A: [
+        { name: 'Incline Barbell Press', sets: '4', reps: '6-10', tempo: '20X1', note: 'Upper chest emphasis' },
+        { name: 'Pendlay Row', sets: '4', reps: '5-8', tempo: '20X1', note: 'Dead stop, explosive' },
+        { name: 'Arnold Press', sets: '3', reps: '8-12', tempo: '20X1', note: 'Full rotation' },
+        { name: 'Close-Grip Pulldown', sets: '3', reps: '10-12', tempo: '20X1', note: 'Neutral grip' },
+        { name: 'Cable Lateral Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Constant tension' },
+        { name: 'EZ-Bar Curl', sets: '3', reps: '8-12', tempo: '20X1', note: 'Joint friendly' },
+      ],
+      B: [
+        { name: 'Push Press', sets: '4', reps: '4-6', tempo: '20X1', note: 'Leg drive, explosive' },
+        { name: 'Chest-Supported DB Row', sets: '4', reps: '10-12', tempo: '20X1', note: 'Pure back, no lower back' },
+        { name: 'Pec Deck', sets: '3', reps: '12-15', tempo: '21X1', note: 'Constant tension fly' },
+        { name: 'Weighted Pull-Up', sets: '3', reps: '5-8', tempo: '20X1', note: 'Add weight' },
+        { name: 'Rear Delt Fly', sets: '3', reps: '15-20', tempo: '20X1', note: 'High rep rear delt' },
+        { name: 'Incline DB Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Long head stretch' },
+      ],
+    },
+    3: {
+      A: [
+        { name: 'Barbell Bench Press', sets: '5', reps: '4-6', tempo: '20X1', note: 'Intensification, heavier' },
+        { name: 'Barbell Row', sets: '5', reps: '4-6', tempo: '20X1', note: 'Match press intensity' },
+        { name: 'Weighted Dip', sets: '3', reps: '6-10', tempo: '20X1', note: 'Belt or vest' },
+        { name: 'Lat Pulldown', sets: '4', reps: '8-10', tempo: '21X1', note: 'Pause at contraction' },
+        { name: 'Face Pull', sets: '4', reps: '15-20', tempo: '20X1', note: 'Shoulder health priority' },
+        { name: 'Barbell Curl', sets: '3', reps: '6-10', tempo: '20X1', note: 'Heavy bilateral' },
+      ],
+      B: [
+        { name: 'Overhead Press', sets: '5', reps: '4-6', tempo: '20X1', note: 'Heavier than block 1' },
+        { name: 'T-Bar Row', sets: '4', reps: '8-10', tempo: '20X1', note: 'Mid-back thickness' },
+        { name: 'Close-Grip Bench Press', sets: '3', reps: '6-10', tempo: '20X1', note: 'Tricep strength' },
+        { name: 'Chin-Up', sets: '4', reps: '6-10', tempo: '20X1', note: 'Underhand, more bicep' },
+        { name: 'Cable Y-Raise', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap health' },
+        { name: 'Hammer Curl', sets: '3', reps: '10-12', tempo: '20X1', note: 'Brachialis' },
+      ],
+    },
+    4: {
+      A: [
+        { name: 'Incline Barbell Press', sets: '5', reps: '4-6', tempo: '20X1', note: 'Best strength of program' },
+        { name: 'Pendlay Row', sets: '5', reps: '4-6', tempo: '20X1', note: 'Peak power' },
+        { name: 'DB Flat Press', sets: '3', reps: '10-12', tempo: '20X1', note: 'Volume addition' },
+        { name: 'Weighted Pull-Up', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heaviest of program' },
+        { name: 'Arnold Press', sets: '3', reps: '10-12', tempo: '20X1', note: 'Delt sweep' },
+        { name: 'Cable Curl', sets: '3', reps: '15-20', tempo: '20X1', note: 'High rep finisher' },
+      ],
+      B: [
+        { name: 'Push Press', sets: '5', reps: '4-6', tempo: '20X1', note: 'Program peak load' },
+        { name: 'T-Bar Row', sets: '5', reps: '6-8', tempo: '20X1', note: 'Heavy volume' },
+        { name: 'Pec Deck', sets: '4', reps: '15-20', tempo: '21X1', note: 'Volume chest finisher' },
+        { name: 'Lat Pulldown', sets: '4', reps: '10-12', tempo: '20X1', note: 'Lat width' },
+        { name: 'Lateral Raise (DB)', sets: '4', reps: '15-20', tempo: '20X1', note: 'Delt volume peak' },
+        { name: 'Incline DB Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Long head peak' },
+      ],
+    },
   },
   LOWER: {
-    A: [
-      { name: 'Back Squat', sets: '4', reps: '6-10', tempo: '20X1', note: 'Brace core' },
-      { name: 'Romanian Deadlift', sets: '3', reps: '8-12', tempo: '31X0', note: 'Soft knees' },
-      { name: 'Leg Press', sets: '3', reps: '10-12', tempo: '20X1', note: 'Feet shoulder width' },
-      { name: 'Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Knee tracks toe' },
-      { name: 'Standing Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Pause top + bottom' },
-    ],
-    B: [
-      { name: 'Hex Bar Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
-      { name: 'Bulgarian Split Squat', sets: '3', reps: '8-10/leg', tempo: '20X1', note: 'Sit straight down' },
-      { name: 'Seated Leg Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric' },
-      { name: 'Hip Thrust', sets: '3', reps: '8-12', tempo: '20X1', note: 'Squeeze glutes hard' },
-      { name: 'Seated Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Soleus focus' },
-    ],
+    1: {
+      A: [
+        { name: 'Back Squat', sets: '4', reps: '6-10', tempo: '20X1', note: 'Brace core' },
+        { name: 'Romanian Deadlift', sets: '3', reps: '8-12', tempo: '31X0', note: 'Soft knees' },
+        { name: 'Leg Press', sets: '3', reps: '10-12', tempo: '20X1', note: 'Feet shoulder width' },
+        { name: 'Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Knee tracks toe' },
+        { name: 'Standing Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Pause top + bottom' },
+      ],
+      B: [
+        { name: 'Hex Bar Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
+        { name: 'Bulgarian Split Squat', sets: '3', reps: '8-10/leg', tempo: '20X1', note: 'Sit straight down' },
+        { name: 'Seated Leg Curl', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric' },
+        { name: 'Hip Thrust', sets: '3', reps: '8-12', tempo: '20X1', note: 'Squeeze glutes hard' },
+        { name: 'Seated Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Soleus focus' },
+      ],
+    },
+    2: {
+      A: [
+        { name: 'Front Squat', sets: '4', reps: '6-10', tempo: '20X1', note: 'Quad dominant' },
+        { name: 'Stiff-Leg Deadlift', sets: '3', reps: '8-12', tempo: '31X0', note: 'More lower back involvement' },
+        { name: 'Hack Squat', sets: '3', reps: '10-12', tempo: '20X1', note: 'Heels elevated quad pump' },
+        { name: 'Reverse Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Less knee stress' },
+        { name: 'Seated Calf Raise', sets: '4', reps: '15-20', tempo: '20X1', note: 'Soleus emphasis' },
+      ],
+      B: [
+        { name: 'Romanian Deadlift', sets: '4', reps: '8-12', tempo: '31X0', note: 'Heavier than block 1' },
+        { name: 'Goblet Squat', sets: '3', reps: '12-15', tempo: '20X1', note: 'Quad pump, high rep' },
+        { name: 'Single-Leg RDL', sets: '3', reps: '10/leg', tempo: '21X1', note: 'Balance + posterior chain' },
+        { name: 'Hip Thrust', sets: '3', reps: '10-15', tempo: '20X1', note: 'More reps, same load' },
+        { name: 'Standing Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Pause at stretch' },
+      ],
+    },
+    3: {
+      A: [
+        { name: 'Back Squat', sets: '5', reps: '4-6', tempo: '20X1', note: 'Intensification, heavier' },
+        { name: 'Romanian Deadlift', sets: '4', reps: '6-8', tempo: '31X0', note: 'Heavier, fewer reps' },
+        { name: 'Leg Press', sets: '4', reps: '10-12', tempo: '20X1', note: 'Volume increase' },
+        { name: 'Nordic Curl', sets: '3', reps: '8-12', tempo: '40X0', note: 'Hamstring injury prevention' },
+        { name: 'Single-Leg Calf Raise', sets: '4', reps: '15/leg', tempo: '20X1', note: 'Unilateral full ROM' },
+      ],
+      B: [
+        { name: 'Hex Bar Deadlift', sets: '5', reps: '4-6', tempo: '20X1', note: 'Heavier than block 1' },
+        { name: 'Front Squat', sets: '3', reps: '6-8', tempo: '20X1', note: 'Quad + core strength' },
+        { name: 'Lying Leg Curl', sets: '4', reps: '10-12', tempo: '31X0', note: 'Full stretch' },
+        { name: 'Hip Thrust', sets: '4', reps: '8-10', tempo: '20X1', note: 'Loaded heavier' },
+        { name: 'Seated Calf Raise', sets: '4', reps: '15-20', tempo: '20X1', note: 'Soleus peak' },
+      ],
+    },
+    4: {
+      A: [
+        { name: 'Front Squat', sets: '5', reps: '4-6', tempo: '20X1', note: 'Program peak' },
+        { name: 'Stiff-Leg Deadlift', sets: '4', reps: '6-8', tempo: '31X0', note: 'Heaviest of program' },
+        { name: 'Hack Squat', sets: '3', reps: '10-12', tempo: '31X1', note: 'Eccentric emphasis' },
+        { name: 'Walking Lunge', sets: '3', reps: '12/leg', tempo: '20X1', note: 'Heavy conditioning' },
+        { name: 'Standing Calf Raise', sets: '4', reps: '12-15', tempo: '20X1', note: 'Full ROM' },
+      ],
+      B: [
+        { name: 'Back Squat', sets: '5', reps: '5-8', tempo: '20X1', note: 'Accumulated strength' },
+        { name: 'Romanian Deadlift', sets: '4', reps: '8-10', tempo: '31X0', note: 'Best of program' },
+        { name: 'Bulgarian Split Squat', sets: '3', reps: '8/leg', tempo: '20X1', note: 'Unilateral strength peak' },
+        { name: 'Hip Thrust', sets: '4', reps: '10-12', tempo: '20X1', note: 'Glute peak' },
+        { name: 'Seated Calf Raise', sets: '4', reps: '15-20', tempo: '20X1', note: 'Volume finish' },
+      ],
+    },
   },
   FULL: {
-    A: [
-      { name: 'Goblet Squat', sets: '3', reps: '8-12', tempo: '20X1', note: 'Elbows inside knees' },
-      { name: 'DB Push Press', sets: '3', reps: '6-10', tempo: '20X1', note: 'Use leg drive' },
-      { name: 'Trap Bar Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
-      { name: 'Chin-Up', sets: '3', reps: '5-10', tempo: '20X1', note: 'Full hang to chin over' },
-      { name: 'DB Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Heavy DBs at sides' },
-      { name: 'Plank to Push-Up', sets: '3', reps: '8-10', tempo: '20X1', note: 'Hips stay square' },
-    ],
-    B: [
-      { name: 'Front Squat', sets: '3', reps: '6-10', tempo: '20X1', note: 'Elbows up, chest tall' },
-      { name: 'DB Strict Press', sets: '3', reps: '8-10', tempo: '20X1', note: 'No leg drive' },
-      { name: 'Sumo Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Wide stance, knees out' },
-      { name: 'Inverted Row', sets: '3', reps: '8-12', tempo: '21X1', note: 'Squeeze scaps at top' },
-      { name: 'Reverse Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Step back, knee to ground' },
-      { name: 'Hollow Hold', sets: '3', reps: '20-30s', tempo: '-', note: 'Lower back pressed flat' },
-    ],
+    1: {
+      A: [
+        { name: 'Goblet Squat', sets: '3', reps: '8-12', tempo: '20X1', note: 'Elbows inside knees' },
+        { name: 'DB Push Press', sets: '3', reps: '6-10', tempo: '20X1', note: 'Use leg drive' },
+        { name: 'Trap Bar Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
+        { name: 'Chin-Up', sets: '3', reps: '5-10', tempo: '20X1', note: 'Full hang to chin over' },
+        { name: 'DB Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Heavy DBs at sides' },
+        { name: 'Plank to Push-Up', sets: '3', reps: '8-10', tempo: '20X1', note: 'Hips stay square' },
+      ],
+      B: [
+        { name: 'Front Squat', sets: '3', reps: '6-10', tempo: '20X1', note: 'Elbows up, chest tall' },
+        { name: 'DB Strict Press', sets: '3', reps: '8-10', tempo: '20X1', note: 'No leg drive' },
+        { name: 'Sumo Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Wide stance, knees out' },
+        { name: 'Inverted Row', sets: '3', reps: '8-12', tempo: '21X1', note: 'Squeeze scaps at top' },
+        { name: 'Reverse Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Step back, knee to ground' },
+        { name: 'Hollow Hold', sets: '3', reps: '20-30s', tempo: '-', note: 'Lower back pressed flat' },
+      ],
+    },
+    2: {
+      A: [
+        { name: 'Back Squat', sets: '4', reps: '6-10', tempo: '20X1', note: 'Full body strength anchor' },
+        { name: 'Overhead Press', sets: '3', reps: '8-10', tempo: '20X1', note: 'Vertical push' },
+        { name: 'Romanian Deadlift', sets: '3', reps: '8-12', tempo: '31X0', note: 'Posterior chain' },
+        { name: 'Pull-Up', sets: '3', reps: '6-10', tempo: '20X1', note: 'Vertical pull' },
+        { name: 'DB Step-Up', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Hip drive at top' },
+        { name: 'Ab Wheel Rollout', sets: '3', reps: '8-12', tempo: '-', note: 'Full hollow body' },
+      ],
+      B: [
+        { name: 'Hex Bar Deadlift', sets: '4', reps: '5-8', tempo: '20X1', note: 'Hips down, full body' },
+        { name: 'Arnold Press', sets: '3', reps: '8-12', tempo: '20X1', note: 'Full rotation' },
+        { name: 'Goblet Squat', sets: '3', reps: '10-15', tempo: '20X1', note: 'High rep quad flush' },
+        { name: 'Barbell Row', sets: '3', reps: '8-10', tempo: '20X1', note: 'Horizontal pull' },
+        { name: 'Hip Thrust', sets: '3', reps: '10-12', tempo: '20X1', note: 'Glute activation' },
+        { name: 'Dead Bug', sets: '3', reps: '10/side', tempo: '-', note: 'Anti-extension core' },
+      ],
+    },
+    3: {
+      A: [
+        { name: 'Trap Bar Deadlift', sets: '5', reps: '4-6', tempo: '20X1', note: 'Intensification' },
+        { name: 'Push Press', sets: '3', reps: '5-8', tempo: '20X1', note: 'Leg drive, power' },
+        { name: 'Bulgarian Split Squat', sets: '3', reps: '8/leg', tempo: '20X1', note: 'Unilateral strength' },
+        { name: 'Weighted Pull-Up', sets: '3', reps: '5-8', tempo: '20X1', note: 'Added load' },
+        { name: 'Single-Leg RDL', sets: '3', reps: '10/leg', tempo: '21X1', note: 'Balance + hinge' },
+        { name: 'Pallof Press', sets: '3', reps: '12/side', tempo: '-', note: 'Anti-rotation core' },
+      ],
+      B: [
+        { name: 'Front Squat', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavier than block 1' },
+        { name: 'Close-Grip Bench Press', sets: '3', reps: '8-10', tempo: '20X1', note: 'Horizontal push variation' },
+        { name: 'Conventional Deadlift', sets: '3', reps: '4-6', tempo: '20X1', note: 'Heavy hinge' },
+        { name: 'Chin-Up', sets: '3', reps: '8-12', tempo: '20X1', note: 'More reps' },
+        { name: 'Walking Lunge', sets: '3', reps: '12/leg', tempo: '20X1', note: 'Unilateral conditioning' },
+        { name: 'Hanging Leg Raise', sets: '3', reps: '12-15', tempo: '-', note: 'Hip flexor + core' },
+      ],
+    },
+    4: {
+      A: [
+        { name: 'Back Squat', sets: '5', reps: '4-6', tempo: '20X1', note: 'Peak lower body strength' },
+        { name: 'Overhead Press', sets: '4', reps: '4-6', tempo: '20X1', note: 'Peak upper strength' },
+        { name: 'Romanian Deadlift', sets: '4', reps: '6-8', tempo: '31X0', note: 'Heavy posterior' },
+        { name: 'Weighted Pull-Up', sets: '4', reps: '5-8', tempo: '20X1', note: 'Program peak' },
+        { name: 'Step-Up', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Unilateral load' },
+        { name: 'Ab Wheel Rollout', sets: '3', reps: '12-15', tempo: '-', note: 'Core peak strength' },
+      ],
+      B: [
+        { name: 'Hex Bar Deadlift', sets: '5', reps: '4-6', tempo: '20X1', note: 'Best of program' },
+        { name: 'Push Press', sets: '4', reps: '4-6', tempo: '20X1', note: 'Peak power output' },
+        { name: 'Front Squat', sets: '3', reps: '6-8', tempo: '20X1', note: 'Volume addition' },
+        { name: 'T-Bar Row', sets: '3', reps: '8-10', tempo: '20X1', note: 'Back thickness' },
+        { name: 'Hip Thrust', sets: '4', reps: '10-12', tempo: '20X1', note: 'Glute peak' },
+        { name: 'Pallof Press', sets: '3', reps: '12/side', tempo: '-', note: 'Anti-rotation finish' },
+      ],
+    },
   },
 };
 
@@ -1092,6 +1429,11 @@ const warmupForDayType = (dayType) => {
 // ============================================================
 const isAWeek = (week) => week % 2 === 1;
 
+// Which 4-week block are we in? Returns 1-4, cycling every 4 weeks.
+// wk 1-4 = block 1, wk 5-8 = block 2, wk 9-12 = block 3, wk 13-16 = block 4
+// wk 17+ loops back: 17-20 = block 1 again, etc.
+const blockFor = (week) => (Math.floor((week - 1) / 4) % 4) + 1;
+
 // Returns 0-indexed occurrence of dayType within schedule up to and including dayIdx.
 // E.g., schedule = [PUSH, PULL, REST, PUSH, PULL, REST, REST]
 //   dayIdx=0 (PUSH) → 0 (1st PUSH)
@@ -1437,7 +1779,7 @@ const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx) 
         { name: 'Bent-Over Row', sets: '3', reps: '10', tempo: '20X1', note: 'Squeeze scaps' },
         { name: 'Plank', sets: '3', reps: '45s', tempo: '-', note: 'Brace' },
       ],
-      FULL: AB_EXERCISES.FULL[variantFor(schedule, dayIdx, dayType, week)],
+      FULL: AB_EXERCISES.FULL[blockFor(week)]?.[variantFor(schedule, dayIdx, dayType, week)] || AB_EXERCISES.FULL[1][variantFor(schedule, dayIdx, dayType, week)],
     };
     if (hiitMap[t]) {
       // STRENGTH and FULL get progression, HIIT itself stays fixed (interval scheme is the work)
@@ -1454,13 +1796,17 @@ const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx) 
       return { exercises: progress(base), finisher: null, variant };
     }
     if (t === 'LEGS') {
+      const block = blockFor(week);
       const variant = variantFor(schedule, dayIdx, dayType, week);
-      return { exercises: progress(AB_EXERCISES.LEGS[variant]), finisher: null, variant };
+      const pool = (AB_EXERCISES.LEGS[block] || AB_EXERCISES.LEGS[1]);
+      return { exercises: progress(pool[variant] || pool.A), finisher: null, variant, block };
     }
     // PUSH/PULL fallback to AB
     if (AB_EXERCISES[t]) {
+      const block = blockFor(week);
       const variant = variantFor(schedule, dayIdx, dayType, week);
-      return { exercises: progress(AB_EXERCISES[t][variant]), finisher: null, variant };
+      const pool = (AB_EXERCISES[t][block] || AB_EXERCISES[t][1]);
+      return { exercises: progress(pool[variant] || pool.A), finisher: null, variant, block };
     }
     if (t === 'CARDIO') {
       const c = cardioProtocol('fatloss', week, totalWeeks);
@@ -1470,8 +1816,10 @@ const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx) 
 
   // Functional BB and default — A/B variation by occurrence (and week parity for 1×/wk)
   if (AB_EXERCISES[t]) {
+    const block = blockFor(week);
     const variant = variantFor(schedule, dayIdx, dayType, week);
-    const exes = progress(AB_EXERCISES[t][variant]);
+    const pool = (AB_EXERCISES[t][block] || AB_EXERCISES[t][1]);
+    const exes = progress(pool[variant] || pool.A);
     // Mark supersets for func_bb (A1/A2 = ex 0+1, B1/B2 = ex 2+3, C1/C2 = ex 4+5)
     if (style === 'func_bb') {
       const tagged = exes.map((e, i) => {
@@ -2842,8 +3190,10 @@ const Workouts = ({ state, setState }) => {
   const phaseInfo = profile.workoutStyle === 'rp_hyp' ? rpWeekData(dayProgramWeek, profile.weeks) : phaseForWeek(dayProgramWeek, profile.weeks);
   const showWeekNote = dayProgramWeek >= 2 && phaseInfo.note;
 
-  // Variant indicator for A/B
+  // Variant + block indicator
   const variant = exData?.variant;
+  const currentBlock = blockFor(dayProgramWeek);
+  const isBlockTransition = dayProgramWeek > 1 && dayProgramWeek % 4 === 1;
 
   return (
     <div>
@@ -2854,6 +3204,7 @@ const Workouts = ({ state, setState }) => {
         }}>‹</Btn>
         <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: TEXT_DIM, letterSpacing: 1 }}>
           WEEK {dayProgramWeek} OF {profile.weeks}
+          <span style={{ color: ORANGE, marginLeft: 6 }}>BLOCK {currentBlock}</span>
         </div>
         <Btn size="sm" variant="ghost" onClick={() => {
           const d = isoToDate(viewISO); d.setDate(d.getDate() + 7); setViewISO(dateToISO(d));
@@ -2965,8 +3316,18 @@ const Workouts = ({ state, setState }) => {
       {session?.done && <Card style={{ background: `${GREEN}20`, marginBottom: 10 }}><H size={13} color={GREEN} mb={0}>✓ DONE</H></Card>}
       {session?.skipped && <Card style={{ background: `${RED}20`, marginBottom: 10 }}><H size={13} color={RED} mb={0}>× SKIPPED{session.moved ? ' (MOVED)' : ''}</H></Card>}
 
-      {/* Week note */}
-      {showWeekNote && !session?.skipped && dayType !== 'REST' && (
+      {/* Block transition banner */}
+      {isBlockTransition && dayType !== 'REST' && !session?.skipped && (
+        <Card style={{ marginBottom: 10, background: `${ORANGE}15`, border: `2px solid ${ORANGE}`, borderRadius: 8 }}>
+          <H size={14} color={ORANGE} mb={4}>🔄 NEW EXERCISE BLOCK</H>
+          <div style={{ fontSize: 12, color: '#fff' }}>
+            You've entered Block {currentBlock} — fresh exercise selection for the next 4 weeks. Different angles, new movement patterns. <strong style={{ color: ACCENT }}>Weights carry over</strong> for any exercises returning from earlier blocks.
+          </div>
+        </Card>
+      )}
+
+      {/* Week note (weeks 2+, non-transition) */}
+      {showWeekNote && !isBlockTransition && !session?.skipped && dayType !== 'REST' && (
         <Card style={{ marginBottom: 10, background: CARD2, borderLeft: `3px solid ${ACCENT}` }}>
           <Label>THIS WEEK'S CHANGE</Label>
           <div style={{ fontSize: 12, color: '#fff' }}>{phaseInfo.note}</div>
