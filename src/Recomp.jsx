@@ -1378,6 +1378,11 @@ const EXERCISE_LIBRARY_FLAT = Object.entries(EXERCISE_LIBRARY).flatMap(([muscle,
 const EQUIPMENT_TYPES = ['All', 'Barbell', 'Dumbbells', 'Cable', 'Machine', 'Bodyweight', 'Kettlebell', 'Other', 'Cardio Machine'];
 const MUSCLE_GROUPS = ['All', ...Object.keys(EXERCISE_LIBRARY)];
 
+const SLEEP_GOAL_HOURS = 7.5;
+const DEFAULT_MEAL_SECTIONS = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+
+const getMealSections = (fmeal, iso) => fmeal[iso] || [...DEFAULT_MEAL_SECTIONS];
+
 const RESTAURANT_CHIPS = [
   { emoji: '🌯', name: 'Chipotle' },
   { emoji: '🐔', name: 'Chick-fil-A' },
@@ -2490,12 +2495,15 @@ const defaultState = () => ({
   schemaVersion: SCHEMA_VERSION,
   profile: defaultProfile(),
   week: 1,
-  wlog: [], // [{date, weight}]
-  food: {}, // { iso: [{name, cal, p, c, f, qty}] }
-  jlog: [], // [{date, mood, notes}]
-  sessions: {}, // { s_iso: { iso, dayType, exercises, setLogs, feedback, done, skipped, notes, raceTime, completedAt } }
-  runs: [], // [{id, date, type, distMi, distKm, totalSec, paceSec, hr, elev, route, notes}]
-  conv: [], // ai coach conversation
+  wlog: [],   // [{date, weight}]
+  food: {},   // { iso: [{id, name, cal, p, c, f, qty, meal, loggedAt}] }
+  fmeal: {},  // { iso: ['Breakfast','Lunch','Dinner','Snack', ...custom] }
+  mplans: {}, // { iso: { meals: [{meal, name, description, ingredients, recipe, cal, p, c, f, url, logged}], generatedAt } }
+  jlog: [],
+  slog: [],
+  sessions: {},
+  runs: [],
+  conv: [],
 });
 
 const loadState = async () => {
@@ -2526,7 +2534,10 @@ const loadState = async () => {
     if (!Array.isArray(merged.jlog)) merged.jlog = [];
     if (!Array.isArray(merged.runs)) merged.runs = [];
     if (!Array.isArray(merged.conv)) merged.conv = [];
+    if (!Array.isArray(merged.slog)) merged.slog = [];
     if (!merged.food || typeof merged.food !== 'object') merged.food = {};
+    if (!merged.fmeal || typeof merged.fmeal !== 'object') merged.fmeal = {};
+    if (!merged.mplans || typeof merged.mplans !== 'object') merged.mplans = {};
     if (!merged.sessions || typeof merged.sessions !== 'object') merged.sessions = {};
     if (!merged.profile.weeks) merged.profile.weeks = 12;
     if (!merged.profile.workoutStyle) merged.profile.workoutStyle = 'func_bb';
@@ -2607,7 +2618,7 @@ const H = ({ children, size = 16, color = '#fff', mb = 8, style = {} }) => (
   }}>{children}</div>
 );
 
-const Btn = ({ children, onClick, variant = 'primary', size = 'md', disabled, style = {}, type = 'button' }) => {
+const Btn = ({ children, onClick, variant = 'primary', size = 'md', disabled, style = {}, type = 'button', title }) => {
   const sizes = {
     sm: { padding: '6px 10px', fontSize: 11 },
     md: { padding: '10px 14px', fontSize: 13 },
@@ -2624,6 +2635,7 @@ const Btn = ({ children, onClick, variant = 'primary', size = 'md', disabled, st
   return (
     <button
       type={type}
+      title={title}
       onClick={onClick}
       disabled={disabled}
       style={{
@@ -3008,7 +3020,7 @@ const SetupScreen = ({ onComplete }) => {
             {/* Compact preview */}
             <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 6, padding: 10, marginBottom: 10 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
-                {profile.schedule.map((d, i) => {
+                {(profile.schedule || []).map((d, i) => {
                   const c = DAY_TYPE_COLOR[d] || TEXT_MUTED;
                   return (
                     <div key={i} style={{ textAlign: 'center' }}>
@@ -4266,6 +4278,227 @@ const Runs = ({ state, setState }) => {
 // ============================================================
 // METRICS VIEW
 // ============================================================
+// ============================================================
+// SLEEP SECTION (used in Metrics)
+// ============================================================
+const formatDuration = (hours) => {
+  if (!hours || hours <= 0) return '—';
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+};
+
+const parseBedWake = (bedtime, wakeTime) => {
+  // Returns duration in hours accounting for overnight (bedtime may be next-day-morning)
+  if (!bedtime || !wakeTime) return null;
+  const [bh, bm] = bedtime.split(':').map(Number);
+  const [wh, wm] = wakeTime.split(':').map(Number);
+  if (isNaN(bh) || isNaN(wh)) return null;
+  let dur = (wh + wm / 60) - (bh + bm / 60);
+  if (dur <= 0) dur += 24; // overnight
+  return Math.round(dur * 10) / 10;
+};
+
+const SleepSection = ({ state, setState }) => {
+  const { slog } = state;
+  const [bedtime, setBedtime] = useState('22:00');
+  const [wakeTime, setWakeTime] = useState('06:30');
+  const [notes, setNotes] = useState('');
+  const [date, setDate] = useState(todayISO());
+  const [showForm, setShowForm] = useState(false);
+
+  const sortedSlog = [...slog].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const recent = sortedSlog.slice(0, 14);
+  const avgHours = recent.length
+    ? recent.reduce((a, s) => a + (s.durationHours || 0), 0) / recent.length
+    : 0;
+  const last7Avg = sortedSlog.slice(0, 7).length
+    ? sortedSlog.slice(0, 7).reduce((a, s) => a + (s.durationHours || 0), 0) / Math.min(7, sortedSlog.length)
+    : 0;
+
+  const sleepColor = (h) => {
+    if (!h) return TEXT_DIM;
+    if (h >= SLEEP_GOAL_HOURS) return GREEN;
+    if (h >= 6) return '#fbbf24';
+    return RED;
+  };
+
+  const logSleep = () => {
+    const dur = parseBedWake(bedtime, wakeTime);
+    if (!dur) return;
+    const entry = {
+      id: 'sl_' + Date.now(),
+      date, bedtime, wakeTime,
+      durationHours: dur,
+      notes,
+    };
+    setState((p) => ({ ...p, slog: [...(p.slog || []).filter((s) => s.date !== date), entry] }));
+    setNotes('');
+    setShowForm(false);
+  };
+
+  const deleteSleep = (id) => setState((p) => ({ ...p, slog: (p.slog || []).filter((s) => s.id !== id) }));
+
+  const lastEntry = sortedSlog[0];
+  const isUnderGoal = lastEntry && lastEntry.durationHours < SLEEP_GOAL_HOURS;
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <H size={15}>SLEEP</H>
+
+      {/* Under goal warning */}
+      {isUnderGoal && (
+        <Card style={{ background: `${RED}15`, border: `1px solid ${RED}55`, marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 20 }}>⚠️</span>
+            <div>
+              <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 12, color: RED, letterSpacing: 1 }}>
+                LAST NIGHT: {formatDuration(lastEntry.durationHours)} — UNDER GOAL
+              </div>
+              <div style={{ fontSize: 11, color: TEXT_DIM, marginTop: 2 }}>
+                Target is {formatDuration(SLEEP_GOAL_HOURS)}. Sleep affects recovery, strength, and fat loss significantly.
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+        <Card>
+          <Label>LAST NIGHT</Label>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 22, color: sleepColor(lastEntry?.durationHours) }}>
+            {formatDuration(lastEntry?.durationHours)}
+          </div>
+        </Card>
+        <Card>
+          <Label>7-DAY AVG</Label>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 22, color: sleepColor(last7Avg) }}>
+            {formatDuration(last7Avg)}
+          </div>
+        </Card>
+        <Card>
+          <Label>GOAL</Label>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 22, color: ACCENT }}>
+            {formatDuration(SLEEP_GOAL_HOURS)}
+          </div>
+        </Card>
+      </div>
+
+      {/* Sleep bar chart — last 7 nights */}
+      {sortedSlog.length > 0 && (
+        <Card style={{ marginBottom: 12 }}>
+          <Label>LAST 7 NIGHTS</Label>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 70, marginTop: 4 }}>
+            {Array.from({ length: 7 }).map((_, i) => {
+              const d = dateOffsetISO(-(6 - i));
+              const entry = sortedSlog.find((s) => s.date === d);
+              const h = entry?.durationHours || 0;
+              const barH = Math.max(2, (h / 10) * 60);
+              const color = sleepColor(h);
+              return (
+                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
+                  <div style={{ fontSize: 9, color: h > 0 ? color : TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                    {h > 0 ? `${h.toFixed(1)}` : '—'}
+                  </div>
+                  <div style={{ width: '100%', height: barH, background: color, borderRadius: '3px 3px 0 0', opacity: h > 0 ? 0.85 : 0.2 }} />
+                  <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                    {DAY_LETTERS[getDayIdx(d)]}
+                  </div>
+                </div>
+              );
+            })}
+            {/* Goal line */}
+            <div style={{
+              position: 'absolute',
+              left: 0, right: 0,
+              height: 1,
+              background: `${ACCENT}44`,
+              bottom: `calc(${(SLEEP_GOAL_HOURS / 10) * 60}px + 18px)`,
+              pointerEvents: 'none',
+            }} />
+          </div>
+          <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 4, textAlign: 'center', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+            GREEN ≥ {SLEEP_GOAL_HOURS}H · YELLOW ≥ 6H · RED &lt; 6H
+          </div>
+        </Card>
+      )}
+
+      {/* Log form */}
+      {!showForm ? (
+        <Btn onClick={() => setShowForm(true)} style={{ width: '100%', marginBottom: 12 }}>+ LOG SLEEP</Btn>
+      ) : (
+        <Card style={{ marginBottom: 12 }}>
+          <H size={13}>LOG SLEEP</H>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div>
+              <Label>DATE (night you went to bed)</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <Label>BEDTIME</Label>
+                <Input type="time" value={bedtime} onChange={(e) => setBedtime(e.target.value)} />
+              </div>
+              <div>
+                <Label>WAKE TIME</Label>
+                <Input type="time" value={wakeTime} onChange={(e) => setWakeTime(e.target.value)} />
+              </div>
+            </div>
+            {bedtime && wakeTime && parseBedWake(bedtime, wakeTime) && (
+              <div style={{ padding: 8, background: CARD2, borderRadius: 6, textAlign: 'center' }}>
+                <span style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 18, color: sleepColor(parseBedWake(bedtime, wakeTime)) }}>
+                  {formatDuration(parseBedWake(bedtime, wakeTime))}
+                </span>
+                <span style={{ fontSize: 11, color: TEXT_DIM, marginLeft: 6 }}>
+                  {parseBedWake(bedtime, wakeTime) >= SLEEP_GOAL_HOURS ? '✓ Above goal' : `⚠ ${formatDuration(SLEEP_GOAL_HOURS - parseBedWake(bedtime, wakeTime))} under goal`}
+                </span>
+              </div>
+            )}
+            <div>
+              <Label>NOTES (optional)</Label>
+              <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Quality, interruptions, dreams..." />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Btn variant="ghost" onClick={() => setShowForm(false)}>CANCEL</Btn>
+              <div style={{ flex: 1 }} />
+              <Btn onClick={logSleep}>SAVE</Btn>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* History */}
+      <Card>
+        <H size={13}>HISTORY</H>
+        {sortedSlog.length === 0 && <div style={{ color: TEXT_DIM, fontSize: 12 }}>No sleep logged yet.</div>}
+        {sortedSlog.slice(0, 14).map((s) => (
+          <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: `1px solid ${BORDER}` }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, color: TEXT_DIM }}>{formatDate(s.date)}</div>
+              <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 1 }}>
+                {s.bedtime} → {s.wakeTime}
+                {s.notes ? ` · ${s.notes}` : ''}
+              </div>
+            </div>
+            <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 16, color: sleepColor(s.durationHours) }}>
+              {formatDuration(s.durationHours)}
+            </div>
+            {s.durationHours < SLEEP_GOAL_HOURS && (
+              <Pill color={RED}>-{formatDuration(SLEEP_GOAL_HOURS - s.durationHours)}</Pill>
+            )}
+            <button onClick={() => deleteSleep(s.id)} style={{ background: 'transparent', border: 'none', color: TEXT_MUTED, cursor: 'pointer', fontSize: 14, padding: 2 }}>×</button>
+          </div>
+        ))}
+      </Card>
+    </div>
+  );
+};
+
+// ============================================================
+// METRICS VIEW
+// ============================================================
 const Metrics = ({ state, setState }) => {
   const { profile, wlog } = state;
   const [newWeight, setNewWeight] = useState('');
@@ -4330,7 +4563,6 @@ const Metrics = ({ state, setState }) => {
           <Input type="number" step="0.1" placeholder="lbs" value={newWeight} onChange={(e) => setNewWeight(e.target.value)} />
           <Btn onClick={logWeight} style={{ width: '100%', marginTop: 8 }}>SAVE</Btn>
         </Card>
-
         <Card>
           <Label>MACROS & STATS</Label>
           <div style={{ display: 'grid', gap: 4, fontSize: 11 }}>
@@ -4353,12 +4585,12 @@ const Metrics = ({ state, setState }) => {
         </Card>
       </div>
 
-      {/* Weight history with d-o-d delta */}
-      <Card>
-        <H size={13}>HISTORY</H>
+      {/* Weight history */}
+      <Card style={{ marginBottom: 12 }}>
+        <H size={13}>WEIGHT HISTORY</H>
         {sortedLog.length === 0 && <div style={{ color: TEXT_DIM, fontSize: 12 }}>No entries yet.</div>}
         {sortedLog.map((w, i) => {
-          const next = sortedLog[i + 1]; // older entry
+          const next = sortedLog[i + 1];
           const dod = next ? +(w.weight - next.weight).toFixed(1) : null;
           const dodColor = dod == null ? TEXT_DIM : dod < 0 ? GREEN : dod > 0 ? RED : TEXT_DIM;
           return (
@@ -4366,23 +4598,500 @@ const Metrics = ({ state, setState }) => {
               <div style={{ flex: 1, fontSize: 11, color: TEXT_DIM }}>{formatDate(w.date)}</div>
               <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 14, color: '#fff' }}>{w.weight} lbs</div>
               {dod != null && <Pill color={dodColor}>{dod >= 0 ? '+' : ''}{dod}</Pill>}
-              <button onClick={() => deleteWeight(w.date)} style={{
-                background: 'transparent', color: TEXT_MUTED, border: 'none',
-                cursor: 'pointer', fontSize: 14, padding: 4,
-              }}>×</button>
+              <button onClick={() => deleteWeight(w.date)} style={{ background: 'transparent', color: TEXT_MUTED, border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }}>×</button>
             </div>
           );
         })}
       </Card>
+
+      {/* Sleep section */}
+      <SleepSection state={state} setState={setState} />
     </div>
   );
 };
 
 // ============================================================
-// FOOD SEARCH (Claude API)
+// FOOD VIEW — with meal sections
 // ============================================================
+const MEAL_COLORS = {
+  Breakfast: '#fbbf24',
+  Lunch: GREEN,
+  Dinner: BLUE,
+  Snack: PURPLE,
+};
+const mealColor = (name) => MEAL_COLORS[name] || ORANGE;
+
 // ============================================================
-// BARCODE SCANNER — ZXing (browser) + Open Food Facts lookup
+// MEAL PLANNER — AI-powered with web search recipes
+// ============================================================
+const generateMealPlan = async (profile, currentWeight, targetMacros, preferences, mealTypes) => {
+  const goalName = GOAL_OPTIONS.find((g) => g.id === profile.goal)?.name || 'Recomp';
+  const macroStr = `${targetMacros.calories} cal / ${targetMacros.protein}g protein / ${targetMacros.carbs}g carbs / ${targetMacros.fat}g fat`;
+  const mealsStr = mealTypes.join(', ');
+  const prefStr = preferences ? ` Preferences/restrictions: ${preferences}.` : '';
+
+  const sysPrompt = `You are a sports nutrition meal planning expert. Generate a realistic, delicious daily meal plan for an athlete. Use web search to find actual recipes and real nutritional data from sources like MyFitnessPal, Cronometer, AllRecipes, EatingWell, or similar. Return ONLY a raw JSON object (no markdown, no preamble) with this exact structure:
+{
+  "meals": [
+    {
+      "meal": "Breakfast",
+      "name": "Meal name (e.g. Greek Yogurt Parfait with Berries)",
+      "description": "2-3 sentence description of what it is and why it fits the goals",
+      "ingredients": ["1 cup Greek yogurt", "1/2 cup blueberries", "1/4 cup granola", "1 tbsp honey"],
+      "recipe": "Brief preparation steps in 3-5 sentences. Keep it practical.",
+      "cal": 420,
+      "p": 28,
+      "c": 52,
+      "f": 9,
+      "source": "Website or source where this recipe/data is from",
+      "url": "https://... (real URL if available, empty string if not)"
+    }
+  ],
+  "totalCal": 2100,
+  "totalP": 165,
+  "totalC": 220,
+  "totalF": 58,
+  "planNotes": "Brief note about why this plan works for the athlete's goals"
+}
+Include exactly these meals: ${mealsStr}. Make the food varied, practical, and actually tasty — not just chicken and rice every meal. Use real foods with real macros. Each meal should be distinct.`;
+
+  const userMsg = `Create a meal plan for a ${profile.age}yo ${profile.sex}, current weight ${currentWeight}lbs, goal: ${goalName}. Daily macro targets: ${macroStr}. Meals needed: ${mealsStr}.${prefStr} Search the internet for actual recipes and nutritional data. Make it realistic and enjoyable.`;
+
+  try {
+    const response = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4000,
+        system: sysPrompt,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: userMsg }],
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.text();
+      return { ok: false, error: `API ${response.status}: ${err.slice(0, 150)}` };
+    }
+    const data = await response.json();
+
+    // Extract text from response (may include tool_use blocks — skip those)
+    const textBlocks = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    if (!textBlocks) return { ok: false, error: 'No response from meal planner' };
+
+    // Extract JSON from response
+    let jsonText = textBlocks.replace(/```(?:json)?/g, '').trim();
+    const first = jsonText.indexOf('{');
+    const last = jsonText.lastIndexOf('}');
+    if (first < 0 || last < 0) return { ok: false, error: 'Could not parse meal plan response' };
+    jsonText = jsonText.slice(first, last + 1);
+
+    const plan = JSON.parse(jsonText);
+    if (!plan.meals || !Array.isArray(plan.meals)) return { ok: false, error: 'Invalid meal plan format' };
+    return { ok: true, plan };
+  } catch (e) {
+    return { ok: false, error: `Error: ${e.message}` };
+  }
+};
+
+const regenerateSingleMeal = async (profile, currentWeight, mealType, remainingMacros, preferences) => {
+  const sysPrompt = `You are a sports nutrition expert. Generate ONE meal suggestion with real recipe data. Use web search to find an actual recipe. Return ONLY raw JSON (no markdown) in this format:
+{
+  "meal": "${mealType}",
+  "name": "Meal name",
+  "description": "2-3 sentence description",
+  "ingredients": ["ingredient 1", "ingredient 2"],
+  "recipe": "Brief prep steps in 3-5 sentences.",
+  "cal": 450,
+  "p": 35,
+  "c": 40,
+  "f": 12,
+  "source": "Source name",
+  "url": "https://..."
+}`;
+  const macroStr = `${remainingMacros.cal} cal, ${remainingMacros.p}g protein, ${remainingMacros.c}g carbs, ${remainingMacros.f}g fat`;
+  const userMsg = `Generate a ${mealType} meal for a ${profile.age}yo ${profile.sex} with ${macroStr} target macros. Goal: ${GOAL_OPTIONS.find((g) => g.id === profile.goal)?.name}.${preferences ? ` Preferences: ${preferences}` : ''} Search for a real recipe.`;
+  try {
+    const response = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1500,
+        system: sysPrompt,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: userMsg }],
+      }),
+    });
+    if (!response.ok) return { ok: false, error: `API ${response.status}` };
+    const data = await response.json();
+    const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    const first = text.indexOf('{'); const last = text.lastIndexOf('}');
+    if (first < 0) return { ok: false, error: 'Could not parse response' };
+    const meal = JSON.parse(text.slice(first, last + 1));
+    return { ok: true, meal };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+};
+
+const MealPlanner = ({ state, setState, viewISO, macros, activeMeal, setActiveMeal }) => {
+  const { profile, wlog, mplans, food } = state;
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState('');
+  const [preferences, setPreferences] = useState('');
+  const [showPrefs, setShowPrefs] = useState(false);
+  const [regeneratingIdx, setRegeneratingIdx] = useState(null);
+  const [expandedIdx, setExpandedIdx] = useState(null);
+  const [mealTypes, setMealTypes] = useState(['Breakfast', 'Lunch', 'Dinner', 'Snack']);
+
+  const currentWeight = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
+  const plan = mplans[viewISO];
+  const todaysFood = food[viewISO] || [];
+
+  const generate = async () => {
+    setGenerating(true);
+    setError('');
+    const result = await generateMealPlan(profile, currentWeight, macros, preferences, mealTypes);
+    if (!result.ok) {
+      setError(result.error);
+    } else {
+      setState((p) => ({
+        ...p,
+        mplans: {
+          ...(p.mplans || {}),
+          [viewISO]: { ...result.plan, generatedAt: new Date().toISOString(), loggedMeals: {} },
+        },
+      }));
+    }
+    setGenerating(false);
+  };
+
+  const regenerate = async (idx) => {
+    if (!plan) return;
+    const meal = plan.meals[idx];
+    setRegeneratingIdx(idx);
+    // Calculate remaining macros after other meals
+    const otherMeals = plan.meals.filter((_, i) => i !== idx);
+    const used = otherMeals.reduce((a, m) => ({ cal: a.cal + (m.cal||0), p: a.p + (m.p||0), c: a.c + (m.c||0), f: a.f + (m.f||0) }), { cal:0, p:0, c:0, f:0 });
+    const remaining = {
+      cal: Math.max(100, macros.calories - used.cal),
+      p: Math.max(10, macros.protein - used.p),
+      c: Math.max(10, macros.carbs - used.c),
+      f: Math.max(5, macros.fat - used.f),
+    };
+    const result = await regenerateSingleMeal(profile, currentWeight, meal.meal, remaining, preferences);
+    if (result.ok) {
+      setState((p) => {
+        const cur = p.mplans[viewISO];
+        const meals = [...(cur?.meals || [])];
+        meals[idx] = result.meal;
+        const totalCal = meals.reduce((a,m) => a + (m.cal||0), 0);
+        const totalP = meals.reduce((a,m) => a + (m.p||0), 0);
+        const totalC = meals.reduce((a,m) => a + (m.c||0), 0);
+        const totalF = meals.reduce((a,m) => a + (m.f||0), 0);
+        return { ...p, mplans: { ...p.mplans, [viewISO]: { ...cur, meals, totalCal, totalP, totalC, totalF } } };
+      });
+    }
+    setRegeneratingIdx(null);
+  };
+
+  const logMeal = (mealObj) => {
+    const loggedAt = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    // Add the meal as a single food entry with the recipe name
+    setState((p) => {
+      const day = p.food[viewISO] || [];
+      const entry = {
+        id: 'f_' + Date.now() + Math.random(),
+        name: mealObj.name,
+        cal: mealObj.cal || 0,
+        p: mealObj.p || 0,
+        c: mealObj.c || 0,
+        f: mealObj.f || 0,
+        qty: 1,
+        meal: mealObj.meal,
+        loggedAt,
+        fromPlan: true,
+      };
+      // Mark as logged in plan
+      const curPlan = p.mplans[viewISO];
+      const meals = (curPlan?.meals || []).map((m) => m.name === mealObj.name ? { ...m, logged: true } : m);
+      return {
+        ...p,
+        food: { ...p.food, [viewISO]: [...day, entry] },
+        mplans: { ...p.mplans, [viewISO]: { ...curPlan, meals } },
+      };
+    });
+    setActiveMeal(mealObj.meal);
+  };
+
+  const isLogged = (mealObj) => todaysFood.some((f) => f.name === mealObj.name && f.fromPlan);
+
+  // Total macros of plan vs targets
+  const macroMatch = (got, target) => {
+    const pct = Math.round((got / target) * 100);
+    return { pct, color: Math.abs(pct - 100) <= 15 ? GREEN : pct < 85 ? '#fbbf24' : RED };
+  };
+
+  return (
+    <div>
+      {/* Controls */}
+      <Card style={{ marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <H size={14} mb={2}>MEAL PLANNER</H>
+            <div style={{ fontSize: 11, color: TEXT_DIM }}>AI-generated recipes matched to your macros</div>
+          </div>
+          <Btn onClick={generate} disabled={generating} variant="orange">
+            {generating ? '⟳ GENERATING...' : plan ? '↻ NEW PLAN' : '✦ GENERATE PLAN'}
+          </Btn>
+        </div>
+
+        {/* Meal type selector */}
+        <div style={{ marginTop: 12 }}>
+          <Label>INCLUDE MEALS</Label>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+            {DEFAULT_MEAL_SECTIONS.map((m) => {
+              const on = mealTypes.includes(m);
+              return (
+                <button key={m} onClick={() => setMealTypes((t) => on ? t.filter((x) => x !== m) : [...t, m])} style={{
+                  background: on ? mealColor(m) : 'transparent',
+                  color: on ? '#000' : mealColor(m),
+                  border: `1px solid ${mealColor(m)}`,
+                  padding: '4px 10px', borderRadius: 12, fontSize: 10, cursor: 'pointer',
+                  fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+                }}>{m.toUpperCase()}</button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Preferences toggle */}
+        <div style={{ marginTop: 8 }}>
+          <button onClick={() => setShowPrefs(!showPrefs)} style={{
+            background: 'transparent', border: 'none', color: ACCENT, cursor: 'pointer',
+            fontSize: 11, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+          }}>
+            {showPrefs ? '▾ HIDE' : '▸ PREFERENCES / RESTRICTIONS'}
+          </button>
+          {showPrefs && (
+            <div style={{ marginTop: 6 }}>
+              <Input
+                value={preferences}
+                onChange={(e) => setPreferences(e.target.value)}
+                placeholder="e.g. no dairy, high protein, low carb dinner, quick prep under 20 min..."
+                style={{ fontSize: 12 }}
+              />
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <div style={{ marginTop: 8, padding: 8, background: `${RED}15`, border: `1px solid ${RED}55`, borderRadius: 6, fontSize: 11, color: RED }}>
+            ⚠ {error}
+          </div>
+        )}
+      </Card>
+
+      {/* Generating skeleton */}
+      {generating && (
+        <Card style={{ padding: 24, textAlign: 'center' }}>
+          <div style={{ animation: 'recomp-pulse 1.5s ease-in-out infinite' }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🍽️</div>
+            <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 14, color: ACCENT, letterSpacing: 1 }}>
+              SEARCHING RECIPES...
+            </div>
+            <div style={{ fontSize: 11, color: TEXT_DIM, marginTop: 4 }}>
+              Finding real recipes matched to your {macros.calories} cal / {macros.protein}g protein target
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Plan display */}
+      {plan && !generating && (
+        <>
+          {/* Macro summary */}
+          <Card style={{ marginBottom: 10 }}>
+            <Label>PLAN MACROS vs TARGET</Label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 4 }}>
+              {[
+                { l: 'CAL', got: plan.totalCal, target: macros.calories, color: ACCENT },
+                { l: 'P', got: plan.totalP, target: macros.protein, color: BLUE },
+                { l: 'C', got: plan.totalC, target: macros.carbs, color: ORANGE },
+                { l: 'F', got: plan.totalF, target: macros.fat, color: PURPLE },
+              ].map(({ l, got, target, color }) => {
+                const m = macroMatch(got, target);
+                return (
+                  <div key={l}>
+                    <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>{l}</div>
+                    <div style={{ fontSize: 14, color: m.color, fontFamily: 'Impact, Arial Black, sans-serif' }}>{Math.round(got)}</div>
+                    <div style={{ fontSize: 9, color: TEXT_MUTED }}>/{Math.round(target)}</div>
+                    <ProgressBar value={got} max={target} color={m.color} height={2} />
+                  </div>
+                );
+              })}
+            </div>
+            {plan.planNotes && (
+              <div style={{ marginTop: 8, fontSize: 11, color: TEXT_DIM, borderTop: `1px solid ${BORDER}`, paddingTop: 6 }}>
+                💡 {plan.planNotes}
+              </div>
+            )}
+            {plan.generatedAt && (
+              <div style={{ marginTop: 4, fontSize: 9, color: TEXT_MUTED }}>
+                Generated {new Date(plan.generatedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
+          </Card>
+
+          {/* Meal cards */}
+          {(plan.meals || []).map((meal, idx) => {
+            const mc = mealColor(meal.meal);
+            const logged = isLogged(meal) || meal.logged;
+            const isRegen = regeneratingIdx === idx;
+            const isExpanded = expandedIdx === idx;
+
+            return (
+              <Card key={idx} style={{ marginBottom: 10, borderTop: `3px solid ${mc}`, opacity: isRegen ? 0.6 : 1 }}>
+                {/* Meal header */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <Pill color={mc}>{meal.meal.toUpperCase()}</Pill>
+                      {logged && <Pill color={GREEN}>✓ LOGGED</Pill>}
+                    </div>
+                    <H size={15} mb={2} style={{ marginTop: 6 }}>{meal.name}</H>
+                    <div style={{ fontSize: 11, color: TEXT_DIM }}>{meal.description}</div>
+                  </div>
+                </div>
+
+                {/* Macro row */}
+                <div style={{ display: 'flex', gap: 10, marginBottom: 10, padding: '6px 10px', background: CARD2, borderRadius: 6 }}>
+                  {[
+                    { l: 'CAL', v: meal.cal, c: ACCENT },
+                    { l: 'P', v: `${meal.p}g`, c: BLUE },
+                    { l: 'C', v: `${meal.c}g`, c: ORANGE },
+                    { l: 'F', v: `${meal.f}g`, c: PURPLE },
+                  ].map(({ l, v, c }) => (
+                    <div key={l} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>{l}</div>
+                      <div style={{ fontSize: 13, color: c, fontFamily: 'Impact, Arial Black, sans-serif' }}>{v}</div>
+                    </div>
+                  ))}
+                  <div style={{ flex: 1 }} />
+                  {meal.source && (
+                    <div style={{ fontSize: 9, color: TEXT_MUTED, textAlign: 'right', alignSelf: 'center' }}>
+                      {meal.url ? (
+                        <a href={meal.url} target="_blank" rel="noreferrer" style={{ color: ACCENT, textDecoration: 'none' }}>
+                          {meal.source} ↗
+                        </a>
+                      ) : meal.source}
+                    </div>
+                  )}
+                </div>
+
+                {/* Expandable recipe */}
+                <button onClick={() => setExpandedIdx(isExpanded ? null : idx)} style={{
+                  background: 'transparent', border: 'none', color: ACCENT, cursor: 'pointer',
+                  fontSize: 11, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+                  padding: 0, marginBottom: isExpanded ? 8 : 0,
+                }}>
+                  {isExpanded ? '▾ HIDE RECIPE' : '▸ SEE RECIPE & INGREDIENTS'}
+                </button>
+
+                {isExpanded && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <Label>INGREDIENTS</Label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {(meal.ingredients || []).map((ing, i) => (
+                          <div key={i} style={{ fontSize: 12, color: '#fff', display: 'flex', gap: 6 }}>
+                            <span style={{ color: mc }}>•</span>
+                            <span>{ing}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <Label>HOW TO MAKE IT</Label>
+                      <div style={{ fontSize: 12, color: TEXT_DIM, lineHeight: 1.5 }}>{meal.recipe}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {!logged ? (
+                    <Btn onClick={() => logMeal(meal)} style={{ flex: 1 }}>+ LOG THIS MEAL</Btn>
+                  ) : (
+                    <div style={{ flex: 1, padding: '9px 0', textAlign: 'center', fontSize: 11, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+                      ✓ LOGGED TO {meal.meal.toUpperCase()}
+                    </div>
+                  )}
+                  <Btn variant="ghost" size="sm" onClick={() => regenerate(idx)} disabled={isRegen}>
+                    {isRegen ? '⟳' : '↻ SWAP'}
+                  </Btn>
+                </div>
+              </Card>
+            );
+          })}
+        </>
+      )}
+
+      {/* Empty state */}
+      {!plan && !generating && (
+        <Card style={{ padding: 28, textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>🥗</div>
+          <H size={14} color={TEXT_DIM} mb={6}>NO MEAL PLAN YET</H>
+          <div style={{ fontSize: 12, color: TEXT_DIM, marginBottom: 16, lineHeight: 1.5 }}>
+            Generate a personalized daily meal plan with real recipes matched to your {macros.calories} calorie and {macros.protein}g protein targets.
+          </div>
+          <Btn variant="orange" onClick={generate} disabled={generating} style={{ width: '100%' }}>
+            ✦ GENERATE TODAY'S PLAN
+          </Btn>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// FOOD SEARCH — AI + web search
+// ============================================================
+const searchFoodDB = async (query) => {
+  try {
+    const response = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1000,
+        system: `You are a nutrition database. When given a food or restaurant name, return ONLY a JSON array (no markdown, no explanation) of up to 6 menu items or foods with accurate nutrition data. Format: [{"name":"...","serving":"...","cal":0,"p":0,"c":0,"f":0}]. Use real nutrition data. For restaurants, give specific popular menu items.`,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: `Nutrition data for: ${query}` }],
+      }),
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      return { ok: false, error: `API ${response.status}: ${errText.slice(0, 120)}` };
+    }
+    const data = await response.json();
+    const textBlocks = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    if (!textBlocks) return { ok: false, error: 'No response from nutrition search' };
+    let jsonText = textBlocks.replace(/```(?:json)?/g, '').trim();
+    const first = jsonText.indexOf('[');
+    const last = jsonText.lastIndexOf(']');
+    if (first < 0 || last < 0) return { ok: false, error: 'Could not parse nutrition response' };
+    const items = JSON.parse(jsonText.slice(first, last + 1));
+    if (!Array.isArray(items)) return { ok: false, error: 'Unexpected response format' };
+    return { ok: true, items };
+  } catch (e) {
+    return { ok: false, error: `Search error: ${e.message}` };
+  }
+};
+
+// ============================================================
+// BARCODE SCANNER — ZXing + Open Food Facts
 // ============================================================
 const lookupBarcode = async (upc) => {
   try {
@@ -4450,11 +5159,10 @@ const BarcodeScanner = ({ onResult, onClose }) => {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         });
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
         streamRef.current = stream;
         const vid = videoRef.current;
         vid.srcObject = stream;
-        vid.setAttribute('playsinline', true);
         await vid.play();
         if (cancelled) return;
         setStatus('scanning');
@@ -4462,7 +5170,7 @@ const BarcodeScanner = ({ onResult, onClose }) => {
       } catch (e) {
         if (!cancelled) {
           setStatus('error');
-          if (e.name === 'NotAllowedError') setErrorMsg('Camera permission denied. Tap Settings → Safari → Camera → Allow, then try again.');
+          if (e.name === 'NotAllowedError') setErrorMsg('Camera permission denied. Allow camera in browser settings.');
           else if (e.name === 'NotFoundError') setErrorMsg('No camera found.');
           else if (e.name === 'NotReadableError') setErrorMsg('Camera in use by another app.');
           else setErrorMsg(e.message || 'Camera error');
@@ -4470,26 +5178,21 @@ const BarcodeScanner = ({ onResult, onClose }) => {
       }
     };
 
-    // Strategy 1: Native BarcodeDetector API (iOS 17+, Android Chrome)
-    // Best quality, fastest, built into the browser
+    // Strategy 1: Native BarcodeDetector (iOS 17+, Android Chrome)
     const tryNativeDetector = async () => {
       if (!('BarcodeDetector' in window)) return false;
-      const formats = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'data_matrix'];
+      const formats = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'];
       let supported = [];
       try { supported = await window.BarcodeDetector.getSupportedFormats(); } catch {}
-      const useFormats = supported.length > 0 ? supported.filter(f => formats.includes(f)) : formats;
+      const useFormats = supported.length > 0 ? supported.filter((f) => formats.includes(f)) : formats;
       const detector = new window.BarcodeDetector({ formats: useFormats.length ? useFormats : formats });
-
       const tick = async () => {
         if (cancelled || doneRef.current) return;
         const vid = videoRef.current;
         if (!vid || vid.readyState < 2) { rafRef.current = requestAnimationFrame(tick); return; }
         try {
           const barcodes = await detector.detect(vid);
-          if (barcodes.length > 0 && barcodes[0].rawValue) {
-            await handleCode(barcodes[0].rawValue);
-            return;
-          }
+          if (barcodes.length > 0 && barcodes[0].rawValue) { await handleCode(barcodes[0].rawValue); return; }
         } catch {}
         rafRef.current = requestAnimationFrame(tick);
       };
@@ -4497,7 +5200,7 @@ const BarcodeScanner = ({ onResult, onClose }) => {
       return true;
     };
 
-    // Strategy 2: Canvas + ZXing (fallback for older Safari / unsupported browsers)
+    // Strategy 2: Canvas + ZXing fallback
     const tryZXing = async () => {
       if (!window.ZXing) {
         try {
@@ -4508,53 +5211,35 @@ const BarcodeScanner = ({ onResult, onClose }) => {
             s.onerror = () => reject(new Error('Failed to load ZXing'));
             document.head.appendChild(s);
           });
+          if (!window.ZXing && window.ZXingLibrary) window.ZXing = window.ZXingLibrary;
         } catch (e) {
-          setStatus('error');
-          setErrorMsg('Could not load barcode library. Check internet connection.');
+          setStatus('error'); setErrorMsg('Could not load barcode library.');
           return false;
         }
       }
       if (cancelled) return false;
       const ZXing = window.ZXing;
-      if (!ZXing?.BrowserMultiFormatReader) {
-        setStatus('error'); setErrorMsg('Barcode library failed to initialize.');
-        return false;
-      }
-
-      // Use canvas-snapshot approach instead of decodeFromVideoDevice
-      // More reliable on mobile: grab a frame every 200ms and decode it
+      if (!ZXing?.BrowserMultiFormatReader) { setStatus('error'); setErrorMsg('Barcode library failed.'); return false; }
       const hints = new Map();
       hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
       const reader = new ZXing.MultiFormatReader();
       reader.setHints(hints);
       readerRef.current = reader;
-
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-
       const tick = () => {
         if (cancelled || doneRef.current) return;
         const vid = videoRef.current;
-        if (!vid || vid.readyState < 2 || vid.videoWidth === 0) {
-          rafRef.current = setTimeout(tick, 200);
-          return;
-        }
-        canvas.width = vid.videoWidth;
-        canvas.height = vid.videoHeight;
+        if (!vid || vid.readyState < 2 || vid.videoWidth === 0) { rafRef.current = setTimeout(tick, 200); return; }
+        canvas.width = vid.videoWidth; canvas.height = vid.videoHeight;
         ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         try {
           const luminance = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
           const binary = new ZXing.HybridBinarizer(luminance);
           const bmp = new ZXing.BinaryBitmap(binary);
           const result = reader.decode(bmp);
-          if (result) {
-            handleCode(result.getText());
-            return;
-          }
-        } catch (e) {
-          // NotFoundException is normal — no barcode in frame yet
-        }
+          if (result) { handleCode(result.getText()); return; }
+        } catch {}
         rafRef.current = setTimeout(tick, 150);
       };
       rafRef.current = setTimeout(tick, 300);
@@ -4564,20 +5249,16 @@ const BarcodeScanner = ({ onResult, onClose }) => {
     const run = async () => {
       const stream = await startCamera();
       if (!stream || cancelled) return;
-      // Try native first, fall back to ZXing
       const nativeOk = await tryNativeDetector();
-      if (!nativeOk && !cancelled) {
-        await tryZXing();
-      }
+      if (!nativeOk && !cancelled) await tryZXing();
     };
-
     run();
 
     return () => {
       cancelled = true;
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); clearTimeout(rafRef.current); }
       if (readerRef.current) { try { readerRef.current.reset?.(); } catch {} }
-      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
@@ -4593,7 +5274,7 @@ const BarcodeScanner = ({ onResult, onClose }) => {
         <canvas ref={canvasRef} style={{ display: 'none' }} />
         {status === 'scanning' && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-            <div style={{ width: 280, height: 170, border: `3px solid ${ACCENT}`, borderRadius: 10, boxShadow: `0 0 0 9999px rgba(0,0,0,0.5), 0 0 20px ${ACCENT}66`, position: 'relative' }}>
+            <div style={{ width: 280, height: 170, border: `3px solid ${ACCENT}`, borderRadius: 10, boxShadow: `0 0 0 9999px rgba(0,0,0,0.5)`, position: 'relative' }}>
               <div style={{ position: 'absolute', left: 8, right: 8, height: 2, background: `linear-gradient(90deg, transparent, ${ACCENT}, transparent)`, top: '50%', animation: 'recomp-stripe 1.8s ease-in-out infinite' }} />
               {[
                 { top: -2, left: -2, borderTop: `3px solid ${ORANGE}`, borderLeft: `3px solid ${ORANGE}` },
@@ -4618,58 +5299,11 @@ const BarcodeScanner = ({ onResult, onClose }) => {
   );
 };
 
-const searchFoodDB = async (query) => {
-  const sysPrompt = `You are a nutrition database. Return a JSON array of 4-8 matching food items for the user's query. Cover USDA whole foods (eggs, chicken, rice, oats, milk, banana, etc.) and major US chains: Chipotle, Chick-fil-A, Starbucks, Subway, McDonald's, Burger King, Wendy's, Taco Bell, Domino's, Pizza Hut, Cava, Panera, Dunkin', Texas Roadhouse, Olive Garden, Five Guys, In-N-Out, Whataburger, Shake Shack, Sonic, Panda Express, Jersey Mike's, Jimmy John's, Raising Cane's, Popeyes. Each item must include: name (string, with restaurant prefix if applicable like "Chipotle Chicken Burrito Bowl"), serving (string like "1 bowl" or "100g"), cal (number), p (number), c (number), f (number). Return ONLY a raw JSON array starting with [ and ending with ]. No preamble, no markdown fences, no explanation.`;
-  let response;
-  try {
-    response = await fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 2000,
-        system: sysPrompt,
-        messages: [{ role: 'user', content: `Search: ${query}` }],
-      }),
-    });
-  } catch (e) {
-    return { ok: false, error: `Network error: ${e.message}`, items: [] };
-  }
-  if (!response.ok) {
-    let detail = '';
-    try { detail = await response.text(); } catch {}
-    return { ok: false, error: `API ${response.status}: ${detail.slice(0, 200) || response.statusText}`, items: [] };
-  }
-  let data;
-  try {
-    data = await response.json();
-  } catch (e) {
-    return { ok: false, error: 'Could not parse API response', items: [] };
-  }
-  const text = (data.content || []).map((c) => c.text || '').join('').trim();
-  if (!text) return { ok: false, error: 'Empty response from search', items: [] };
-  // Try to extract JSON array even if model wrapped it in fences or preamble
-  let jsonText = text.replace(/```(?:json)?/g, '').trim();
-  const firstBracket = jsonText.indexOf('[');
-  const lastBracket = jsonText.lastIndexOf(']');
-  if (firstBracket >= 0 && lastBracket > firstBracket) {
-    jsonText = jsonText.slice(firstBracket, lastBracket + 1);
-  }
-  try {
-    const arr = JSON.parse(jsonText);
-    if (!Array.isArray(arr)) return { ok: false, error: 'Search returned non-array', items: [] };
-    return { ok: true, items: arr };
-  } catch (e) {
-    return { ok: false, error: `Could not parse results: ${e.message}`, items: [] };
-  }
-};
-
-// ============================================================
-// FOOD VIEW
-// ============================================================
 const Food = ({ state, setState, onCoachPrompt }) => {
-  const { profile, food, wlog } = state;
+  const { profile, food, fmeal, wlog } = state;
   const [viewISO, setViewISO] = useState(todayISO());
+  const [foodTab, setFoodTab] = useState('log'); // 'log' | 'plan'
+  const [activeMeal, setActiveMeal] = useState('Breakfast');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [searchError, setSearchError] = useState('');
@@ -4677,19 +5311,23 @@ const Food = ({ state, setState, onCoachPrompt }) => {
   const [manualMode, setManualMode] = useState(false);
   const [manual, setManual] = useState({ name: '', cal: '', p: '', c: '', f: '', qty: 1 });
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState({});
+  const [addingSection, setAddingSection] = useState(false);
+  const [newSectionName, setNewSectionName] = useState('');
+  const [dragging, setDragging] = useState(null); // index being dragged
 
   const currentWeight = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
   const macros = calcMacros(profile, currentWeight);
   const todaysFood = food[viewISO] || [];
-  const totals = todaysFood.reduce(
-    (acc, f) => ({
-      cal: acc.cal + (+f.cal || 0) * (f.qty || 1),
-      p: acc.p + (+f.p || 0) * (f.qty || 1),
-      c: acc.c + (+f.c || 0) * (f.qty || 1),
-      f: acc.f + (+f.f || 0) * (f.qty || 1),
-    }),
-    { cal: 0, p: 0, c: 0, f: 0 }
-  );
+  const sections = getMealSections(fmeal, viewISO);
+
+  const totals = todaysFood.reduce((acc, f) => ({
+    cal: acc.cal + (+f.cal || 0) * (f.qty || 1),
+    p: acc.p + (+f.p || 0) * (f.qty || 1),
+    c: acc.c + (+f.c || 0) * (f.qty || 1),
+    f: acc.f + (+f.f || 0) * (f.qty || 1),
+  }), { cal: 0, p: 0, c: 0, f: 0 });
+
   const remaining = {
     cal: macros.calories - totals.cal,
     p: macros.protein - totals.p,
@@ -4698,51 +5336,73 @@ const Food = ({ state, setState, onCoachPrompt }) => {
   };
   const anyNeg = remaining.cal < 0 || remaining.p < 0 || remaining.c < 0 || remaining.f < 0;
 
+  const mealTotals = (meal) => {
+    return todaysFood.filter((f) => f.meal === meal).reduce((acc, f) => ({
+      cal: acc.cal + (+f.cal || 0) * (f.qty || 1),
+      p: acc.p + (+f.p || 0) * (f.qty || 1),
+    }), { cal: 0, p: 0 });
+  };
+
   const search = async (q) => {
     if (!q.trim()) return;
     setSearching(true);
     setSearchError('');
     setResults([]);
     const result = await searchFoodDB(q);
-    if (!result.ok) {
-      setSearchError(result.error || 'Search failed');
-    } else if (result.items.length === 0) {
-      setSearchError('No matches found — try manual entry');
-    } else {
-      setResults(result.items);
-    }
+    if (!result.ok) setSearchError(result.error || 'Search failed');
+    else if (result.items.length === 0) setSearchError('No matches found — try manual entry');
+    else setResults(result.items);
     setSearching(false);
   };
 
   const addFood = (item) => {
+    const loggedAt = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     setState((p) => {
       const day = p.food[viewISO] || [];
-      return { ...p, food: { ...p.food, [viewISO]: [...day, { ...item, id: 'f_' + Date.now() + Math.random(), qty: item.qty || 1 }] } };
+      return { ...p, food: { ...p.food, [viewISO]: [...day, { ...item, id: 'f_' + Date.now() + Math.random(), qty: item.qty || 1, meal: activeMeal, loggedAt }] } };
     });
   };
 
   const removeFood = (id) => {
-    setState((p) => {
-      const day = (p.food[viewISO] || []).filter((f) => f.id !== id);
-      return { ...p, food: { ...p.food, [viewISO]: day } };
-    });
+    setState((p) => ({ ...p, food: { ...p.food, [viewISO]: (p.food[viewISO] || []).filter((f) => f.id !== id) } }));
   };
 
   const submitManual = () => {
     if (!manual.name) return;
-    addFood({
-      name: manual.name,
-      cal: +manual.cal || 0,
-      p: +manual.p || 0,
-      c: +manual.c || 0,
-      f: +manual.f || 0,
-      qty: +manual.qty || 1,
-    });
+    addFood({ name: manual.name, cal: +manual.cal || 0, p: +manual.p || 0, c: +manual.c || 0, f: +manual.f || 0, qty: +manual.qty || 1 });
     setManual({ name: '', cal: '', p: '', c: '', f: '', qty: 1 });
     setManualMode(false);
   };
 
   const isAlreadyAdded = (item) => todaysFood.some((f) => f.name === item.name);
+
+  const addSection = () => {
+    if (!newSectionName.trim()) return;
+    const name = newSectionName.trim();
+    setState((p) => {
+      const cur = getMealSections(p.fmeal || {}, viewISO);
+      if (cur.includes(name)) return p;
+      return { ...p, fmeal: { ...(p.fmeal || {}), [viewISO]: [...cur, name] } };
+    });
+    setNewSectionName('');
+    setAddingSection(false);
+    setActiveMeal(newSectionName.trim());
+  };
+
+  const moveSection = (fromIdx, toIdx) => {
+    if (toIdx < 0 || toIdx >= sections.length) return;
+    const next = [...sections];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    setState((p) => ({ ...p, fmeal: { ...(p.fmeal || {}), [viewISO]: next } }));
+  };
+
+  const removeSection = (name) => {
+    setState((p) => {
+      const cur = getMealSections(p.fmeal || {}, viewISO);
+      return { ...p, fmeal: { ...(p.fmeal || {}), [viewISO]: cur.filter((s) => s !== name) } };
+    });
+  };
 
   // 7-day rolling avg chart
   const last7 = [];
@@ -4758,18 +5418,41 @@ const Food = ({ state, setState, onCoachPrompt }) => {
     <div>
       {/* Date nav */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-        <Btn size="sm" variant="ghost" onClick={() => {
-          const d = isoToDate(viewISO); d.setDate(d.getDate() - 1); setViewISO(dateToISO(d));
-        }}>‹</Btn>
+        <Btn size="sm" variant="ghost" onClick={() => { const d = isoToDate(viewISO); d.setDate(d.getDate() - 1); setViewISO(dateToISO(d)); }}>‹</Btn>
         <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: TEXT_DIM, letterSpacing: 1 }}>
           {viewISO === todayISO() ? 'TODAY' : viewISO === dateOffsetISO(-1) ? 'YESTERDAY' : formatDate(viewISO).toUpperCase()}
         </div>
-        <Btn size="sm" variant="ghost" onClick={() => {
-          const d = isoToDate(viewISO); d.setDate(d.getDate() + 1); setViewISO(dateToISO(d));
-        }}>›</Btn>
+        <Btn size="sm" variant="ghost" onClick={() => { const d = isoToDate(viewISO); d.setDate(d.getDate() + 1); setViewISO(dateToISO(d)); }}>›</Btn>
       </div>
 
-      {/* Day balance card */}
+      {/* LOG / PLAN tab switcher */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 12, background: CARD2, borderRadius: 8, padding: 3 }}>
+        {[['log', '📋 LOG'], ['plan', '🍽️ MEAL PLANNER']].map(([id, label]) => (
+          <button key={id} onClick={() => setFoodTab(id)} style={{
+            flex: 1, padding: '8px 0', borderRadius: 6, border: 'none', cursor: 'pointer',
+            background: foodTab === id ? ACCENT : 'transparent',
+            color: foodTab === id ? '#000' : TEXT_DIM,
+            fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 11,
+          }}>{label}</button>
+        ))}
+      </div>
+
+      {/* MEAL PLANNER TAB */}
+      {foodTab === 'plan' && (
+        <MealPlanner
+          state={state}
+          setState={setState}
+          viewISO={viewISO}
+          macros={macros}
+          activeMeal={activeMeal}
+          setActiveMeal={setActiveMeal}
+        />
+      )}
+
+      {/* LOG TAB */}
+      {foodTab === 'log' && (<>
+
+      {/* Day balance */}
       <Card style={{ marginBottom: 10, border: anyNeg ? `2px solid ${RED}` : `1px solid ${BORDER}` }}>
         <Label>DAY BALANCE</Label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
@@ -4789,7 +5472,36 @@ const Food = ({ state, setState, onCoachPrompt }) => {
         </div>
       </Card>
 
-      {/* Quick chips + search */}
+      {/* Active meal selector */}
+      <div style={{ marginBottom: 10 }}>
+        <Label>ADDING TO</Label>
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          {sections.map((s) => (
+            <button key={s} onClick={() => setActiveMeal(s)} style={{
+              background: activeMeal === s ? mealColor(s) : 'transparent',
+              color: activeMeal === s ? '#000' : mealColor(s),
+              border: `1px solid ${mealColor(s)}`,
+              padding: '5px 11px', borderRadius: 14, fontSize: 11, cursor: 'pointer',
+              fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+            }}>{s.toUpperCase()}</button>
+          ))}
+          <button onClick={() => setAddingSection(true)} style={{
+            background: 'transparent', color: TEXT_DIM, border: `1px dashed ${BORDER}`,
+            padding: '5px 11px', borderRadius: 14, fontSize: 11, cursor: 'pointer',
+            fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+          }}>+ ADD</button>
+        </div>
+        {addingSection && (
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <Input value={newSectionName} onChange={(e) => setNewSectionName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addSection()} placeholder="e.g. Pre-workout, Evening snack..." style={{ fontSize: 12 }} />
+            <Btn size="sm" onClick={addSection}>ADD</Btn>
+            <Btn size="sm" variant="ghost" onClick={() => { setAddingSection(false); setNewSectionName(''); }}>×</Btn>
+          </div>
+        )}
+      </div>
+
+      {/* Search card */}
       <Card style={{ marginBottom: 10 }}>
         <Label>QUICK PICK</Label>
         <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 4, marginBottom: 8 }}>
@@ -4797,8 +5509,7 @@ const Food = ({ state, setState, onCoachPrompt }) => {
             <button key={c.name} onClick={() => { setQuery(c.name); search(c.name); }} style={{
               background: CARD2, color: '#fff', border: `1px solid ${BORDER}`, borderRadius: 14,
               padding: '5px 10px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
-              display: 'flex', alignItems: 'center', gap: 4,
-              fontFamily: 'Helvetica, Arial, sans-serif',
+              display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Helvetica, Arial, sans-serif',
             }}>
               <span>{c.emoji}</span><span style={{ fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, fontSize: 10 }}>{c.name.toUpperCase()}</span>
             </button>
@@ -4810,22 +5521,9 @@ const Food = ({ state, setState, onCoachPrompt }) => {
           <Btn onClick={() => search(query)} disabled={searching}>{searching ? '…' : 'GO'}</Btn>
           <Btn variant="ghost" onClick={() => setScannerOpen(true)} style={{ padding: '10px 12px', fontSize: 16 }} title="Scan barcode">📷</Btn>
         </div>
-        {searching && (
-          <div style={{ marginTop: 8, fontSize: 11, color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
-            🔍 SEARCHING NUTRITION DATABASE...
-          </div>
-        )}
+        {searching && <div style={{ marginTop: 8, fontSize: 11, color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>🔍 SEARCHING...</div>}
         {searchError && !searching && (
-          <div style={{
-            marginTop: 8, padding: 8, background: `${RED}15`,
-            border: `1px solid ${RED}55`, borderRadius: 6, fontSize: 11, color: RED,
-          }}>⚠ {searchError}</div>
-        )}
-        {scannerOpen && (
-          <BarcodeScanner
-            onResult={(item) => { setScannerOpen(false); setResults([item]); setSearchError(''); }}
-            onClose={() => setScannerOpen(false)}
-          />
+          <div style={{ marginTop: 8, padding: 8, background: `${RED}15`, border: `1px solid ${RED}55`, borderRadius: 6, fontSize: 11, color: RED }}>⚠ {searchError}</div>
         )}
         <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
           <Btn size="sm" variant="ghost" onClick={() => setManualMode(!manualMode)}>
@@ -4835,7 +5533,6 @@ const Food = ({ state, setState, onCoachPrompt }) => {
             `Fill my remaining macros for today. I have exactly ${Math.round(remaining.cal)} calories, ${Math.round(remaining.p)}g protein, ${Math.round(remaining.c)}g carbs, and ${Math.round(remaining.f)}g fat left. Suggest 2-4 real foods and add them using add_food. CRITICAL: the combined macros of everything you add must NOT exceed these remaining amounts. Prioritize hitting protein first. If a food would push any macro over the limit, choose a smaller serving or skip it. Do the math before adding each food.`
           )}>FILL MACROS</Btn>
         </div>
-
         {manualMode && (
           <div style={{ marginTop: 10, padding: 10, background: CARD2, borderRadius: 6 }}>
             <Input placeholder="Food name" value={manual.name} onChange={(e) => setManual({ ...manual, name: e.target.value })} />
@@ -4846,15 +5543,14 @@ const Food = ({ state, setState, onCoachPrompt }) => {
               <Input type="number" placeholder="c" value={manual.c} onChange={(e) => setManual({ ...manual, c: e.target.value })} />
               <Input type="number" placeholder="f" value={manual.f} onChange={(e) => setManual({ ...manual, f: e.target.value })} />
             </div>
-            <Btn onClick={submitManual} style={{ marginTop: 8, width: '100%' }}>ADD</Btn>
+            <Btn onClick={submitManual} style={{ marginTop: 8, width: '100%' }}>ADD TO {activeMeal.toUpperCase()}</Btn>
           </div>
         )}
-
         {/* Search results */}
         {results.length > 0 && (
           <div style={{ marginTop: 10 }}>
             <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>{results.length} RESULTS · TAP TO ADD</span>
+              <span>{results.length} RESULTS · ADDING TO <span style={{ color: mealColor(activeMeal) }}>{activeMeal.toUpperCase()}</span></span>
               <span style={{ flex: 1 }} />
               <button onClick={() => { setResults([]); setQuery(''); }} style={{ background: 'transparent', color: TEXT_MUTED, border: 'none', cursor: 'pointer', fontSize: 14 }}>×</button>
             </div>
@@ -4865,48 +5561,94 @@ const Food = ({ state, setState, onCoachPrompt }) => {
                   display: 'block', width: '100%',
                   background: added ? `${GREEN}14` : CARD2,
                   color: '#fff', border: `1px solid ${BORDER}`,
-                  borderRadius: 6, padding: 8, marginBottom: 4,
-                  cursor: 'pointer', textAlign: 'left',
+                  borderRadius: 6, padding: 8, marginBottom: 4, cursor: 'pointer', textAlign: 'left',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, color: '#fff' }}>{r.name}</div>
+                      <div style={{ fontSize: 12 }}>{r.name}</div>
                       <div style={{ fontSize: 10, color: TEXT_DIM, marginTop: 2 }}>{r.serving || ''} · {r.cal} cal · {r.p}p {r.c}c {r.f}f</div>
                     </div>
-                    {added ? (
-                      <Pill color={GREEN}>✓ ADDED</Pill>
-                    ) : (
-                      <Pill color={ACCENT}>+ ADD</Pill>
-                    )}
+                    {added ? <Pill color={GREEN}>✓ ADDED</Pill> : <Pill color={ACCENT}>+ ADD</Pill>}
                   </div>
                 </button>
               );
             })}
           </div>
         )}
+        {/* Scanner */}
+        {scannerOpen && (
+          <BarcodeScanner
+            onResult={(item) => { setScannerOpen(false); setResults([item]); setSearchError(''); }}
+            onClose={() => setScannerOpen(false)}
+          />
+        )}
       </Card>
 
-      {/* Today's food log */}
-      <Card style={{ marginBottom: 10 }}>
-        <H size={13}>LOGGED ({todaysFood.length})</H>
-        {todaysFood.length === 0 && <div style={{ color: TEXT_DIM, fontSize: 12 }}>Nothing logged yet.</div>}
-        {todaysFood.map((f) => (
-          <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: `1px solid ${BORDER}` }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, color: '#fff' }}>{f.name}{f.qty > 1 ? ` ×${f.qty}` : ''}</div>
-              <div style={{ fontSize: 10, color: TEXT_MUTED }}>{Math.round((+f.cal || 0) * (f.qty || 1))} cal · {Math.round((+f.p || 0) * (f.qty || 1))}p {Math.round((+f.c || 0) * (f.qty || 1))}c {Math.round((+f.f || 0) * (f.qty || 1))}f</div>
+      {/* Meal sections */}
+      {sections.map((section, si) => {
+        const items = todaysFood.filter((f) => f.meal === section);
+        const st = mealTotals(section);
+        const isCollapsed = collapsed[section];
+        const mc = mealColor(section);
+        return (
+          <Card key={section} style={{ marginBottom: 8, borderTop: `3px solid ${mc}` }}>
+            {/* Section header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button onClick={() => setCollapsed((c) => ({ ...c, [section]: !c[section] }))} style={{
+                flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+                background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', padding: 0, textAlign: 'left',
+              }}>
+                <H size={13} mb={0} color={mc}>{section.toUpperCase()}</H>
+                {items.length > 0 && (
+                  <span style={{ fontSize: 10, color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                    {Math.round(st.cal)} cal · {Math.round(st.p)}g P
+                  </span>
+                )}
+                <span style={{ marginLeft: 'auto', color: TEXT_MUTED, fontSize: 12 }}>{isCollapsed ? '▸' : '▾'}</span>
+              </button>
+              {/* Reorder + delete controls */}
+              <div style={{ display: 'flex', gap: 2 }}>
+                <button onClick={() => moveSection(si, si - 1)} disabled={si === 0} style={{ background: 'transparent', border: 'none', color: si === 0 ? BORDER : TEXT_DIM, cursor: si === 0 ? 'not-allowed' : 'pointer', fontSize: 14, padding: '2px 4px' }}>↑</button>
+                <button onClick={() => moveSection(si, si + 1)} disabled={si === sections.length - 1} style={{ background: 'transparent', border: 'none', color: si === sections.length - 1 ? BORDER : TEXT_DIM, cursor: si === sections.length - 1 ? 'not-allowed' : 'pointer', fontSize: 14, padding: '2px 4px' }}>↓</button>
+                {!DEFAULT_MEAL_SECTIONS.includes(section) && (
+                  <button onClick={() => removeSection(section)} style={{ background: 'transparent', border: 'none', color: TEXT_MUTED, cursor: 'pointer', fontSize: 14, padding: '2px 4px' }}>×</button>
+                )}
+              </div>
             </div>
-            <button onClick={() => removeFood(f.id)} style={{ background: 'transparent', color: TEXT_MUTED, border: 'none', cursor: 'pointer', fontSize: 14 }}>×</button>
-          </div>
-        ))}
-      </Card>
+
+            {!isCollapsed && (
+              <div style={{ marginTop: 8 }}>
+                {items.length === 0 ? (
+                  <div style={{ fontSize: 11, color: TEXT_MUTED, padding: '4px 0' }}>
+                    Nothing logged yet.{' '}
+                    <button onClick={() => setActiveMeal(section)} style={{ background: 'transparent', border: 'none', color: mc, cursor: 'pointer', fontSize: 11, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+                      SELECT TO ADD →
+                    </button>
+                  </div>
+                ) : (
+                  items.map((f) => (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: `1px solid ${BORDER}` }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, color: '#fff' }}>{f.name}{f.qty > 1 ? ` ×${f.qty}` : ''}</div>
+                        <div style={{ fontSize: 10, color: TEXT_MUTED, display: 'flex', gap: 6, marginTop: 2 }}>
+                          <span>{Math.round((+f.cal || 0) * (f.qty || 1))} cal · {Math.round((+f.p || 0) * (f.qty || 1))}p {Math.round((+f.c || 0) * (f.qty || 1))}c {Math.round((+f.f || 0) * (f.qty || 1))}f</span>
+                          {f.loggedAt && <span style={{ color: TEXT_MUTED }}>· {f.loggedAt}</span>}
+                        </div>
+                      </div>
+                      <button onClick={() => removeFood(f.id)} style={{ background: 'transparent', color: TEXT_MUTED, border: 'none', cursor: 'pointer', fontSize: 14 }}>×</button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </Card>
+        );
+      })}
 
       {/* 7-day rolling avg chart */}
-      <Card>
+      <Card style={{ marginTop: 8 }}>
         <H size={13}>7-DAY CALORIES</H>
-        <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 8 }}>
-          RP method: weekly average matters more than daily perfection
-        </div>
+        <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 8 }}>RP method: weekly average matters more than daily perfection</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, alignItems: 'end', height: 100 }}>
           {last7.map((d) => {
             const target = macros.calories;
@@ -4914,18 +5656,8 @@ const Food = ({ state, setState, onCoachPrompt }) => {
             const color = Math.abs(ratio - 1) < 0.15 ? GREEN : ratio < 0.85 ? ORANGE : RED;
             const h = (d.cal / Math.max(1, maxCal)) * 90;
             return (
-              <button key={d.date} onClick={() => setViewISO(d.date)} style={{
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%',
-              }}>
-                <div style={{
-                  background: color,
-                  width: '100%',
-                  height: `${h}px`,
-                  minHeight: 2,
-                  borderRadius: '3px 3px 0 0',
-                  opacity: d.date === viewISO ? 1 : 0.6,
-                }} />
+              <button key={d.date} onClick={() => setViewISO(d.date)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+                <div style={{ background: color, width: '100%', height: `${h}px`, minHeight: 2, borderRadius: '3px 3px 0 0', opacity: d.date === viewISO ? 1 : 0.6 }} />
                 <div style={{ fontSize: 9, color: TEXT_MUTED, marginTop: 2, fontFamily: 'Impact, Arial Black, sans-serif' }}>{DAY_LETTERS[getDayIdx(d.date)]}</div>
                 <div style={{ fontSize: 8, color: d.cal > 0 ? color : TEXT_MUTED }}>{Math.round(d.cal)}</div>
               </button>
@@ -4936,13 +5668,11 @@ const Food = ({ state, setState, onCoachPrompt }) => {
           AVG: {Math.round(last7.reduce((a, d) => a + d.cal, 0) / 7)} CAL · TARGET: {macros.calories}
         </div>
       </Card>
+
+      </>)} {/* end LOG tab */}
     </div>
   );
 };
-
-// ============================================================
-// JOURNAL VIEW
-// ============================================================
 const Journal = ({ state, setState }) => {
   const { jlog } = state;
   const [viewISO, setViewISO] = useState(todayISO());
@@ -5496,7 +6226,7 @@ const COACH_TOOLS = [
   },
   { name: 'set_week', description: 'Jump to a specific program week.', input_schema: { type: 'object', properties: { week: { type: 'number' } }, required: ['week'] } },
   { name: 'log_weight', description: 'Log a body weight entry.', input_schema: { type: 'object', properties: { weight: { type: 'number' }, date: { type: 'string', description: 'YYYY-MM-DD' } }, required: ['weight'] } },
-  { name: 'add_food', description: 'Add a food entry to a date.', input_schema: { type: 'object', properties: { name: { type: 'string' }, cal: { type: 'number' }, p: { type: 'number' }, c: { type: 'number' }, f: { type: 'number' }, date: { type: 'string' }, qty: { type: 'number' } }, required: ['name'] } },
+  { name: 'add_food', description: 'Add a food entry to a date. Specify the meal section (Breakfast, Lunch, Dinner, Snack) so it appears in the right section.', input_schema: { type: 'object', properties: { name: { type: 'string' }, cal: { type: 'number' }, p: { type: 'number' }, c: { type: 'number' }, f: { type: 'number' }, date: { type: 'string' }, qty: { type: 'number' }, meal: { type: 'string', description: 'Meal section: Breakfast, Lunch, Dinner, or Snack' } }, required: ['name'] } },
   { name: 'clear_food_day', description: 'Clear all food logged on a date.', input_schema: { type: 'object', properties: { date: { type: 'string' } }, required: ['date'] } },
   { name: 'mark_session_done', description: 'Mark a workout session as done for a given date.', input_schema: { type: 'object', properties: { date: { type: 'string' } }, required: ['date'] } },
   { name: 'save_journal', description: 'Save a journal entry with mood index 0-4 and text.', input_schema: { type: 'object', properties: { mood: { type: 'number' }, notes: { type: 'string' }, date: { type: 'string' } } } },
@@ -5570,6 +6300,8 @@ const handleToolCall = (name, input, state, setState, setActiveTab) => {
       const item = {
         id: 'f_' + Date.now() + Math.random(),
         name: input.name, cal: input.cal || 0, p: input.p || 0, c: input.c || 0, f: input.f || 0, qty,
+        meal: input.meal || 'Snack',
+        loggedAt: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
       };
       setState((prev) => {
         const day = prev.food[date] || [];
@@ -5667,7 +6399,7 @@ const handleToolCall = (name, input, state, setState, setActiveTab) => {
 // AI COACH SYSTEM PROMPT BUILDER
 // ============================================================
 const buildSystemPrompt = (state) => {
-  const { profile, week, wlog, food, jlog, sessions, runs } = state;
+  const { profile, week, wlog, food, jlog, sessions, runs, slog } = state;
   const currentWeight = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
   const macros = calcMacros(profile, currentWeight);
 
@@ -5719,6 +6451,13 @@ FOODS LOGGED TODAY: ${todaysFood.length > 0 ? todaysFood.map(f => `${f.name} (${
   const recentJ = [...jlog].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 3)
     .map((e) => `${e.date} ${MOOD_OPTIONS[e.mood] || ''} ${(e.notes || '').slice(0, 80)}`);
 
+  // Sleep (last 7 nights)
+  const recentSleep = [...(slog || [])].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 7);
+  const avgSleep7 = recentSleep.length ? (recentSleep.reduce((a, s) => a + (s.durationHours || 0), 0) / recentSleep.length).toFixed(1) : null;
+  const sleepLine = recentSleep.length
+    ? `Last night: ${formatDuration(recentSleep[0]?.durationHours)} · 7-night avg: ${avgSleep7}h · Goal: ${SLEEP_GOAL_HOURS}h`
+    : '(no sleep logged)';
+
   // Recent runs (last 3)
   const recentRuns = [...runs].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 3)
     .map((r) => `${r.date} ${r.type}: ${r.distMi.toFixed(2)}mi in ${Math.floor(r.totalSec / 60)}:${String(Math.round(r.totalSec % 60)).padStart(2, '0')}`);
@@ -5744,6 +6483,8 @@ WEIGHT HISTORY: ${recentW.join(' · ') || '(none)'}
 ${nutritionBlock}
 
 RECENT JOURNAL: ${recentJ.join(' · ') || '(none)'}
+
+SLEEP: ${sleepLine}
 
 RUNS: total ${runs.length} runs / ${totalMi.toFixed(1)}mi · recent: ${recentRuns.join(' · ') || '(none)'}
 
