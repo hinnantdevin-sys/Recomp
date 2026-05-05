@@ -18,7 +18,7 @@ const PURPLE = '#a855f7';
 const YELLOW = '#eab308';
 
 const STORAGE_KEY = 'recomp_data';
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 const WORKOUT_STYLES = [
   { id: 'rp_hyp', name: 'RP Hypertrophy', desc: 'MEV/MAV/MRV mesocycle, RIR drops 3→0' },
@@ -2495,10 +2495,11 @@ const defaultState = () => ({
   schemaVersion: SCHEMA_VERSION,
   profile: defaultProfile(),
   week: 1,
-  wlog: [],   // [{date, weight}]
-  food: {},   // { iso: [{id, name, cal, p, c, f, qty, meal, loggedAt}] }
-  fmeal: {},  // { iso: ['Breakfast','Lunch','Dinner','Snack', ...custom] }
-  mplans: {}, // { iso: { meals: [{meal, name, description, ingredients, recipe, cal, p, c, f, url, logged}], generatedAt } }
+  wlog: [],
+  food: {},
+  fmeal: {},
+  mplans: {},
+  savedMeals: [], // [{id, name, items:[{name,cal,p,c,f,qty,serving}], savedAt, category}]
   jlog: [],
   slog: [],
   sessions: {},
@@ -2512,12 +2513,31 @@ const loadState = async () => {
     const value = localStorage.getItem(STORAGE_KEY);
     if (!value) return defaultState();
     let parsed;
-    try {
-      parsed = JSON.parse(value);
-    } catch {
-      return defaultState();
+    try { parsed = JSON.parse(value); } catch { return defaultState(); }
+
+    // ── Versioned migrations ────────────────────────────────────
+    // Each migration runs only once as the schema version advances.
+    // NEVER delete data — only add missing fields or fix broken ones.
+    const version = parsed.schemaVersion || 0;
+
+    // v1-v8: legacy — ensure all base arrays/objects exist
+    if (version < 9) {
+      if (!parsed.food)     parsed.food     = {};
+      if (!parsed.sessions) parsed.sessions = {};
+      if (!parsed.runs)     parsed.runs     = [];
+      if (!parsed.conv)     parsed.conv     = [];
     }
-    // Migrate / validate
+    // v9 → v10: add savedMeals, fmeal, mplans, slog
+    if (version < 10) {
+      if (!parsed.savedMeals) parsed.savedMeals = [];
+      if (!parsed.fmeal)      parsed.fmeal      = {};
+      if (!parsed.mplans)     parsed.mplans     = {};
+      if (!parsed.slog)       parsed.slog       = [];
+    }
+    // Future: if (version < 11) { ... }
+    parsed.schemaVersion = SCHEMA_VERSION;
+
+    // ── Structural guards (always run) ───────────────────────────
     const def = defaultState();
     const merged = { ...def, ...parsed };
     merged.profile = { ...def.profile, ...(parsed.profile || {}) };
@@ -2530,18 +2550,19 @@ const loadState = async () => {
     if (!merged.profile.weekOverrides || typeof merged.profile.weekOverrides !== 'object') {
       merged.profile.weekOverrides = {};
     }
-    if (!Array.isArray(merged.wlog)) merged.wlog = [];
-    if (!Array.isArray(merged.jlog)) merged.jlog = [];
-    if (!Array.isArray(merged.runs)) merged.runs = [];
-    if (!Array.isArray(merged.conv)) merged.conv = [];
-    if (!Array.isArray(merged.slog)) merged.slog = [];
-    if (!merged.food || typeof merged.food !== 'object') merged.food = {};
-    if (!merged.fmeal || typeof merged.fmeal !== 'object') merged.fmeal = {};
-    if (!merged.mplans || typeof merged.mplans !== 'object') merged.mplans = {};
+    if (!Array.isArray(merged.wlog))       merged.wlog       = [];
+    if (!Array.isArray(merged.jlog))       merged.jlog       = [];
+    if (!Array.isArray(merged.runs))       merged.runs       = [];
+    if (!Array.isArray(merged.conv))       merged.conv       = [];
+    if (!Array.isArray(merged.slog))       merged.slog       = [];
+    if (!Array.isArray(merged.savedMeals)) merged.savedMeals = [];
+    if (!merged.food     || typeof merged.food     !== 'object') merged.food     = {};
+    if (!merged.fmeal    || typeof merged.fmeal    !== 'object') merged.fmeal    = {};
+    if (!merged.mplans   || typeof merged.mplans   !== 'object') merged.mplans   = {};
     if (!merged.sessions || typeof merged.sessions !== 'object') merged.sessions = {};
-    if (!merged.profile.weeks) merged.profile.weeks = 12;
+    if (!merged.profile.weeks)        merged.profile.weeks        = 12;
     if (!merged.profile.workoutStyle) merged.profile.workoutStyle = 'func_bb';
-    if (!merged.profile.startDate) merged.profile.startDate = todayISO();
+    if (!merged.profile.startDate)    merged.profile.startDate    = todayISO();
     if (!merged.week) merged.week = 1;
     return merged;
   } catch (e) {
@@ -5429,7 +5450,8 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
     return null; // unknown
   })();
 
-  const [qty, setQty]       = useState(item.qty || 1);
+  const [qty, setQty]       = useState(String(item.qty || 1));
+  const qtyNum = Math.max(0.25, parseFloat(qty) || 0.25);
   const [unitLabel, setUnitLabel] = useState('serving');
   const [customGrams, setCustomGrams] = useState('');
   const [overrideMacros, setOverrideMacros] = useState(false);
@@ -5441,7 +5463,7 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
   // Initialise from item when in edit mode
   useEffect(() => {
     if (editMode) {
-      setQty(item.qty || 1);
+      setQty(String(item.qty || 1));
       setManCal(String(item.cal || ''));
       setManP(String(item.p   || ''));
       setManC(String(item.c   || ''));
@@ -5453,25 +5475,25 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
   // Compute effective multiplier based on selected unit
   const multiplier = (() => {
     const unit = SERVING_UNITS.find(u => u.label === unitLabel);
-    if (!unit) return qty;
-    if (unitLabel === 'serving') return qty;
-    if (unit.factor === null) return qty; // count-based units (slice, piece…) just use qty
+    if (!unit) return qtyNum;
+    if (unitLabel === 'serving') return qtyNum;
+    if (unit.factor === null) return qtyNum; // count-based units (slice, piece…) just use qty
     if (unitLabel === 'g' || unitLabel === 'ml') {
       const grams = parseFloat(customGrams) || 0;
-      if (servingGrams && servingGrams > 0) return (grams / servingGrams) * qty;
-      return qty; // can't scale without base weight
+      if (servingGrams && servingGrams > 0) return (grams / servingGrams) * qtyNum;
+      return qtyNum; // can't scale without base weight
     }
     // Volume/weight unit → convert to grams → divide by serving grams
-    if (servingGrams && servingGrams > 0) return (unit.factor * qty) / servingGrams;
-    return qty;
+    if (servingGrams && servingGrams > 0) return (unit.factor * qtyNum) / servingGrams;
+    return qtyNum;
   })();
 
   // Final scaled macros
   const scaled = overrideMacros ? {
-    cal: Math.round(Math.abs(+manCal || 0) * qty),
-    p:   Math.round(Math.abs(+manP   || 0) * qty * 10) / 10,
-    c:   Math.round(Math.abs(+manC   || 0) * qty * 10) / 10,
-    f:   Math.round(Math.abs(+manF   || 0) * qty * 10) / 10,
+    cal: Math.round(Math.abs(+manCal || 0) * qtyNum),
+    p:   Math.round(Math.abs(+manP   || 0) * qtyNum * 10) / 10,
+    c:   Math.round(Math.abs(+manC   || 0) * qtyNum * 10) / 10,
+    f:   Math.round(Math.abs(+manF   || 0) * qtyNum * 10) / 10,
   } : {
     cal: Math.round(base.cal * multiplier),
     p:   Math.round(base.p   * multiplier * 10) / 10,
@@ -5482,12 +5504,14 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
   const handleAdd = () => {
     const finalItem = {
       ...item,
-      cal: overrideMacros ? Math.abs(+manCal || 0) : base.cal * (multiplier / qty),
-      p:   overrideMacros ? Math.abs(+manP   || 0) : base.p   * (multiplier / qty),
-      c:   overrideMacros ? Math.abs(+manC   || 0) : base.c   * (multiplier / qty),
-      f:   overrideMacros ? Math.abs(+manF   || 0) : base.f   * (multiplier / qty),
-      qty,
-      servingLabel: unitLabel === 'serving' ? (item.serving || '1 serving') : `${qty} ${unitLabel}${unitLabel === 'g' || unitLabel === 'ml' ? ` (${customGrams}${unitLabel})` : ''}`,
+      cal: overrideMacros ? Math.abs(+manCal || 0) : base.cal * (multiplier / qtyNum),
+      p:   overrideMacros ? Math.abs(+manP   || 0) : base.p   * (multiplier / qtyNum),
+      c:   overrideMacros ? Math.abs(+manC   || 0) : base.c   * (multiplier / qtyNum),
+      f:   overrideMacros ? Math.abs(+manF   || 0) : base.f   * (multiplier / qtyNum),
+      qty: qtyNum,
+      servingLabel: unitLabel === 'serving'
+        ? (item.serving || '1 serving')
+        : `${qtyNum} ${unitLabel}${needsCustomInput ? ` (${customGrams}${unitLabel})` : ''}`,
     };
     editMode ? onSave(finalItem) : onAdd(finalItem);
   };
@@ -5527,7 +5551,11 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
                   min="0.25"
                   step="0.25"
                   value={qty}
-                  onChange={(e) => setQty(Math.max(0.25, +e.target.value || 1))}
+                  onChange={(e) => setQty(e.target.value)}
+                  onBlur={(e) => {
+                    const v = parseFloat(e.target.value);
+                    setQty(String(isNaN(v) || v <= 0 ? 1 : Math.round(v * 4) / 4));
+                  }}
                   style={{ textAlign: 'center', fontSize: 16 }}
                 />
               </div>
@@ -5562,7 +5590,7 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
           {/* Scaled macro preview */}
           <div style={{ background: CARD2, borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
             <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 6 }}>
-              {overrideMacros ? 'CUSTOM MACROS (per serving × qty)' : `SCALED MACROS (${qty} ${unitLabel})`}
+              {overrideMacros ? 'CUSTOM MACROS (per serving × qty)' : `SCALED MACROS (${qtyNum} ${unitLabel})`}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
               {[
@@ -5590,7 +5618,7 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
               onClick={() => {
                 setOverrideMacros(!overrideMacros);
                 if (!overrideMacros) {
-                  setManCal(String(Math.round(base.cal * multiplier / qty) || base.cal));
+                  setManCal(String(Math.round(base.cal * multiplier / qtyNum) || base.cal));
                   setManP(String(base.p));
                   setManC(String(base.c));
                   setManF(String(base.f));
@@ -5644,8 +5672,89 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
   );
 };
 
+// ============================================================
+// SAVED MEALS — save individual foods or whole meal combos
+// ============================================================
+const SavedMeals = ({ savedMeals, onLoad, onDelete, activeMeal }) => {
+  const [filter, setFilter] = useState('All');
+  const categories = ['All', ...Array.from(new Set(savedMeals.map(m => m.category || 'Other')))];
+  const filtered = filter === 'All' ? savedMeals : savedMeals.filter(m => (m.category || 'Other') === filter);
+
+  if (savedMeals.length === 0) {
+    return (
+      <div style={{ padding: '16px 0', textAlign: 'center' }}>
+        <div style={{ fontSize: 28, marginBottom: 6 }}>⭐</div>
+        <div style={{ fontSize: 12, color: TEXT_DIM, marginBottom: 4 }}>No saved meals yet</div>
+        <div style={{ fontSize: 11, color: TEXT_MUTED }}>
+          Tap the <span style={{ color: ACCENT }}>★</span> next to any logged food or meal section to save it for reuse
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Category filter */}
+      {categories.length > 2 && (
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
+          {categories.map(c => (
+            <button key={c} onClick={() => setFilter(c)} style={{
+              background: filter === c ? ACCENT : 'transparent',
+              color: filter === c ? '#000' : TEXT_DIM,
+              border: `1px solid ${filter === c ? ACCENT : BORDER}`,
+              padding: '3px 10px', borderRadius: 12, fontSize: 10, cursor: 'pointer',
+              fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+            }}>{c.toUpperCase()}</button>
+          ))}
+        </div>
+      )}
+
+      {filtered.map(sm => {
+        const totalCal = sm.items.reduce((a, f) => a + (+f.cal || 0) * (f.qty || 1), 0);
+        const totalP   = sm.items.reduce((a, f) => a + (+f.p || 0) * (f.qty || 1), 0);
+        const isMulti  = sm.items.length > 1;
+        return (
+          <div key={sm.id} style={{
+            background: CARD2, border: `1px solid ${BORDER}`, borderRadius: 8,
+            padding: '8px 10px', marginBottom: 6,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, color: '#fff', marginBottom: 2 }}>
+                {isMulti && <span style={{ fontSize: 9, color: ORANGE, fontFamily: 'Impact, Arial Black, sans-serif', marginRight: 4 }}>COMBO</span>}
+                {sm.name}
+              </div>
+              <div style={{ fontSize: 10, color: TEXT_MUTED }}>
+                {Math.round(totalCal)} cal · {Math.round(totalP)}g P
+                {isMulti && ` · ${sm.items.length} foods`}
+                {sm.category && sm.category !== 'Other' && ` · ${sm.category}`}
+              </div>
+              {isMulti && (
+                <div style={{ fontSize: 9, color: TEXT_MUTED, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {sm.items.map(f => f.name).join(', ')}
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+              <button onClick={() => onLoad(sm)} style={{
+                background: `${ACCENT}22`, color: ACCENT, border: `1px solid ${ACCENT}44`,
+                borderRadius: 6, padding: '5px 10px', cursor: 'pointer',
+                fontSize: 10, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+              }}>+ ADD</button>
+              <button onClick={() => onDelete(sm.id)} style={{
+                background: 'transparent', color: TEXT_MUTED, border: 'none',
+                cursor: 'pointer', fontSize: 14, padding: '5px 4px',
+              }}>×</button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const Food = ({ state, setState, onCoachPrompt }) => {
-  const { profile, food, fmeal, wlog } = state;
+  const { profile, food, fmeal, wlog, savedMeals = [] } = state;
   const [viewISO, setViewISO] = useState(todayISO());
   const [foodTab, setFoodTab] = useState('log');
   const [activeMeal, setActiveMeal] = useState('Breakfast');
@@ -5659,14 +5768,59 @@ const Food = ({ state, setState, onCoachPrompt }) => {
   const [collapsed, setCollapsed] = useState({});
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
-  // null = closed | { item, mode:'add'|'edit', editId? }
   const [foodModal, setFoodModal] = useState(null);
-  const [dragging, setDragging] = useState(null); // index being dragged
+  const [showSaved, setShowSaved] = useState(false);
 
   const currentWeight = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
   const macros = calcMacros(profile, currentWeight);
   const todaysFood = food[viewISO] || [];
   const sections = getMealSections(fmeal, viewISO);
+
+  // Save a single food item to favorites
+  const saveFoodItem = (f) => {
+    const entry = {
+      id: 'sm_' + Date.now(),
+      name: f.name,
+      category: f.meal || activeMeal,
+      items: [{ name: f.name, cal: +f.cal || 0, p: +f.p || 0, c: +f.c || 0, f: +f.f || 0, qty: f.qty || 1, serving: f.serving || '' }],
+      savedAt: new Date().toISOString(),
+    };
+    setState((p) => ({ ...p, savedMeals: [...(p.savedMeals || []), entry] }));
+  };
+
+  // Save all items in a meal section as a combo
+  const saveMealSection = (sectionName) => {
+    const items = todaysFood.filter((f) => f.meal === sectionName);
+    if (!items.length) return;
+    const entry = {
+      id: 'sm_' + Date.now(),
+      name: `${sectionName} combo`,
+      category: sectionName,
+      items: items.map((f) => ({ name: f.name, cal: +f.cal || 0, p: +f.p || 0, c: +f.c || 0, f: +f.f || 0, qty: f.qty || 1, serving: f.serving || '' })),
+      savedAt: new Date().toISOString(),
+    };
+    setState((p) => ({ ...p, savedMeals: [...(p.savedMeals || []), entry] }));
+  };
+
+  // Load a saved meal — add all its items to the current active meal
+  const loadSavedMeal = (sm) => {
+    const loggedAt = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    setState((p) => {
+      const day = p.food[viewISO] || [];
+      const newItems = sm.items.map((f) => ({
+        ...f,
+        id: 'f_' + Date.now() + Math.random(),
+        meal: activeMeal,
+        loggedAt,
+      }));
+      return { ...p, food: { ...p.food, [viewISO]: [...day, ...newItems] } };
+    });
+    setShowSaved(false);
+  };
+
+  const deleteSavedMeal = (id) => {
+    setState((p) => ({ ...p, savedMeals: (p.savedMeals || []).filter((m) => m.id !== id) }));
+  };
 
   const totals = todaysFood.reduce((acc, f) => ({
     cal: acc.cal + (+f.cal || 0) * (f.qty || 1),
@@ -5876,7 +6030,35 @@ const Food = ({ state, setState, onCoachPrompt }) => {
 
       {/* Search card */}
       <Card style={{ marginBottom: 10 }}>
-        <Label>QUICK PICK</Label>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <Label style={{ margin: 0 }}>QUICK PICK</Label>
+          <button onClick={() => setShowSaved(!showSaved)} style={{
+            background: showSaved ? `${ACCENT}22` : 'transparent',
+            color: showSaved ? ACCENT : TEXT_DIM,
+            border: `1px solid ${showSaved ? ACCENT : BORDER}`,
+            borderRadius: 12, padding: '3px 10px', cursor: 'pointer',
+            fontSize: 10, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            ★ SAVED{savedMeals.length > 0 ? ` (${savedMeals.length})` : ''}
+          </button>
+        </div>
+
+        {/* Saved meals panel */}
+        {showSaved && (
+          <div style={{ marginBottom: 10, padding: 10, background: CARD2, borderRadius: 8, border: `1px solid ${BORDER}` }}>
+            <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 8 }}>
+              SAVED MEALS — tap + ADD to log to <span style={{ color: mealColor(activeMeal) }}>{activeMeal.toUpperCase()}</span>
+            </div>
+            <SavedMeals
+              savedMeals={savedMeals}
+              onLoad={loadSavedMeal}
+              onDelete={deleteSavedMeal}
+              activeMeal={activeMeal}
+            />
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 4, marginBottom: 8 }}>
           {RESTAURANT_CHIPS.map((c) => (
             <button key={c.name} onClick={() => { setQuery(c.name); search(c.name); }} style={{
@@ -6000,6 +6182,12 @@ const Food = ({ state, setState, onCoachPrompt }) => {
               </button>
               {/* Reorder + delete controls */}
               <div style={{ display: 'flex', gap: 2 }}>
+                {items.length > 0 && (
+                  <button onClick={() => saveMealSection(section)} title="Save this meal as a combo" style={{
+                    background: 'transparent', border: 'none', color: '#fbbf24', cursor: 'pointer',
+                    fontSize: 13, padding: '2px 4px',
+                  }}>★</button>
+                )}
                 <button onClick={() => moveSection(si, si - 1)} disabled={si === 0} style={{ background: 'transparent', border: 'none', color: si === 0 ? BORDER : TEXT_DIM, cursor: si === 0 ? 'not-allowed' : 'pointer', fontSize: 14, padding: '2px 4px' }}>↑</button>
                 <button onClick={() => moveSection(si, si + 1)} disabled={si === sections.length - 1} style={{ background: 'transparent', border: 'none', color: si === sections.length - 1 ? BORDER : TEXT_DIM, cursor: si === sections.length - 1 ? 'not-allowed' : 'pointer', fontSize: 14, padding: '2px 4px' }}>↓</button>
                 {!DEFAULT_MEAL_SECTIONS.includes(section) && (
@@ -6031,6 +6219,7 @@ const Food = ({ state, setState, onCoachPrompt }) => {
                           <span style={{ color: mc, fontSize: 9, fontFamily: 'Impact, Arial Black, sans-serif' }}>✏ edit</span>
                         </div>
                       </button>
+                      <button onClick={() => saveFoodItem(f)} title="Save to favorites" style={{ background: 'transparent', color: '#fbbf24', border: 'none', cursor: 'pointer', fontSize: 14, padding: '4px 4px' }}>★</button>
                       <button onClick={() => removeFood(f.id)} style={{ background: 'transparent', color: TEXT_MUTED, border: 'none', cursor: 'pointer', fontSize: 14, padding: '4px 6px' }}>×</button>
                     </div>
                   ))
