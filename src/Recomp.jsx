@@ -5094,12 +5094,14 @@ const searchFoodDB = async (query) => {
 // BARCODE SCANNER — ZXing + Open Food Facts
 // ============================================================
 const lookupBarcode = async (upc) => {
-  // Strategy 1: Open Food Facts with a 5s timeout
+  // Strategy 1: Open Food Facts (works when CORS allows, 5s timeout)
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
-    const url = `https://world.openfoodfacts.org/api/v2/product/${upc}.json?fields=product_name,brands,nutriments,serving_size,serving_quantity`;
-    const r = await fetch(url, { signal: controller.signal });
+    const r = await fetch(
+      `https://world.openfoodfacts.org/api/v2/product/${upc}.json?fields=product_name,brands,nutriments,serving_size,serving_quantity`,
+      { signal: controller.signal }
+    );
     clearTimeout(timer);
     if (r.ok) {
       const data = await r.json();
@@ -5107,85 +5109,96 @@ const lookupBarcode = async (upc) => {
         const p = data.product;
         const n = p.nutriments || {};
         const serving = parseFloat(p.serving_quantity) || 100;
-        const per100 = (key) => parseFloat(n[key + '_100g'] || n[key] || 0);
-        const perServing = (key) => parseFloat(n[key + '_serving'] || 0) || (per100(key) * serving / 100);
+        const per100 = (k) => parseFloat(n[k + '_100g'] || n[k] || 0);
+        const perSrv = (k) => parseFloat(n[k + '_serving'] || 0) || (per100(k) * serving / 100);
         const name = [p.brands, p.product_name].filter(Boolean).join(' — ') || `UPC ${upc}`;
-        const cal = Math.round(
-          perServing('energy-kcal') ||
-          (perServing('energy') / 4.184) ||
-          (per100('energy-kcal') * serving / 100)
-        );
         return {
           ok: true,
           item: {
             name,
             serving: p.serving_size || `${serving}g`,
-            cal,
-            p: Math.round(perServing('proteins') * 10) / 10,
-            c: Math.round(perServing('carbohydrates') * 10) / 10,
-            f: Math.round(perServing('fat') * 10) / 10,
+            cal: Math.round(perSrv('energy-kcal') || perSrv('energy') / 4.184 || per100('energy-kcal') * serving / 100),
+            p: Math.round(perSrv('proteins') * 10) / 10,
+            c: Math.round(perSrv('carbohydrates') * 10) / 10,
+            f: Math.round(perSrv('fat') * 10) / 10,
           },
         };
       }
     }
-  } catch (e) {
-    // CORS block or timeout — fall through to Claude fallback
-  }
+  } catch {}
 
-  // Strategy 2: Claude API with web search
+  // Strategy 2: Go-UPC public API (no auth required, good CORS, fast)
+  try {
+    const controller2 = new AbortController();
+    const timer2 = setTimeout(() => controller2.abort(), 6000);
+    const r2 = await fetch(
+      `https://go-upc.com/api/v1/code/${upc}`,
+      { signal: controller2.signal }
+    );
+    clearTimeout(timer2);
+    if (r2.ok) {
+      const data2 = await r2.json();
+      const prod = data2.product;
+      if (prod && prod.name) {
+        const nf = prod.nutriments || prod.nutritionFacts || {};
+        return {
+          ok: true,
+          item: {
+            name: prod.brand ? `${prod.brand} — ${prod.name}` : prod.name,
+            serving: nf.servingSize || '1 serving',
+            cal: Math.round(nf.calories || nf.energy || 0),
+            p: Math.round((nf.protein || 0) * 10) / 10,
+            c: Math.round((nf.carbohydrates || nf.totalCarbohydrate || 0) * 10) / 10,
+            f: Math.round((nf.fat || nf.totalFat || 0) * 10) / 10,
+          },
+        };
+      }
+    }
+  } catch {}
+
+  // Strategy 3: Claude API food search by product name/UPC (no web_search tool — faster)
   try {
     const response = await fetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 1024,
-        system: `You are a nutrition lookup assistant. Search for the product with the given UPC/EAN barcode. After searching, respond with ONLY a JSON object on the last line of your response, no other text after it:
-{"name":"Brand ProductName","serving":"1 cup (240g)","cal":150,"p":8,"c":22,"f":3}
-If you cannot find the product after searching, respond with exactly: {"notFound":true}
-Numbers must be per single serving. cal=calories, p=protein grams, c=carbs grams, f=fat grams.`,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{ role: 'user', content: `Find nutrition facts for barcode: ${upc}` }],
+        max_tokens: 300,
+        system: `You are a nutrition database. Return ONLY a JSON object, nothing else, no markdown:
+{"name":"Brand ProductName","serving":"serving description","cal":150,"p":8,"c":22,"f":3}
+If unknown: {"notFound":true}`,
+        messages: [{
+          role: 'user',
+          content: `UPC barcode: ${upc}. What is this product and its nutrition facts per serving? Respond with JSON only.`,
+        }],
       }),
     });
-    if (!response.ok) {
-      const errText = await response.text();
-      return { ok: false, error: `API error. Try manual entry.` };
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-
-    // Extract all text blocks (Claude may use tool_use blocks too — skip those)
-    const textBlocks = (data.content || [])
-      .filter(b => b.type === 'text')
-      .map(b => b.text || '');
-
-    // Try each text block for valid JSON, starting from the last one
-    for (let i = textBlocks.length - 1; i >= 0; i--) {
-      const text = textBlocks[i].replace(/```json?/g, '').replace(/```/g, '').trim();
-      // Find all JSON objects in the text
-      const jsonMatches = [...text.matchAll(/\{[^{}]*\}/g)];
-      for (let j = jsonMatches.length - 1; j >= 0; j--) {
-        try {
-          const parsed = JSON.parse(jsonMatches[j][0]);
-          if (parsed.notFound) return { ok: false, error: `UPC ${upc} not found in database. Try manual entry.` };
-          if (parsed.name && (parsed.cal !== undefined || parsed.p !== undefined)) {
-            return {
-              ok: true,
-              item: {
-                name: String(parsed.name),
-                serving: String(parsed.serving || '1 serving'),
-                cal: Math.round(Math.abs(+parsed.cal || 0)),
-                p: Math.round(Math.abs(+parsed.p || 0) * 10) / 10,
-                c: Math.round(Math.abs(+parsed.c || 0) * 10) / 10,
-                f: Math.round(Math.abs(+parsed.f || 0) * 10) / 10,
-              },
-            };
-          }
-        } catch {}
-      }
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    // Extract JSON — scan for any valid object with nutrition fields
+    const jsonRe = /\{[^{}]+\}/g;
+    const matches = [...text.matchAll(jsonRe)];
+    for (let i = matches.length - 1; i >= 0; i--) {
+      try {
+        const obj = JSON.parse(matches[i][0]);
+        if (obj.notFound) return { ok: false, error: `UPC ${upc} not found. Try manual entry.` };
+        if (obj.name && obj.cal !== undefined) {
+          return {
+            ok: true,
+            item: {
+              name: String(obj.name),
+              serving: String(obj.serving || '1 serving'),
+              cal: Math.round(Math.abs(+obj.cal || 0)),
+              p: Math.round(Math.abs(+obj.p || 0) * 10) / 10,
+              c: Math.round(Math.abs(+obj.c || 0) * 10) / 10,
+              f: Math.round(Math.abs(+obj.f || 0) * 10) / 10,
+            },
+          };
+        }
+      } catch {}
     }
-
-    return { ok: false, error: `Could not parse nutrition data. Try manual entry.` };
+    return { ok: false, error: `Product not found. Try manual entry.` };
   } catch (e) {
     return { ok: false, error: `Lookup failed: ${e.message}` };
   }
@@ -5213,9 +5226,9 @@ const BarcodeScanner = ({ onResult, onClose }) => {
       setStatus('found');
       setLookingUp(true);
 
-      // 15s overall timeout — if both lookup strategies stall, show an error
+      // 30s overall timeout — if all lookup strategies stall, show an error
       const timeoutPromise = new Promise(resolve =>
-        setTimeout(() => resolve({ ok: false, error: 'Lookup timed out. Try manual entry.' }), 15000)
+        setTimeout(() => resolve({ ok: false, error: 'Lookup timed out. Try manual entry.' }), 30000)
       );
       const lookup = await Promise.race([lookupBarcode(code), timeoutPromise]);
 
