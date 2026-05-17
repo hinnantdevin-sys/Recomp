@@ -2591,6 +2591,139 @@ const getFbbKBExercise = (week, totalWeeks, goal) => {
   };
 };
 
+// ============================================================
+// FBB PRE / POST WORKOUT FLEXIBILITY
+// Pre = dynamic activation (2-3 min, raises HR slightly)
+// Post = static holds (5-10 min, cool down)
+// Keyed by day type — pulls the right stretches for each session
+// ============================================================
+const FBB_PRE_WORKOUT = {
+  PUSH: [
+    { name: 'Arm Circles', sets: '2', reps: '30s each direction', note: 'Big slow circles, forward and back. Warms the rotator cuff.' },
+    { name: 'Band Pull-Apart', sets: '2', reps: '15 reps', note: 'Light band. Retract scapula fully. Primes upper back before pressing.' },
+    { name: 'Scapular Wall Slides', sets: '2', reps: '10 reps', note: 'Back flat to wall. Slide arms overhead keeping contact. Opens thoracic spine.' },
+    { name: 'Shoulder Pass-Through', sets: '2', reps: '10 reps', note: 'PVC or band, wide grip. Slow and controlled. Shoulder mobility check.' },
+    { name: 'World\'s Greatest Stretch', sets: '1', reps: '5/side', note: 'Lunge + reach + rotate. Full body primer.' },
+  ],
+  PULL: [
+    { name: 'Cat-Cow', sets: '2', reps: '10 reps', note: 'Slow rhythmic spine flexion/extension. Warms the back chain.' },
+    { name: 'Thread the Needle', sets: '2', reps: '8/side', note: 'Thoracic rotation on hands and knees. Unlocks upper back for rows.' },
+    { name: 'Doorway Chest Opener', sets: '2', reps: '30s each arm', note: 'Elbow at 90°. Gently press through. Counters the sitting posture.' },
+    { name: 'Banded Face Pull Hold', sets: '2', reps: '10 reps', note: 'Pause 2s at end range. External rotation activation.' },
+    { name: 'Lat Hang', sets: '2', reps: '30s', note: 'Dead hang from bar. Full lat stretch. Gets shoulder joint ready.' },
+  ],
+  LEGS: [
+    { name: 'Hip Circle (standing)', sets: '2', reps: '10/direction', note: 'Hands on hips, big slow circles. Lubricates the hip joint.' },
+    { name: 'Leg Swing (front/back)', sets: '2', reps: '15/side', note: 'Hold wall for balance. Swing controlled, increasing range.' },
+    { name: 'Leg Swing (side to side)', sets: '2', reps: '15/side', note: 'Groin and hip abductor warm-up.' },
+    { name: 'Walking Lunge with Reach', sets: '2', reps: '10 steps', note: 'Lunge + reach opposite arm overhead. Hip flexor activation.' },
+    { name: 'Bodyweight Squat + Hold', sets: '2', reps: '10 reps + 30s hold', note: 'Last rep hold at bottom. Find depth before loading.' },
+  ],
+  UPPER: [
+    { name: 'Arm Circles', sets: '2', reps: '30s each direction', note: 'Full shoulder warm-up.' },
+    { name: 'Band Pull-Apart', sets: '2', reps: '15 reps', note: 'Scapular retraction primer.' },
+    { name: 'Thoracic Rotation (seated)', sets: '2', reps: '10/side', note: 'Sit cross-legged, rotate through upper back.' },
+    { name: 'World\'s Greatest Stretch', sets: '1', reps: '5/side', note: 'Full body primer for upper/lower day.' },
+  ],
+  LOWER: [
+    { name: 'Hip Circle (standing)', sets: '2', reps: '10/direction', note: 'Hip joint lubrication.' },
+    { name: 'Leg Swing (front/back)', sets: '2', reps: '15/side', note: 'Hamstring and hip flexor prep.' },
+    { name: 'Bodyweight Squat + Hold', sets: '2', reps: '10 reps + 30s hold', note: 'Hip depth primer.' },
+    { name: 'Glute Bridge Hold', sets: '2', reps: '15 reps + 5s hold', note: 'Glute activation before squats and deadlifts.' },
+  ],
+  FULL: [
+    { name: 'World\'s Greatest Stretch', sets: '2', reps: '5/side', note: 'The single best full-body primer. Lunge + rotate + reach.' },
+    { name: 'Leg Swing (front/back)', sets: '2', reps: '10/side', note: 'Hip prep for lower work.' },
+    { name: 'Arm Circles', sets: '2', reps: '20s/direction', note: 'Shoulder prep for upper work.' },
+    { name: 'Thoracic Rotation (seated)', sets: '2', reps: '8/side', note: 'Spine mobility for full-body movement.' },
+  ],
+  PUSH_LOWER: [
+    { name: 'Hip Circle (standing)', sets: '2', reps: '10/direction', note: 'Lower body primer.' },
+    { name: 'Arm Circles', sets: '2', reps: '20s/direction', note: 'Upper body primer.' },
+    { name: 'Walking Lunge with Reach', sets: '2', reps: '8 steps', note: 'Combines both — hip flexor + shoulder.' },
+    { name: 'Bodyweight Squat + Hold', sets: '1', reps: '10 + 30s hold', note: 'Hip depth check before loading.' },
+  ],
+  PULL_UPPER: [
+    { name: 'Lat Hang', sets: '2', reps: '30s', note: 'Decompress spine, open lats.' },
+    { name: 'Band Pull-Apart', sets: '2', reps: '15 reps', note: 'Rear delt and scapular activation.' },
+    { name: 'Thread the Needle', sets: '2', reps: '8/side', note: 'Thoracic rotation for row mechanics.' },
+    { name: 'Doorway Chest Opener', sets: '1', reps: '30s/side', note: 'Counter tight pecs before pulling movements.' },
+  ],
+};
+// Fallbacks
+FBB_PRE_WORKOUT.STRENGTH = FBB_PRE_WORKOUT.FULL;
+FBB_PRE_WORKOUT.POWER    = FBB_PRE_WORKOUT.FULL;
+FBB_PRE_WORKOUT.CARDIO   = FBB_PRE_WORKOUT.FULL;
+
+const FBB_POST_WORKOUT = {
+  PUSH: [
+    { name: 'Chest Doorway Stretch', hold: '45s/side', note: 'Elbow at 90°, lean through doorway. Full pec stretch while muscles are warm.' },
+    { name: 'Overhead Tricep Stretch', hold: '45s/side', note: 'Reach elbow overhead, gently pull with opposite hand. Long head of tricep.' },
+    { name: 'Cross-Body Shoulder Stretch', hold: '45s/side', note: 'Pull arm across chest. Rear delt and posterior capsule.' },
+    { name: 'Sleeper Stretch', hold: '60s/side', note: 'Lie on side, stack shoulders, push forearm down gently. Internal rotation fix.' },
+    { name: 'Child\'s Pose', hold: '60s', note: 'Lat and thoracic stretch. Reset the spine after pressing work.' },
+  ],
+  PULL: [
+    { name: 'Lat Hang or Lat Stretch (kneeling)', hold: '60s', note: 'Kneel, arms on bench, sit back. Full lat lengthening after rows and pulldowns.' },
+    { name: 'Bicep Wall Stretch', hold: '45s/side', note: 'Palm on wall, arm straight, rotate body away. Bicep and elbow flexor stretch.' },
+    { name: 'Thread the Needle', hold: '45s/side', note: 'Thoracic rotation hold. Upper back release after all that rowing.' },
+    { name: 'Doorway Chest Opener', hold: '60s/side', note: 'Anterior shoulder and pec stretch — these get tight from pulling too.' },
+    { name: 'Neck Side Stretch', hold: '30s/side', note: 'Ear to shoulder, gentle pull. Upper trap release after heavy rows.' },
+  ],
+  LEGS: [
+    { name: 'Standing Quad Stretch', hold: '60s/side', note: 'Pull heel to glute, stand tall. Hold wall if needed. Rectus femoris priority.' },
+    { name: 'Hip Flexor Lunge Stretch', hold: '60s/side', note: 'Low lunge, back knee down, drive hip forward. The most important stretch after squats.' },
+    { name: 'Lying Hamstring Stretch', hold: '60s/side', note: 'On back, pull leg straight. Dorsi-flex foot for full chain stretch.' },
+    { name: 'Pigeon Pose (or Figure-4)', hold: '90s/side', note: 'Deep glute and piriformis release. Take your time here.' },
+    { name: 'Adductor Stretch (wide-stance)', hold: '60s', note: 'Wide stance, reach to ground. Inner thigh and groin after squats.' },
+    { name: 'Calf Stretch (wall)', hold: '45s/side', note: 'Straight leg then bent knee. Both heads of gastrocnemius and soleus.' },
+  ],
+  UPPER: [
+    { name: 'Chest Doorway Stretch', hold: '45s/side', note: 'Pec stretch after pressing.' },
+    { name: 'Lat Stretch (kneeling)', hold: '60s', note: 'Lat release after pulling.' },
+    { name: 'Cross-Body Shoulder Stretch', hold: '45s/side', note: 'Posterior shoulder and rear delt.' },
+    { name: 'Child\'s Pose', hold: '60s', note: 'Full upper back reset.' },
+    { name: 'Neck Side Stretch', hold: '30s/side', note: 'Upper trap release.' },
+  ],
+  LOWER: [
+    { name: 'Standing Quad Stretch', hold: '60s/side', note: 'Quad release after leg work.' },
+    { name: 'Hip Flexor Lunge Stretch', hold: '60s/side', note: 'Critical after squats and lunges.' },
+    { name: 'Pigeon Pose', hold: '90s/side', note: 'Deep glute and hip release.' },
+    { name: 'Lying Hamstring Stretch', hold: '60s/side', note: 'Hamstring and posterior chain.' },
+    { name: 'Calf Stretch (wall)', hold: '45s/side', note: 'Both gastrocnemius and soleus.' },
+  ],
+  FULL: [
+    { name: 'Hip Flexor Lunge Stretch', hold: '60s/side', note: 'Lower body priority after full-body work.' },
+    { name: 'Chest Doorway Stretch', hold: '45s/side', note: 'Upper body reset.' },
+    { name: 'Pigeon Pose', hold: '60s/side', note: 'Glute and hip release.' },
+    { name: 'Child\'s Pose', hold: '60s', note: 'Full spine decompression.' },
+    { name: 'Lat Stretch (kneeling)', hold: '45s', note: 'Lat release.' },
+  ],
+  PUSH_LOWER: [
+    { name: 'Hip Flexor Lunge Stretch', hold: '60s/side', note: 'Priority after squats and lunges.' },
+    { name: 'Chest Doorway Stretch', hold: '45s/side', note: 'Pec release after pressing.' },
+    { name: 'Standing Quad Stretch', hold: '60s/side', note: 'Quad release.' },
+    { name: 'Child\'s Pose', hold: '60s', note: 'Lat and thoracic reset.' },
+  ],
+  PULL_UPPER: [
+    { name: 'Lat Stretch (kneeling)', hold: '60s', note: 'Full lat release after rows and pulldowns.' },
+    { name: 'Bicep Wall Stretch', hold: '45s/side', note: 'Bicep and elbow flexor release.' },
+    { name: 'Chest Doorway Stretch', hold: '45s/side', note: 'Anterior shoulder and pec.' },
+    { name: 'Neck Side Stretch', hold: '30s/side', note: 'Upper trap release.' },
+  ],
+};
+FBB_POST_WORKOUT.STRENGTH = FBB_POST_WORKOUT.FULL;
+FBB_POST_WORKOUT.POWER    = FBB_POST_WORKOUT.FULL;
+FBB_POST_WORKOUT.CARDIO   = FBB_POST_WORKOUT.LOWER;
+
+const getFbbStretches = (dayType) => {
+  const t = (dayType || 'FULL').toUpperCase();
+  return {
+    pre:  FBB_PRE_WORKOUT[t]  || FBB_PRE_WORKOUT.FULL,
+    post: FBB_POST_WORKOUT[t] || FBB_POST_WORKOUT.FULL,
+  };
+};
+
 const getFbbExercises = (dayType, week, totalWeeks, schedule, dayIdx, goal) => {
   const block = blockFor(week);
   const variant = variantFor(schedule, dayIdx, dayType, week);
@@ -2622,9 +2755,13 @@ const getFbbExercises = (dayType, week, totalWeeks, schedule, dayIdx, goal) => {
     };
   });
 
+  const stretches = getFbbStretches(dayType);
+
   return {
     exercises: progressed,
     finisher: getFbbFinisher(goal, week, totalWeeks),
+    preStretches: stretches.pre,
+    postStretches: stretches.post,
     variant,
     block,
     fbbPhase,
@@ -4883,6 +5020,25 @@ const Workouts = ({ state, setState }) => {
         </Card>
       )}
 
+      {/* Pre-workout stretches — FBB only */}
+      {dayType !== 'REST' && dayType !== 'CARDIO' && exData?.preStretches && !session?.skipped && (
+        <Card style={{ background: `${GREEN}08`, borderLeft: `3px solid ${GREEN}`, marginBottom: 10 }}>
+          <Label style={{ color: GREEN }}>🌿 PRE-WORKOUT ACTIVATION</Label>
+          <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 8 }}>
+            2–3 min · Dynamic movement only · Do not hold static · Raise body temp before loading
+          </div>
+          {exData.preStretches.map((s, i) => (
+            <div key={i} style={{ paddingBottom: 6, marginBottom: 6, borderBottom: i < exData.preStretches.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <div style={{ fontSize: 12, color: '#fff' }}>{s.name}</div>
+                <div style={{ fontSize: 11, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5 }}>{s.sets} × {s.reps}</div>
+              </div>
+              <div style={{ fontSize: 11, color: TEXT_DIM, marginTop: 2 }}>{s.note}</div>
+            </div>
+          ))}
+        </Card>
+      )}
+
       {/* Exercises (non-cardio non-rest) */}
       {dayType !== 'REST' && dayType !== 'CARDIO' && exData?.exercises?.length > 0 && !session?.skipped && (
         <>
@@ -4942,6 +5098,25 @@ const Workouts = ({ state, setState }) => {
             <Card style={{ background: `${ORANGE}10`, borderLeft: `3px solid ${ORANGE}`, marginTop: 10 }}>
               <Label>CONDITIONING FINISHER</Label>
               <div style={{ fontSize: 12, color: '#fff' }}>{exData.finisher}</div>
+            </Card>
+          )}
+
+          {/* Post-workout stretches — FBB only */}
+          {exData.postStretches && (
+            <Card style={{ background: `${BLUE}08`, borderLeft: `3px solid ${BLUE}`, marginTop: 10 }}>
+              <Label style={{ color: BLUE }}>🧘 POST-WORKOUT FLEXIBILITY</Label>
+              <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 8 }}>
+                Hold each stretch. Don't bounce. Breathe into it.
+              </div>
+              {exData.postStretches.map((s, i) => (
+                <div key={i} style={{ paddingBottom: 8, marginBottom: 8, borderBottom: i < exData.postStretches.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <div style={{ fontSize: 12, color: '#fff', fontWeight: 600 }}>{s.name}</div>
+                    <div style={{ fontSize: 11, color: BLUE, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5 }}>{s.hold}</div>
+                  </div>
+                  <div style={{ fontSize: 11, color: TEXT_DIM, marginTop: 2 }}>{s.note}</div>
+                </div>
+              ))}
             </Card>
           )}
 
