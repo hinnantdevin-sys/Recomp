@@ -8620,11 +8620,21 @@ const RecompApp = () => {
 
   // Global JS error catcher — shows error instead of black screen
   useEffect(() => {
-    const handler = (e) => setFatalError(e.message || String(e));
+    const handler = (e) => {
+      // Safari sanitizes cross-origin errors as "Script error." — try to get real info
+      const msg = e.message && e.message !== 'Script error.'
+        ? `${e.message} (${e.filename}:${e.lineno})`
+        : `Script error — check: profile.workoutStyle="${state?.profile?.workoutStyle}" weeks=${state?.profile?.weeks} week=${state?.week}`;
+      setFatalError(msg);
+    };
+    const rejHandler = (e) => setFatalError('Promise error: ' + String(e.reason));
     window.addEventListener('error', handler);
-    window.addEventListener('unhandledrejection', (e) => setFatalError(String(e.reason)));
-    return () => window.removeEventListener('error', handler);
-  }, []);
+    window.addEventListener('unhandledrejection', rejHandler);
+    return () => {
+      window.removeEventListener('error', handler);
+      window.removeEventListener('unhandledrejection', rejHandler);
+    };
+  }, [state]);
 
   // Load on mount
   useEffect(() => {
@@ -8695,19 +8705,21 @@ const RecompApp = () => {
 
   // Onboarding complete handler
   const completeSetup = (newProfile) => {
-    const next = {
-      ...defaultState(),
-      profile: { ...newProfile, setupComplete: true },
-      week: 1,
-      conv: [],
-      schemaVersion: SCHEMA_VERSION,
-    };
-    // Save synchronously to localStorage first
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch(e) {}
-    // Update state directly — no functional updater, no batching surprises
-    _setState(next);
-    // Force exit from setup screen immediately via local flag
-    setSetupDone(true);
+    try {
+      const next = {
+        ...defaultState(),
+        profile: { ...newProfile, setupComplete: true },
+        week: 1,
+        conv: [],
+        schemaVersion: SCHEMA_VERSION,
+      };
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch(e) {}
+      _setState(next);
+      setSetupDone(true);
+    } catch(e) {
+      // Surface real error instead of Safari's "Script error."
+      setFatalError('completeSetup error: ' + (e?.message || String(e)) + '\n' + (e?.stack || '').split('\n').slice(0,3).join('\n'));
+    }
   };
 
   const acknowledgeSummary = () => {
@@ -8801,18 +8813,22 @@ const RecompApp = () => {
   // Phase pill
   let phaseName = '';
   let phaseColor = ACCENT;
-  if (profile.workoutStyle === 'rp_hyp') {
-    const wd = rpWeekData(week, profile.weeks);
-    phaseName = wd.phase;
-    phaseColor = wd.phase === 'RP DELOAD' ? PURPLE : ACCENT;
-  } else if (profile.workoutStyle === 'hyrox' || profile.workoutStyle === 'hyrox_hybrid') {
-    const ph = hyroxPhase(week, profile.weeks);
-    phaseName = ph.name;
-    phaseColor = ph.color;
-  } else {
-    const ph = phaseForWeek(week, profile.weeks);
-    phaseName = ph.phase;
-    phaseColor = PHASE_COLORS[ph.phase] || ACCENT;
+  try {
+    if (profile.workoutStyle === 'rp_hyp') {
+      const wd = rpWeekData(week, profile.weeks);
+      phaseName = wd.phase;
+      phaseColor = wd.phase === 'RP DELOAD' ? PURPLE : ACCENT;
+    } else if (profile.workoutStyle === 'hyrox' || profile.workoutStyle === 'hyrox_hybrid') {
+      const ph = hyroxPhase(week, profile.weeks);
+      phaseName = ph.name;
+      phaseColor = ph.color;
+    } else {
+      const ph = phaseForWeek(week, profile.weeks);
+      phaseName = ph.phase;
+      phaseColor = PHASE_COLORS[ph.phase] || ACCENT;
+    }
+  } catch(e) {
+    phaseName = 'WK' + week;
   }
 
   return (
