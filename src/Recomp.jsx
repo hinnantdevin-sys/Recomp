@@ -8387,7 +8387,11 @@ const CoachDrawer = ({ open, onClose, state, setState, setActiveTab, pendingProm
             messages,
           }),
         });
-        const data = await response.json();
+        let data;
+        try { data = await response.json(); } catch(e) {
+          workingConv.push({ role: 'assistant', content: '⚠ Coach unavailable. Check connection.' });
+          break;
+        }
         if (!data.content) {
           workingConv.push({ role: 'assistant', content: '⚠ Coach unavailable. Try again.' });
           break;
@@ -8624,22 +8628,25 @@ const RecompApp = () => {
   // Global JS error catcher — shows error instead of black screen
   useEffect(() => {
     const handler = (event) => {
-      // Safari cross-origin: event.message is "Script error." with no useful info
-      // Capture everything we can
+      // Safari fires generic "Script error." for cross-origin and system events
+      // (like home screen bookmarking, extensions, etc.) — ignore these
+      if (!event.message || event.message === 'Script error.' || event.message === 'Script error') return;
+      if (!event.lineno && !event.filename) return; // no location info = system/extension noise
       const parts = [
-        event.message || 'unknown error',
-        event.filename ? `file: ${event.filename.split('/').pop()}` : '',
-        event.lineno ? `line: ${event.lineno}` : '',
-        event.colno ? `col: ${event.colno}` : '',
-        event.error ? `type: ${event.error.constructor?.name || 'Error'}` : '',
-        event.error?.stack ? `stack: ${event.error.stack.split('\n').slice(0,3).join(' | ')}` : '',
-        `state: style=${state?.profile?.workoutStyle} wks=${state?.profile?.weeks} wk=${state?.week} setup=${state?.profile?.setupComplete}`,
+        event.message,
+        event.filename ? `${event.filename.split('/').pop()}:${event.lineno}` : '',
+        event.error?.stack ? event.error.stack.split('\n').slice(0, 3).join(' | ') : '',
       ].filter(Boolean).join('\n');
       setFatalError(parts);
     };
     const rejHandler = (e) => {
-      const msg = e.reason?.message || e.reason?.toString() || String(e.reason) || 'unhandled rejection';
-      setFatalError('Promise: ' + msg + (e.reason?.stack ? '\n' + e.reason.stack.split('\n').slice(0,3).join('\n') : ''));
+      const msg = e.reason?.message || String(e.reason) || 'unhandled rejection';
+      // Ignore Safari noise and network/API errors — these are not app crashes
+      if (msg === 'Script error.' || msg === '[object Event]') return;
+      if (msg.includes('Invalid response format')) return; // Safari JSON parse on non-JSON response
+      if (msg.includes('NetworkError') || msg.includes('Failed to fetch')) return;
+      if (msg.includes('Load failed') || msg.includes('cancelled')) return;
+      setFatalError('Promise: ' + msg);
     };
     window.addEventListener('error', handler);
     window.addEventListener('unhandledrejection', rejHandler);
