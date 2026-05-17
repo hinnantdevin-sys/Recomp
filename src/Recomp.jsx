@@ -8648,11 +8648,14 @@ const RecompApp = () => {
 
   // Wrapped setter with debounced save — NO side effects inside _setState updater
   const setState = useCallback((updater) => {
+    let captured = null;
     _setState((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      latestStateRef.current = next; // track latest for deferred save
+      captured = next;
       return next;
     });
+    // Update ref and schedule save OUTSIDE the updater
+    if (captured !== null) latestStateRef.current = captured;
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       if (latestStateRef.current) {
@@ -8695,11 +8698,15 @@ const RecompApp = () => {
     if (!state || !loaded || welcomeFiredRef.current) return;
     if (state.profile.setupComplete && (!state.conv || state.conv.length === 0)) {
       welcomeFiredRef.current = true;
-      const macros = calcMacros(state.profile, state.profile.weight);
-      const styleName = WORKOUT_STYLES.find((s) => s.id === state.profile.workoutStyle)?.name;
-      const goalName = GOAL_OPTIONS.find((g) => g.id === state.profile.goal)?.name;
-      const welcomeText = `🔥 **Let's go, ${state.profile.name || 'athlete'}!** Locked in for **${state.profile.weeks} weeks** of **${styleName}** — focus: **${goalName}**.\n\n**Daily targets:** ${macros.calories} cal · ${macros.protein}p · ${macros.carbs}c · ${macros.fat}f\n\nI've built your program around your schedule. Hit your sessions, log honestly, and I'll adapt your weights week-to-week. Ask me anything — workout questions, food swaps, pace targets, recovery. **Let's build.**`;
-      setState((p) => ({ ...p, conv: [{ role: 'assistant', content: welcomeText }] }));
+      try {
+        const macros = calcMacros(state.profile, state.profile.weight);
+        const styleName = WORKOUT_STYLES.find((s) => s.id === state.profile.workoutStyle)?.name || state.profile.workoutStyle;
+        const goalName = GOAL_OPTIONS.find((g) => g.id === state.profile.goal)?.name || state.profile.goal;
+        const welcomeText = `🔥 **Let's go, ${state.profile.name || 'athlete'}!** Locked in for **${state.profile.weeks} weeks** of **${styleName}** — focus: **${goalName}**.\n\n**Daily targets:** ${macros.calories} cal · ${macros.protein}p · ${macros.carbs}c · ${macros.fat}f\n\nI've built your program around your schedule. Hit your sessions, log honestly, and I'll adapt your weights week-to-week. Ask me anything — workout questions, food swaps, pace targets, recovery. **Let's build.**`;
+        setState((p) => ({ ...p, conv: [{ role: 'assistant', content: welcomeText }] }));
+      } catch(e) {
+        setFatalError('Welcome effect error: ' + (e?.message || String(e)));
+      }
     }
   }, [state, loaded]);
 
