@@ -102,7 +102,7 @@ const DAY_TYPE_ABBR = {
   WOD: 'WOD', STRENGTH: 'STR', OLY: 'OLY', GYMNASTICS: 'GYM',
   SPEED: 'SPD', POWER: 'POW', CONDITIONING: 'CON',
   HIIT: 'HIT',
-  PUSH_LOWER: 'P+L', PULL_UPPER: 'PU+', STRENGTH: 'STR', POWER: 'PWR',
+  PUSH_LOWER: 'P+L', PULL_UPPER: 'PU+',
   CARDIO: 'CAR', REST: '—',
 };
 
@@ -114,7 +114,7 @@ const DAY_TYPE_COLOR = {
   WOD: ORANGE, STRENGTH: ACCENT, OLY: PURPLE, GYMNASTICS: BLUE,
   SPEED: ORANGE, POWER: '#fbbf24', CONDITIONING: BLUE,
   HIIT: ORANGE,
-  PUSH_LOWER: ORANGE, PULL_UPPER: BLUE, STRENGTH: ACCENT, POWER: '#fbbf24',
+  PUSH_LOWER: ORANGE, PULL_UPPER: BLUE,
   STRENGTH_LOWER: PURPLE, STRENGTH_UPPER: ORANGE, RUN_INTERVALS: ORANGE, Z2_RUN: BLUE, RACE_SIM: RED, KB_RUN: '#fbbf24',
   CARDIO: BLUE, REST: TEXT_MUTED,
 };
@@ -8439,10 +8439,19 @@ const RecompApp = () => {
   const [pendingPrompt, setPendingPrompt] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const [summaryDismissed, setSummaryDismissed] = useState(false);
-  const [setupDone, setSetupDone] = useState(false); // local flag to immediately exit setup on completion
+  const [setupDone, setSetupDone] = useState(false);
+  const [fatalError, setFatalError] = useState(null); // catch render errors inline
   const saveTimerRef = useRef(null);
   const latestStateRef = useRef(null);
   const welcomeFiredRef = useRef(false);
+
+  // Global JS error catcher — shows error instead of black screen
+  useEffect(() => {
+    const handler = (e) => setFatalError(e.message || String(e));
+    window.addEventListener('error', handler);
+    window.addEventListener('unhandledrejection', (e) => setFatalError(String(e.reason)));
+    return () => window.removeEventListener('error', handler);
+  }, []);
 
   // Load on mount
   useEffect(() => {
@@ -8550,64 +8559,66 @@ const RecompApp = () => {
     setCoachOpen(true);
   };
 
-  // Loading state
-  if (!loaded || !state) {
+  // Fatal error display — catches anything that slips past ErrorBoundary
+  if (fatalError) {
     return (
-      <ErrorBoundary>
+      <>
         <GlobalStyles />
-        <div className="recomp-app" style={{
-          background: BG, minHeight: '100vh', color: '#fff',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'Helvetica, Arial, sans-serif', padding: 20,
-        }}>
-          <div style={{ animation: 'recomp-pulse 2s ease-in-out infinite', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 48, letterSpacing: 2, marginBottom: 18 }}>
-              <span style={{ color: ACCENT }}>RE</span><span style={{ color: ORANGE }}>COMP</span>
-            </div>
-            <div style={{ width: 120, height: 6, background: CARD2, borderRadius: 3, overflow: 'hidden', margin: '0 auto' }}>
-              <div style={{
-                width: '60%', height: '100%',
-                background: ACCENT,
-                animation: 'recomp-pulse 1.4s ease-in-out infinite',
-              }} />
-            </div>
+        <div style={{ minHeight: '100vh', background: '#09090b', color: '#fff', padding: 24, fontFamily: 'Helvetica, Arial, sans-serif' }}>
+          <div style={{ maxWidth: 480, margin: '60px auto', textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+            <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 28, color: '#e8ff47', marginBottom: 12 }}>APP ERROR</div>
+            <pre style={{ background: '#1a0000', border: '1px solid #ef4444', color: '#fca5a5', padding: 12, borderRadius: 6, fontSize: 11, textAlign: 'left', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              {fatalError}
+            </pre>
+            <button onClick={() => { try { localStorage.removeItem(STORAGE_KEY); } catch(e) {} window.location.reload(); }}
+              style={{ marginTop: 16, background: '#ef4444', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 6, fontSize: 14, cursor: 'pointer', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+              RESET DATA & RELOAD
+            </button>
           </div>
         </div>
-      </ErrorBoundary>
-    );
-  }
-  // Setup wizard — show if state not yet marked complete AND local flag not set
-  if (!setupDone && !state.profile.setupComplete) {
-    return (
-      <ErrorBoundary>
-        <GlobalStyles />
-        <div className="recomp-app" style={{
-          background: BG, minHeight: '100vh', color: '#fff', fontFamily: 'Helvetica, Arial, sans-serif',
-        }}>
-          <SetupScreen onComplete={completeSetup} />
-        </div>
-      </ErrorBoundary>
+      </>
     );
   }
 
-  // Brief transition: setupDone fired but _setState hasn't committed yet — show loading
-  if (setupDone && !state.profile.setupComplete) {
+  if (!loaded || !state) {
     return (
-      <ErrorBoundary>
-        <GlobalStyles />
-        <div className="recomp-app" style={{
-          background: BG, minHeight: '100vh', color: '#fff',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'Helvetica, Arial, sans-serif',
-        }}>
-          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 36, letterSpacing: 2 }}>
+      <div className="recomp-app" style={{
+        background: BG, minHeight: '100vh', color: '#fff',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Helvetica, Arial, sans-serif', padding: 20,
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 48, letterSpacing: 2, marginBottom: 18 }}>
             <span style={{ color: ACCENT }}>RE</span><span style={{ color: ORANGE }}>COMP</span>
           </div>
-          <div style={{ marginTop: 16, width: 120, height: 4, background: CARD2, borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ width: '60%', height: '100%', background: ACCENT, animation: 'recomp-pulse 1.2s ease-in-out infinite' }} />
+          <div style={{ width: 120, height: 6, background: CARD2, borderRadius: 3, overflow: 'hidden', margin: '0 auto' }}>
+            <div style={{ width: '60%', height: '100%', background: ACCENT }} />
           </div>
         </div>
-      </ErrorBoundary>
+      </div>
+    );
+  }
+
+  if (!setupDone && !state.profile.setupComplete) {
+    return (
+      <div className="recomp-app" style={{ background: BG, minHeight: '100vh', color: '#fff', fontFamily: 'Helvetica, Arial, sans-serif' }}>
+        <SetupScreen onComplete={completeSetup} />
+      </div>
+    );
+  }
+
+  if (setupDone && !state.profile.setupComplete) {
+    return (
+      <div className="recomp-app" style={{
+        background: BG, minHeight: '100vh', color: '#fff',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Helvetica, Arial, sans-serif',
+      }}>
+        <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 36, letterSpacing: 2 }}>
+          <span style={{ color: ACCENT }}>RE</span><span style={{ color: ORANGE }}>COMP</span>
+        </div>
+      </div>
     );
   }
 
