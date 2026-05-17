@@ -3609,6 +3609,9 @@ class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { error: null };
+    // Bind methods in constructor for Safari compatibility (class field arrows not supported in older Safari)
+    this.reset = this.reset.bind(this);
+    this.resetData = this.resetData.bind(this);
   }
   static getDerivedStateFromError(error) {
     return { error };
@@ -3616,13 +3619,15 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, info) {
     console.error('App crashed:', error, info);
   }
-  reset = () => this.setState({ error: null });
-  resetData = async () => {
+  reset() {
+    this.setState({ error: null });
+  }
+  resetData() {
     try {
       if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY);
     } catch (e) {}
     if (typeof window !== 'undefined') window.location.reload();
-  };
+  }
   render() {
     if (this.state.error) {
       return (
