@@ -1600,6 +1600,13 @@ const PHASE_BY_WEEK_12 = [
   { week: 12, phase: 'NEW BLOCK', sets: '4', reps: '8-12', rpe: '7-8', tempo: '31X1', note: '+10-15 lbs over Wk 4' },
 ];
 
+const PHASE_BY_WEEK_4 = [
+  { week: 1, phase: 'ACCUMULATION', sets: '3', reps: '10-12', rpe: '7', tempo: '20X1', note: 'Build volume' },
+  { week: 2, phase: 'HYPERTROPHY', sets: '4', reps: '8-10', rpe: '7-8', tempo: '20X1', note: '+5-10 lbs' },
+  { week: 3, phase: 'HYPERTROPHY', sets: '4', reps: '6-8', rpe: '8', tempo: '20X1', note: 'Heavy work' },
+  { week: 4, phase: 'DELOAD', sets: '3', reps: '8-10', rpe: '5-6', tempo: '20X1', note: '60% load, recover' },
+];
+
 // ============================================================
 // FUNCTIONAL BODYBUILDING — TRACK SYSTEM
 // 3 goal-specific tracks × variable program lengths
@@ -2899,7 +2906,7 @@ const variantFor = (schedule, dayIdx, dayType, week) => {
   return occ % 2 === 0 ? 'A' : 'B';
 };
 
-const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx) => {
+const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx, goal = 'recomp') => {
   const t = String(dayType).toUpperCase();
   // Rest day
   if (t === 'REST') return null;
@@ -3255,13 +3262,13 @@ const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx) 
 
   // Functional BB — uses FBB_EXERCISES with goal-specific phase system
   if (style === 'func_bb') {
-    const goal = profile?.goal || 'recomp';
+    const fbbGoal = goal || 'recomp';
     if (t === 'CARDIO') {
-      const c = cardioProtocol(goal === 'fatloss' ? 'fatloss' : 'performance', week, totalWeeks);
+      const c = cardioProtocol(fbbGoal === 'fatloss' ? 'fatloss' : 'performance', week, totalWeeks);
       return { exercises: [{ name: c.name, sets: '1', reps: c.desc, tempo: '-', note: '' }], finisher: null };
     }
     if (t === 'REST') return { exercises: [], finisher: null, dayType: 'REST' };
-    const result = getFbbExercises(t, week, totalWeeks, schedule, dayIdx, goal);
+    const result = getFbbExercises(t, week, totalWeeks, schedule, dayIdx, fbbGoal);
     if (result) return result;
   }
 
@@ -4460,7 +4467,8 @@ const Workouts = ({ state, setState }) => {
     dayProgramWeek,
     profile.weeks,
     effectiveSchedule,
-    viewDayIdx
+    viewDayIdx,
+    profile.goal
   );
 
   // Detect missed workouts in current week
