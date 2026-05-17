@@ -8426,6 +8426,7 @@ const RecompApp = () => {
   const [pendingPrompt, setPendingPrompt] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const [summaryDismissed, setSummaryDismissed] = useState(false);
+  const [setupDone, setSetupDone] = useState(false); // local flag to immediately exit setup on completion
   const saveTimerRef = useRef(null);
   const welcomeFiredRef = useRef(false);
   const latestStateRef = useRef(null);
@@ -8517,6 +8518,9 @@ const RecompApp = () => {
       saveState(next);
       return next;
     });
+    // Set local flag immediately — this causes an instant re-render that exits setup
+    // without waiting for React to commit the _setState update above
+    setSetupDone(true);
     welcomeFiredRef.current = false;
     setActiveTab('dashboard');
   };
@@ -8570,8 +8574,8 @@ const RecompApp = () => {
     );
   }
 
-  // Setup wizard
-  if (!state.profile.setupComplete) {
+  // Setup wizard — show if state not yet marked complete AND local flag not set
+  if (!setupDone && !state.profile.setupComplete) {
     return (
       <ErrorBoundary>
         <GlobalStyles />
@@ -8579,6 +8583,27 @@ const RecompApp = () => {
           background: BG, minHeight: '100vh', color: '#fff', fontFamily: 'Helvetica, Arial, sans-serif',
         }}>
           <SetupScreen onComplete={completeSetup} />
+        </div>
+      </ErrorBoundary>
+    );
+  }
+
+  // Brief transition: setupDone fired but _setState hasn't committed yet — show loading
+  if (setupDone && !state.profile.setupComplete) {
+    return (
+      <ErrorBoundary>
+        <GlobalStyles />
+        <div className="recomp-app" style={{
+          background: BG, minHeight: '100vh', color: '#fff',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'Helvetica, Arial, sans-serif',
+        }}>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 36, letterSpacing: 2 }}>
+            <span style={{ color: ACCENT }}>RE</span><span style={{ color: ORANGE }}>COMP</span>
+          </div>
+          <div style={{ marginTop: 16, width: 120, height: 4, background: CARD2, borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ width: '60%', height: '100%', background: ACCENT, animation: 'recomp-pulse 1.2s ease-in-out infinite' }} />
+          </div>
         </div>
       </ErrorBoundary>
     );
