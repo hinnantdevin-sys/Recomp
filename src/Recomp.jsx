@@ -2622,10 +2622,8 @@ const getFbbExercises = (dayType, week, totalWeeks, schedule, dayIdx, goal) => {
     };
   });
 
-  const kbExercise = getFbbKBExercise(week, totalWeeks, goal);
-
   return {
-    exercises: [...progressed, kbExercise],
+    exercises: progressed,
     finisher: getFbbFinisher(goal, week, totalWeeks),
     variant,
     block,
