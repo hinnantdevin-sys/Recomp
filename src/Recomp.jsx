@@ -8500,18 +8500,19 @@ const RecompApp = () => {
 
   // Onboarding complete handler
   const completeSetup = (newProfile) => {
-    const profileWithFlag = { ...newProfile, setupComplete: true };
     const next = {
       ...defaultState(),
-      profile: profileWithFlag,
+      profile: { ...newProfile, setupComplete: true },
       week: 1,
       conv: [],
       schemaVersion: SCHEMA_VERSION,
     };
-    // Write to localStorage synchronously
+    // Save synchronously to localStorage first
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch(e) {}
-    // Reload the page — cleanest possible transition, no React state batching issues
-    window.location.reload();
+    // Update state directly — no functional updater, no batching surprises
+    _setState(next);
+    // Force exit from setup screen immediately via local flag
+    setSetupDone(true);
   };
 
   const acknowledgeSummary = () => {
