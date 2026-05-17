@@ -8428,35 +8428,31 @@ const RecompApp = () => {
   const [summaryDismissed, setSummaryDismissed] = useState(false);
   const [setupDone, setSetupDone] = useState(false); // local flag to immediately exit setup on completion
   const saveTimerRef = useRef(null);
-  const welcomeFiredRef = useRef(false);
   const latestStateRef = useRef(null);
-
-  // Keep latestStateRef in sync with state on every render
-  latestStateRef.current = state;
+  const welcomeFiredRef = useRef(false);
 
   // Load on mount
   useEffect(() => {
     (async () => {
       const s = await loadState();
+      latestStateRef.current = s;
       _setState(s);
       setLoaded(true);
     })();
   }, []);
 
-  // Wrapped setter with debounced save
-  // NOTE: side effects (setTimeout) must NOT be inside the _setState updater.
-  // We compute next outside the updater call then schedule the save separately.
+  // Wrapped setter with debounced save — NO side effects inside _setState updater
   const setState = useCallback((updater) => {
     _setState((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
+      latestStateRef.current = next; // track latest for deferred save
       return next;
     });
-    // Schedule save outside the updater to avoid illegal side effects in React's updater
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      // Read latest state for save — _setState gives us the ref-based approach
-      // We use a separate state read via a ref updated on every render
-      saveState(latestStateRef.current);
+      if (latestStateRef.current) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(latestStateRef.current)); } catch(e) {}
+      }
     }, 1000);
   }, []);
 
@@ -8504,25 +8500,18 @@ const RecompApp = () => {
 
   // Onboarding complete handler
   const completeSetup = (newProfile) => {
-    // Always force setupComplete: true — this is the single source of truth
     const profileWithFlag = { ...newProfile, setupComplete: true };
-    const nextState = (prev) => ({
-      ...prev,
+    const next = {
+      ...defaultState(),
       profile: profileWithFlag,
       week: 1,
       conv: [],
-    });
-    _setState((prev) => {
-      const next = nextState(prev);
-      // Save immediately (not debounced) so a page reload doesn't re-show setup
-      saveState(next);
-      return next;
-    });
-    // Set local flag immediately — this causes an instant re-render that exits setup
-    // without waiting for React to commit the _setState update above
-    setSetupDone(true);
-    welcomeFiredRef.current = false;
-    setActiveTab('dashboard');
+      schemaVersion: SCHEMA_VERSION,
+    };
+    // Write to localStorage synchronously
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch(e) {}
+    // Reload the page — cleanest possible transition, no React state batching issues
+    window.location.reload();
   };
 
   const acknowledgeSummary = () => {
@@ -8573,7 +8562,6 @@ const RecompApp = () => {
       </ErrorBoundary>
     );
   }
-
   // Setup wizard — show if state not yet marked complete AND local flag not set
   if (!setupDone && !state.profile.setupComplete) {
     return (
