@@ -8428,6 +8428,10 @@ const RecompApp = () => {
   const [summaryDismissed, setSummaryDismissed] = useState(false);
   const saveTimerRef = useRef(null);
   const welcomeFiredRef = useRef(false);
+  const latestStateRef = useRef(null);
+
+  // Keep latestStateRef in sync with state on every render
+  latestStateRef.current = state;
 
   // Load on mount
   useEffect(() => {
@@ -8439,13 +8443,20 @@ const RecompApp = () => {
   }, []);
 
   // Wrapped setter with debounced save
+  // NOTE: side effects (setTimeout) must NOT be inside the _setState updater.
+  // We compute next outside the updater call then schedule the save separately.
   const setState = useCallback((updater) => {
     _setState((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(() => saveState(next), 1000);
       return next;
     });
+    // Schedule save outside the updater to avoid illegal side effects in React's updater
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      // Read latest state for save — _setState gives us the ref-based approach
+      // We use a separate state read via a ref updated on every render
+      saveState(latestStateRef.current);
+    }, 1000);
   }, []);
 
   // Auto-show summary when program complete
@@ -8492,13 +8503,22 @@ const RecompApp = () => {
 
   // Onboarding complete handler
   const completeSetup = (newProfile) => {
-    setState((p) => ({
-      ...p,
-      profile: newProfile,
+    // Always force setupComplete: true — this is the single source of truth
+    const profileWithFlag = { ...newProfile, setupComplete: true };
+    const nextState = (prev) => ({
+      ...prev,
+      profile: profileWithFlag,
       week: 1,
       conv: [],
-    }));
+    });
+    _setState((prev) => {
+      const next = nextState(prev);
+      // Save immediately (not debounced) so a page reload doesn't re-show setup
+      saveState(next);
+      return next;
+    });
     welcomeFiredRef.current = false;
+    setActiveTab('dashboard');
   };
 
   const acknowledgeSummary = () => {
