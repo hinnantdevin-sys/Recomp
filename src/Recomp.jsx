@@ -8615,19 +8615,32 @@ const RecompApp = () => {
   const [setupDone, setSetupDone] = useState(false);
   const [fatalError, setFatalError] = useState(null); // catch render errors inline
   const saveTimerRef = useRef(null);
-  const latestStateRef = useRef(null);
+  const stateRef = useRef(null);
   const welcomeFiredRef = useRef(false);
+
+  // Keep stateRef always current — safe to do at render time (not inside any updater)
+  stateRef.current = state;
 
   // Global JS error catcher — shows error instead of black screen
   useEffect(() => {
-    const handler = (e) => {
-      // Safari sanitizes cross-origin errors as "Script error." — try to get real info
-      const msg = e.message && e.message !== 'Script error.'
-        ? `${e.message} (${e.filename}:${e.lineno})`
-        : `Script error — check: profile.workoutStyle="${state?.profile?.workoutStyle}" weeks=${state?.profile?.weeks} week=${state?.week}`;
-      setFatalError(msg);
+    const handler = (event) => {
+      // Safari cross-origin: event.message is "Script error." with no useful info
+      // Capture everything we can
+      const parts = [
+        event.message || 'unknown error',
+        event.filename ? `file: ${event.filename.split('/').pop()}` : '',
+        event.lineno ? `line: ${event.lineno}` : '',
+        event.colno ? `col: ${event.colno}` : '',
+        event.error ? `type: ${event.error.constructor?.name || 'Error'}` : '',
+        event.error?.stack ? `stack: ${event.error.stack.split('\n').slice(0,3).join(' | ')}` : '',
+        `state: style=${state?.profile?.workoutStyle} wks=${state?.profile?.weeks} wk=${state?.week} setup=${state?.profile?.setupComplete}`,
+      ].filter(Boolean).join('\n');
+      setFatalError(parts);
     };
-    const rejHandler = (e) => setFatalError('Promise error: ' + String(e.reason));
+    const rejHandler = (e) => {
+      const msg = e.reason?.message || e.reason?.toString() || String(e.reason) || 'unhandled rejection';
+      setFatalError('Promise: ' + msg + (e.reason?.stack ? '\n' + e.reason.stack.split('\n').slice(0,3).join('\n') : ''));
+    };
     window.addEventListener('error', handler);
     window.addEventListener('unhandledrejection', rejHandler);
     return () => {
@@ -8640,28 +8653,22 @@ const RecompApp = () => {
   useEffect(() => {
     (async () => {
       const s = await loadState();
-      latestStateRef.current = s;
       _setState(s);
       setLoaded(true);
     })();
   }, []);
 
-  // Wrapped setter with debounced save — NO side effects inside _setState updater
+  // Wrapped setter with debounced save — pure updater, save happens in setTimeout
   const setState = useCallback((updater) => {
-    let captured = null;
     _setState((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      captured = next;
-      return next;
+      return typeof updater === 'function' ? updater(prev) : updater;
     });
-    // Update ref and schedule save OUTSIDE the updater
-    if (captured !== null) latestStateRef.current = captured;
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      if (latestStateRef.current) {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(latestStateRef.current)); } catch(e) {}
+      if (stateRef.current) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(stateRef.current)); } catch(e) {}
       }
-    }, 1000);
+    }, 1500);
   }, []);
 
   // Auto-show summary when program complete
@@ -8756,17 +8763,23 @@ const RecompApp = () => {
     return (
       <>
         <GlobalStyles />
-        <div style={{ minHeight: '100vh', background: '#09090b', color: '#fff', padding: 24, fontFamily: 'Helvetica, Arial, sans-serif' }}>
-          <div style={{ maxWidth: 480, margin: '60px auto', textAlign: 'center' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
-            <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 28, color: '#e8ff47', marginBottom: 12 }}>APP ERROR</div>
-            <pre style={{ background: '#1a0000', border: '1px solid #ef4444', color: '#fca5a5', padding: 12, borderRadius: 6, fontSize: 11, textAlign: 'left', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+        <div style={{ minHeight: '100vh', background: '#09090b', color: '#fff', padding: 20, fontFamily: 'Helvetica, Arial, sans-serif' }}>
+          <div style={{ maxWidth: 480, margin: '40px auto', textAlign: 'center' }}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>⚠️</div>
+            <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 24, color: '#e8ff47', marginBottom: 12 }}>APP ERROR</div>
+            <pre style={{ background: '#1a0000', border: '1px solid #ef4444', color: '#fca5a5', padding: 12, borderRadius: 6, fontSize: 10, textAlign: 'left', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 280, overflow: 'auto' }}>
               {fatalError}
             </pre>
-            <button onClick={() => { try { localStorage.removeItem(STORAGE_KEY); } catch(e) {} window.location.reload(); }}
-              style={{ marginTop: 16, background: '#ef4444', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 6, fontSize: 14, cursor: 'pointer', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
-              RESET DATA & RELOAD
-            </button>
+            <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button onClick={() => setFatalError(null)}
+                style={{ background: '#e8ff47', color: '#000', border: 'none', padding: '12px 20px', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+                DISMISS
+              </button>
+              <button onClick={() => { try { localStorage.removeItem(STORAGE_KEY); } catch(e) {} window.location.reload(); }}
+                style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '12px 20px', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+                RESET & RELOAD
+              </button>
+            </div>
           </div>
         </div>
       </>
