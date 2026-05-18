@@ -8656,6 +8656,24 @@ const RecompApp = () => {
     };
   }, [state]);
 
+  // Save on page hide/unload — catches Safari app close
+  useEffect(() => {
+    const saveNow = () => {
+      if (stateRef.current) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(stateRef.current)); } catch(e) {}
+      }
+    };
+    window.addEventListener('beforeunload', saveNow);
+    window.addEventListener('pagehide', saveNow); // iOS Safari fires pagehide, not beforeunload
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') saveNow();
+    });
+    return () => {
+      window.removeEventListener('beforeunload', saveNow);
+      window.removeEventListener('pagehide', saveNow);
+    };
+  }, []);
+
   // Load on mount
   useEffect(() => {
     (async () => {
@@ -8675,7 +8693,7 @@ const RecompApp = () => {
       if (stateRef.current) {
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(stateRef.current)); } catch(e) {}
       }
-    }, 1500);
+    }, 500);
   }, []);
 
   // Auto-show summary when program complete
