@@ -4365,8 +4365,8 @@ const Dashboard = ({ state, onTab, onCoachPrompt }) => {
     { cal: 0, p: 0, c: 0, f: 0 }
   );
 
-  const startW = wlog[0]?.weight || profile.weight;
-  const wDelta = currentWeight - startW;
+  const startW = profile.weight; // always the original setup weight, never replaced by logs
+  const wDelta = +(currentWeight - startW).toFixed(1);
   const wDeltaColor = profile.goal === 'fatloss' ? (wDelta < 0 ? GREEN : RED) : profile.goal === 'muscle' ? (wDelta > 0 ? GREEN : RED) : TEXT_DIM;
   const wDeltaSign = wDelta > 0 ? '+' : '';
 
@@ -5769,14 +5769,18 @@ const Metrics = ({ state, setState }) => {
 
   const sortedLog = [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1));
   const currentWeight = sortedLog[0]?.weight || profile.weight;
-  const startW = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? -1 : 1))[0].weight : profile.weight;
-  const targetW = profile.target;
+  // Starting weight is always the profile setup weight — never replaced by logged entries
+  const startW = profile.weight;
+  const targetW = profile.target || profile.weight;
   const macros = calcMacros(profile, currentWeight);
 
-  const wDelta = currentWeight - startW;
+  const wDelta = +(currentWeight - startW).toFixed(1);
   const lbsToGo = +(currentWeight - targetW).toFixed(1);
-  const totalNeeded = startW - targetW;
-  const pctToGoal = totalNeeded !== 0 ? Math.max(0, Math.min(100, ((startW - currentWeight) / totalNeeded) * 100)) : 0;
+  const totalNeeded = startW - targetW; // positive = cutting, negative = bulking
+  // Avoid divide-by-zero; cap 0–100
+  const pctToGoal = totalNeeded !== 0
+    ? Math.max(0, Math.min(100, ((startW - currentWeight) / totalNeeded) * 100))
+    : currentWeight === targetW ? 100 : 0;
   const cuttingGoal = profile.goal === 'fatloss';
   const bulkingGoal = profile.goal === 'muscle';
 
@@ -5794,8 +5798,9 @@ const Metrics = ({ state, setState }) => {
     setState((p) => ({ ...p, wlog: p.wlog.filter((w) => w.date !== date) }));
   };
 
-  const lossOrGain = wDelta < 0 ? 'LOST' : wDelta > 0 ? 'GAINED' : 'CHANGED';
-  const goalProgressColor = cuttingGoal ? (wDelta < 0 ? GREEN : RED) : bulkingGoal ? (wDelta > 0 ? GREEN : RED) : TEXT_DIM;
+  const lossOrGain = wDelta < 0 ? 'LOST' : wDelta > 0 ? 'GAINED' : 'NO CHANGE';
+  const movingToGoal = cuttingGoal ? wDelta < 0 : bulkingGoal ? wDelta > 0 : Math.abs(wDelta) < 2;
+  const goalProgressColor = wDelta === 0 ? TEXT_DIM : movingToGoal ? GREEN : RED;
 
   return (
     <div>
