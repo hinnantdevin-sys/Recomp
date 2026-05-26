@@ -5307,18 +5307,24 @@ const Workouts = ({ state, setState }) => {
             <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 10 }}>
               Longest holds of the week. Breathe slowly. This is where mobility gains happen.
             </div>
-            {ACTIVE_RECOVERY_STRETCHES.map((s, i) => (
-              <div key={i} style={{
-                paddingBottom: 10, marginBottom: 10,
-                borderBottom: i < ACTIVE_RECOVERY_STRETCHES.length - 1 ? `1px solid ${BORDER}` : 'none',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
-                  <div style={{ fontSize: 13, color: '#fff' }}>{s.name}</div>
-                  <div style={{ fontSize: 11, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5 }}>{s.hold}</div>
+            {ACTIVE_RECOVERY_STRETCHES.map((s, i) => {
+              const secs = parseTimerSeconds(s.hold);
+              return (
+                <div key={i} style={{
+                  paddingBottom: 10, marginBottom: 10,
+                  borderBottom: i < ACTIVE_RECOVERY_STRETCHES.length - 1 ? `1px solid ${BORDER}` : 'none',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                    <div style={{ fontSize: 13, color: '#fff', flex: 1 }}>{s.name}</div>
+                    {secs
+                      ? <InlineTimer key={`ar-${i}-${s.name}`} seconds={secs} label={s.hold.replace('/side','').trim()} color={GREEN} />
+                      : <div style={{ fontSize: 11, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5 }}>{s.hold}</div>
+                    }
+                  </div>
+                  <div style={{ fontSize: 11, color: TEXT_DIM }}>{s.note}</div>
                 </div>
-                <div style={{ fontSize: 11, color: TEXT_DIM }}>{s.note}</div>
-              </div>
-            ))}
+              );
+            })}
           </Card>
 
           {/* Session notes */}
@@ -5377,15 +5383,21 @@ const Workouts = ({ state, setState }) => {
           <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 8 }}>
             2–3 min · Dynamic movement only · Do not hold static · Raise body temp before loading
           </div>
-          {exData.preStretches.map((s, i) => (
-            <div key={i} style={{ paddingBottom: 6, marginBottom: 6, borderBottom: i < exData.preStretches.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <div style={{ fontSize: 12, color: '#fff' }}>{s.name}</div>
-                <div style={{ fontSize: 11, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5 }}>{s.sets} × {s.reps}</div>
+          {exData.preStretches.map((s, i) => {
+            const secs = parseTimerSeconds(s.reps);
+            return (
+              <div key={i} style={{ paddingBottom: 6, marginBottom: 6, borderBottom: i < exData.preStretches.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: 12, color: '#fff', flex: 1 }}>{s.name}</div>
+                  {secs
+                    ? <InlineTimer key={`pre-${i}-${s.name}`} seconds={secs} label={s.reps.split(' ')[0]} color={GREEN} />
+                    : <div style={{ fontSize: 11, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5 }}>{s.sets} × {s.reps}</div>
+                  }
+                </div>
+                <div style={{ fontSize: 11, color: TEXT_DIM, marginTop: 2 }}>{s.note}</div>
               </div>
-              <div style={{ fontSize: 11, color: TEXT_DIM, marginTop: 2 }}>{s.note}</div>
-            </div>
-          ))}
+            );
+          })}
         </Card>
       )}
 
@@ -5446,7 +5458,13 @@ const Workouts = ({ state, setState }) => {
           {/* Conditioning finisher */}
           {exData.finisher && (
             <Card style={{ background: `${ORANGE}10`, borderLeft: `3px solid ${ORANGE}`, marginTop: 10 }}>
-              <Label>CONDITIONING FINISHER</Label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                <Label style={{ margin: 0 }}>CONDITIONING FINISHER</Label>
+                {(() => {
+                  const secs = parseTimerSeconds(exData.finisher);
+                  return secs ? <InlineTimer key={exData.finisher} seconds={secs} label={secs >= 60 ? `${Math.round(secs/60)} MIN` : `${secs}S`} color={ORANGE} /> : null;
+                })()}
+              </div>
               <div style={{ fontSize: 12, color: '#fff' }}>{exData.finisher}</div>
             </Card>
           )}
@@ -5458,15 +5476,21 @@ const Workouts = ({ state, setState }) => {
               <div style={{ fontSize: 10, color: TEXT_MUTED, marginBottom: 8 }}>
                 Hold each stretch. Don't bounce. Breathe into it.
               </div>
-              {exData.postStretches.map((s, i) => (
-                <div key={i} style={{ paddingBottom: 8, marginBottom: 8, borderBottom: i < exData.postStretches.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <div style={{ fontSize: 12, color: '#fff', fontWeight: 600 }}>{s.name}</div>
-                    <div style={{ fontSize: 11, color: BLUE, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5 }}>{s.hold}</div>
+              {exData.postStretches.map((s, i) => {
+                const secs = parseTimerSeconds(s.hold);
+                return (
+                  <div key={i} style={{ paddingBottom: 8, marginBottom: 8, borderBottom: i < exData.postStretches.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <div style={{ fontSize: 12, color: '#fff', fontWeight: 600, flex: 1 }}>{s.name}</div>
+                      {secs
+                        ? <InlineTimer key={`post-${i}-${s.name}`} seconds={secs} label={s.hold.replace('/side','').trim()} color={BLUE} />
+                        : <div style={{ fontSize: 11, color: BLUE, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5 }}>{s.hold}</div>
+                      }
+                    </div>
+                    <div style={{ fontSize: 11, color: TEXT_DIM, marginTop: 2 }}>{s.note}</div>
                   </div>
-                  <div style={{ fontSize: 11, color: TEXT_DIM, marginTop: 2 }}>{s.note}</div>
-                </div>
-              ))}
+                );
+              })}
             </Card>
           )}
 
@@ -5659,6 +5683,120 @@ const parseRestSeconds = (restStr) => {
   const num = parseInt(s);
   if (!isNaN(num)) return num < 10 ? num * 60 : num; // assume minutes if < 10
   return 90; // default
+};
+
+// Parse seconds from stretch hold strings ("60s/side", "90s/side", "2 min")
+// and finisher strings ("6 min AMRAP", "EMOM 8", "Tabata — 4 min")
+// Returns null if no time found (rep-based, no timer needed)
+const parseTimerSeconds = (str) => {
+  if (!str) return null;
+  const s = String(str).toLowerCase();
+  // "X-Y min" range → midpoint
+  const rangeMin = s.match(/(\d+)\s*-\s*(\d+)\s*min/);
+  if (rangeMin) return Math.round((parseInt(rangeMin[1]) + parseInt(rangeMin[2])) / 2) * 60;
+  // "X min" explicit
+  const mins = s.match(/(\d+)\s*min/);
+  if (mins) return parseInt(mins[1]) * 60;
+  // EMOM X → X minutes
+  const emom = s.match(/emom\s+(\d+)/);
+  if (emom) return parseInt(emom[1]) * 60;
+  // Tabata → standard 4 min (8 × 20s on / 10s off)
+  if (s.includes('tabata')) return 4 * 60;
+  // "Xs" or "Xs/side" — per side; we show single-side duration, user taps twice
+  const secs = s.match(/(\d+)\s*s(?:\/side)?/);
+  if (secs) return parseInt(secs[1]);
+  return null; // no time found — rep-based
+};
+
+// Compact inline countdown — tap START, counts down, rings bell when done
+const InlineTimer = ({ seconds, label, color = BLUE }) => {
+  const [state, setState_] = useState('idle'); // 'idle' | 'running' | 'done'
+  const [remaining, setRemaining] = useState(seconds);
+  const startRef = useRef(null);
+  const intervalRef = useRef(null);
+  const color_ = state === 'done' ? GREEN : state === 'running' && remaining <= 10 ? RED : color;
+
+  const tick = () => {
+    const elapsed = Math.floor((Date.now() - startRef.current) / 1000);
+    const left = Math.max(0, seconds - elapsed);
+    setRemaining(left);
+    if (left === 0) {
+      clearInterval(intervalRef.current);
+      setState_('done');
+      playBell();
+    }
+  };
+
+  const start = () => {
+    getAudioCtx(); // unlock audio on tap
+    clearInterval(intervalRef.current);
+    startRef.current = Date.now();
+    setRemaining(seconds);
+    setState_('running');
+    intervalRef.current = setInterval(tick, 500);
+  };
+
+  const reset = () => {
+    clearInterval(intervalRef.current);
+    setRemaining(seconds);
+    setState_('idle');
+  };
+
+  // Recalculate on return from background
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && state === 'running') tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(intervalRef.current);
+    };
+  }, [state]);
+
+  if (state === 'idle') {
+    return (
+      <button onClick={start} style={{
+        background: `${color_}20`, color: color_, border: `1px solid ${color_}60`,
+        borderRadius: 12, padding: '3px 10px', fontSize: 10, cursor: 'pointer',
+        fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, flexShrink: 0,
+      }}>▶ {label}</button>
+    );
+  }
+
+  const pct = remaining / seconds;
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  const timeStr = mins > 0 ? `${mins}:${String(secs).padStart(2,'0')}` : `${remaining}s`;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+      {/* Mini ring */}
+      <div style={{ position: 'relative', width: 28, height: 28 }}>
+        <svg width="28" height="28" style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx="14" cy="14" r="11" fill="none" stroke={`${color_}30`} strokeWidth="2.5" />
+          <circle cx="14" cy="14" r="11" fill="none" stroke={color_} strokeWidth="2.5"
+            strokeDasharray={`${2 * Math.PI * 11}`}
+            strokeDashoffset={`${2 * Math.PI * 11 * (1 - pct)}`}
+            strokeLinecap="round"
+            style={{ transition: 'stroke-dashoffset 0.4s linear' }}
+          />
+        </svg>
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          fontSize: 7, color: color_,
+        }}>{state === 'done' ? '✓' : '⏱'}</div>
+      </div>
+      <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', color: color_, fontSize: 14, letterSpacing: 1, minWidth: 32 }}>
+        {state === 'done' ? 'DONE' : timeStr}
+      </div>
+      <button onClick={reset} style={{
+        background: 'transparent', border: 'none', color: TEXT_MUTED,
+        cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1,
+      }}>↺</button>
+    </div>
+  );
 };
 
 const ExerciseBlock = ({ ex, session, sessions, currentISO, goal, onSetUpdate, rpFeedback, showSuperset, onSwap }) => {
