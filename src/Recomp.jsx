@@ -5710,54 +5710,61 @@ const parseTimerSeconds = (str) => {
 
 // Compact inline countdown — tap START, counts down, rings bell when done
 const InlineTimer = ({ seconds, label, color = BLUE }) => {
-  const [state, setState_] = useState('idle'); // 'idle' | 'running' | 'done'
+  const [phase, setPhase] = useState('idle'); // 'idle' | 'running' | 'done'
   const [remaining, setRemaining] = useState(seconds);
   const startRef = useRef(null);
   const intervalRef = useRef(null);
-  const color_ = state === 'done' ? GREEN : state === 'running' && remaining <= 10 ? RED : color;
+  const secondsRef = useRef(seconds);
+  secondsRef.current = seconds;
 
-  const tick = () => {
+  // Single stable tick function via ref — never a stale closure
+  const tickRef = useRef(null);
+  tickRef.current = () => {
     const elapsed = Math.floor((Date.now() - startRef.current) / 1000);
-    const left = Math.max(0, seconds - elapsed);
+    const left = Math.max(0, secondsRef.current - elapsed);
     setRemaining(left);
     if (left === 0) {
       clearInterval(intervalRef.current);
-      setState_('done');
+      setPhase('done');
       playBell();
     }
   };
 
   const start = () => {
-    getAudioCtx(); // unlock audio on tap
+    getAudioCtx();
     clearInterval(intervalRef.current);
     startRef.current = Date.now();
-    setRemaining(seconds);
-    setState_('running');
-    intervalRef.current = setInterval(tick, 500);
+    setRemaining(secondsRef.current);
+    setPhase('running');
+    intervalRef.current = setInterval(() => tickRef.current(), 500);
   };
 
   const reset = () => {
     clearInterval(intervalRef.current);
-    setRemaining(seconds);
-    setState_('idle');
+    setRemaining(secondsRef.current);
+    setPhase('idle');
   };
 
-  // Recalculate on return from background
+  // Visibilitychange — jump to correct time when returning from background
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === 'visible' && state === 'running') tick();
+      if (document.visibilityState === 'visible' && startRef.current) {
+        tickRef.current();
+      }
     };
     document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      clearInterval(intervalRef.current);
-    };
-  }, [state]);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []); // empty deps — register once, never re-register
 
-  if (state === 'idle') {
+  // Cleanup on unmount only
+  useEffect(() => () => clearInterval(intervalRef.current), []);
+
+  const color_ = phase === 'done' ? GREEN : phase === 'running' && remaining <= 10 ? RED : color;
+
+  if (phase === 'idle') {
     return (
       <button onClick={start} style={{
-        background: `${color_}20`, color: color_, border: `1px solid ${color_}60`,
+        background: `${color}20`, color, border: `1px solid ${color}60`,
         borderRadius: 12, padding: '3px 10px', fontSize: 10, cursor: 'pointer',
         fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, flexShrink: 0,
       }}>▶ {label}</button>
@@ -5766,12 +5773,11 @@ const InlineTimer = ({ seconds, label, color = BLUE }) => {
 
   const pct = remaining / seconds;
   const mins = Math.floor(remaining / 60);
-  const secs = remaining % 60;
-  const timeStr = mins > 0 ? `${mins}:${String(secs).padStart(2,'0')}` : `${remaining}s`;
+  const secsLeft = remaining % 60;
+  const timeStr = mins > 0 ? `${mins}:${String(secsLeft).padStart(2,'0')}` : `${remaining}s`;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-      {/* Mini ring */}
       <div style={{ position: 'relative', width: 28, height: 28 }}>
         <svg width="28" height="28" style={{ transform: 'rotate(-90deg)' }}>
           <circle cx="14" cy="14" r="11" fill="none" stroke={`${color_}30`} strokeWidth="2.5" />
@@ -5786,10 +5792,10 @@ const InlineTimer = ({ seconds, label, color = BLUE }) => {
           position: 'absolute', inset: 0, display: 'flex',
           alignItems: 'center', justifyContent: 'center',
           fontSize: 7, color: color_,
-        }}>{state === 'done' ? '✓' : '⏱'}</div>
+        }}>{phase === 'done' ? '✓' : '⏱'}</div>
       </div>
       <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', color: color_, fontSize: 14, letterSpacing: 1, minWidth: 32 }}>
-        {state === 'done' ? 'DONE' : timeStr}
+        {phase === 'done' ? 'DONE' : timeStr}
       </div>
       <button onClick={reset} style={{
         background: 'transparent', border: 'none', color: TEXT_MUTED,
