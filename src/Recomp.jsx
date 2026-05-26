@@ -1903,154 +1903,156 @@ const fbbPhaseForWeek = (week, totalWeeks, goal) => {
 // Pairing logic: compound + antagonist/isolation/carries
 // ============================================================
 const FBB_EXERCISES = {
-  // ── PUSH (horizontal + vertical pressing) ──────────────────
+  // ── PUSH (pressing movements only — chest, shoulders, triceps) ──
+  // Superset pairs are within the push family: horizontal + vertical, or push + isolation
   PUSH: {
     1: {
       A: [
-        { name: 'Barbell Bench Press', muscle: 'Chest', tag: 'A1', sets: '4', reps: '8-12', tempo: '21X1', note: 'Retract scapula. Drive heels.' },
-        { name: 'DB Bent-Over Row',    muscle: 'Back',  tag: 'A2', sets: '4', reps: '8-12', tempo: '20X1', note: 'Antagonist superset. Drive elbow.' },
-        { name: 'DB Shoulder Press',   muscle: 'Shoulders', tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Strict. No leg drive.' },
-        { name: 'Face Pull',           muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'External rotation finish. Shoulder health.' },
-        { name: 'Tricep Rope Pushdown',muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Spread rope at bottom.' },
-        { name: 'DB Lateral Raise',    muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lead with elbow. Light load.' },
+        { name: 'Barbell Bench Press',    muscle: 'Chest',     tag: 'A1', sets: '4', reps: '8-12',  tempo: '21X1', note: 'Retract scapula. Drive heels. Control the descent.' },
+        { name: 'DB Shoulder Press',      muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'Superset with bench. Vertical paired with horizontal.' },
+        { name: 'Incline DB Press',       muscle: 'Chest',     tag: 'B1', sets: '3', reps: '10-12', tempo: '21X1', note: '30-degree incline. Upper chest emphasis.' },
+        { name: 'DB Lateral Raise',       muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Lead with elbow. Light load. Side delt.' },
+        { name: 'Tricep Rope Pushdown',   muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Spread rope at bottom. Full lockout.' },
+        { name: 'Cable Front Raise',      muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Anterior delt finisher. Light.' },
       ],
       B: [
-        { name: 'Overhead Press',      muscle: 'Shoulders', tag: 'A1', sets: '4', reps: '6-10', tempo: '20X1', note: 'Glutes tight. Full lockout.' },
-        { name: 'Chin-Up',             muscle: 'Back',       tag: 'A2', sets: '4', reps: '6-10', tempo: '20X1', note: 'Antagonist. Full hang to chin over.' },
-        { name: 'DB Incline Press',    muscle: 'Chest',      tag: 'B1', sets: '3', reps: '10-12', tempo: '21X1', note: '30-degree bench. Full ROM.' },
-        { name: 'Seated Cable Row',    muscle: 'Back',       tag: 'B2', sets: '3', reps: '10-12', tempo: '20X1', note: 'Pair with press. Squeeze scaps.' },
-        { name: 'Skull Crusher',       muscle: 'Triceps',    tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric. Elbows in.' },
-        { name: 'Cable Lateral Raise', muscle: 'Shoulders',  tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Constant tension.' },
+        { name: 'Overhead Press',         muscle: 'Shoulders', tag: 'A1', sets: '4', reps: '6-10',  tempo: '20X1', note: 'Glutes tight. Full lockout overhead.' },
+        { name: 'DB Flat Press',          muscle: 'Chest',     tag: 'A2', sets: '4', reps: '10-12', tempo: '21X1', note: 'Horizontal pair. Squeeze at top.' },
+        { name: 'DB Incline Press',       muscle: 'Chest',     tag: 'B1', sets: '3', reps: '10-12', tempo: '21X1', note: 'Upper chest. Full ROM.' },
+        { name: 'Cable Lateral Raise',    muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Constant tension. Pair with incline.' },
+        { name: 'Skull Crusher',          muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric. Elbows in.' },
+        { name: 'Overhead Tricep Ext',    muscle: 'Triceps',   tag: 'C2', sets: '3', reps: '12-15', tempo: '31X0', note: 'Long head stretch. Keep elbows in.' },
       ],
     },
     2: {
       A: [
-        { name: 'Incline Barbell Press',   muscle: 'Chest',      tag: 'A1', sets: '4', reps: '8-12', tempo: '21X1', note: 'Upper chest emphasis. 45°.' },
-        { name: 'Pendlay Row',             muscle: 'Back',        tag: 'A2', sets: '4', reps: '6-8',  tempo: '20X1', note: 'Dead stop. Explosive. Antagonist pair.' },
-        { name: 'Arnold Press',            muscle: 'Shoulders',   tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Full rotation. 3 delt heads.' },
-        { name: 'Rear Delt Fly',           muscle: 'Shoulders',   tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Slight elbow bend. High rep.' },
-        { name: 'JM Press',                muscle: 'Triceps',     tag: 'C1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Tricep mass builder.' },
-        { name: 'Cable Front Raise',       muscle: 'Shoulders',   tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Anterior delt finisher.' },
+        { name: 'Incline Barbell Press',  muscle: 'Chest',     tag: 'A1', sets: '4', reps: '8-12',  tempo: '21X1', note: 'Upper chest emphasis. 45°.' },
+        { name: 'Arnold Press',           muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'Pair with incline. Full rotation through 3 delt heads.' },
+        { name: 'Weighted Dip',           muscle: 'Chest',     tag: 'B1', sets: '3', reps: '8-12',  tempo: '20X1', note: 'Lean forward for chest. Full ROM.' },
+        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'High rep. Slight elbow bend. Shoulder health.' },
+        { name: 'JM Press',               muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Tricep mass builder.' },
+        { name: 'Machine Lateral Raise',  muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Dropset on last set.' },
       ],
       B: [
-        { name: 'Push Press',              muscle: 'Shoulders',   tag: 'A1', sets: '4', reps: '5-8',  tempo: '10X1', note: 'Leg drive. Explosive power.' },
-        { name: 'Weighted Pull-Up',        muscle: 'Back',        tag: 'A2', sets: '4', reps: '5-8',  tempo: '20X1', note: 'Belt or vest. Antagonist pair.' },
-        { name: 'DB Flat Press',           muscle: 'Chest',       tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Squeeze at top.' },
-        { name: 'T-Bar Row',               muscle: 'Back',        tag: 'B2', sets: '3', reps: '10-12', tempo: '20X1', note: 'Mid-back thickness.' },
-        { name: 'DB Overhead Extension',   muscle: 'Triceps',     tag: 'C1', sets: '3', reps: '12-15', tempo: '31X0', note: 'Long head stretch.' },
-        { name: 'Machine Lateral Raise',   muscle: 'Shoulders',   tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Dropset on last set.' },
+        { name: 'Push Press',             muscle: 'Shoulders', tag: 'A1', sets: '4', reps: '5-8',   tempo: '10X1', note: 'Leg drive → explosive press. Power development.' },
+        { name: 'DB Flat Press',          muscle: 'Chest',     tag: 'A2', sets: '4', reps: '10-12', tempo: '21X1', note: 'Pair with push press. Volume chest.' },
+        { name: 'Cable Chest Fly',        muscle: 'Chest',     tag: 'B1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Constant tension. Full stretch.' },
+        { name: 'DB Lateral Raise',       muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Side delt finisher.' },
+        { name: 'DB Overhead Extension',  muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '12-15', tempo: '31X0', note: 'Long head stretch.' },
+        { name: 'Cable Y-Raise',          muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap + rear delt health.' },
       ],
     },
     3: {
       A: [
-        { name: 'Barbell Bench Press',     muscle: 'Chest',      tag: 'A1', sets: '5', reps: '5-8',  tempo: '20X1', note: 'Heaviest block. Push strength peak.' },
-        { name: 'Barbell Row',             muscle: 'Back',        tag: 'A2', sets: '5', reps: '5-8',  tempo: '20X1', note: 'Match pressing intensity. Hinge 45°.' },
-        { name: 'Overhead Press',          muscle: 'Shoulders',   tag: 'B1', sets: '4', reps: '6-8',  tempo: '20X1', note: 'Heavier than block 1.' },
-        { name: 'Lat Pulldown',            muscle: 'Back',        tag: 'B2', sets: '4', reps: '8-10', tempo: '21X1', note: 'Pause at contraction.' },
-        { name: 'Close-Grip Bench Press',  muscle: 'Triceps',     tag: 'C1', sets: '3', reps: '6-10', tempo: '20X1', note: 'Tricep strength finisher.' },
-        { name: 'Cable Y-Raise',           muscle: 'Shoulders',   tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap + rear delt health.' },
+        { name: 'Barbell Bench Press',    muscle: 'Chest',     tag: 'A1', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Heaviest block. Strength peak on bench.' },
+        { name: 'Overhead Press',         muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Heavier than block 1. Pair with bench.' },
+        { name: 'Incline DB Press',       muscle: 'Chest',     tag: 'B1', sets: '4', reps: '8-10',  tempo: '21X1', note: 'Strength volume upper chest.' },
+        { name: 'Cable Lateral Raise',    muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Pair with incline. Constant tension.' },
+        { name: 'Close-Grip Bench Press', muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '6-10',  tempo: '20X1', note: 'Tricep strength finisher.' },
+        { name: 'Cable Front Raise',      muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Anterior delt.' },
       ],
       B: [
-        { name: 'Weighted Dip',            muscle: 'Chest',      tag: 'A1', sets: '4', reps: '6-10', tempo: '20X1', note: 'Belt or vest. Full ROM.' },
-        { name: 'Weighted Pull-Up',        muscle: 'Back',        tag: 'A2', sets: '4', reps: '6-10', tempo: '20X1', note: 'Heavier than block 2.' },
-        { name: 'DB Shoulder Press',       muscle: 'Shoulders',   tag: 'B1', sets: '4', reps: '8-10', tempo: '20X1', note: 'Strict. Heavy.' },
-        { name: 'Chest-Supported Row',     muscle: 'Back',        tag: 'B2', sets: '4', reps: '10-12', tempo: '20X1', note: 'No lower back compromise.' },
-        { name: 'Tricep Pushdown',         muscle: 'Triceps',     tag: 'C1', sets: '4', reps: '12-15', tempo: '20X1', note: 'Volume finisher.' },
-        { name: 'Face Pull',               muscle: 'Shoulders',   tag: 'C2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Health priority. Always.' },
+        { name: 'Weighted Dip',           muscle: 'Chest',     tag: 'A1', sets: '4', reps: '6-10',  tempo: '20X1', note: 'Belt or vest. Full ROM. Heavy.' },
+        { name: 'DB Shoulder Press',      muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Strict. Heavy. Pair with dips.' },
+        { name: 'DB Flat Press',          muscle: 'Chest',     tag: 'B1', sets: '4', reps: '10-12', tempo: '20X1', note: 'Volume chest. Heavy DB.' },
+        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Shoulder health. Always included.' },
+        { name: 'Tricep Pushdown',        muscle: 'Triceps',   tag: 'C1', sets: '4', reps: '12-15', tempo: '20X1', note: 'Volume finisher.' },
+        { name: 'Machine Lateral Raise',  muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Pump finisher.' },
       ],
     },
     4: {
       A: [
-        { name: 'Incline Barbell Press',   muscle: 'Chest',      tag: 'A1', sets: '5', reps: '4-6',  tempo: '20X1', note: 'Peak strength incline.' },
-        { name: 'Pendlay Row',             muscle: 'Back',        tag: 'A2', sets: '5', reps: '4-6',  tempo: '20X1', note: 'Peak power row. Best of program.' },
-        { name: 'Push Press',              muscle: 'Shoulders',   tag: 'B1', sets: '4', reps: '4-6',  tempo: '10X1', note: 'Explosive program peak.' },
-        { name: 'Lat Pulldown',            muscle: 'Back',        tag: 'B2', sets: '4', reps: '8-10', tempo: '20X1', note: 'Lat volume peak.' },
-        { name: 'Close-Grip Bench Press',  muscle: 'Triceps',     tag: 'C1', sets: '4', reps: '8-10', tempo: '20X1', note: 'Tricep peak.' },
-        { name: 'DB Lateral Raise',        muscle: 'Shoulders',   tag: 'C2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Delt volume finish.' },
+        { name: 'Incline Barbell Press',  muscle: 'Chest',     tag: 'A1', sets: '5', reps: '4-6',   tempo: '20X1', note: 'Peak strength upper chest. Best lift.' },
+        { name: 'Push Press',             muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '4-6',   tempo: '10X1', note: 'Explosive overhead peak. Pair with incline.' },
+        { name: 'Weighted Dip',           muscle: 'Chest',     tag: 'B1', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Heaviest dip of program.' },
+        { name: 'Arnold Press',           muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Peak shoulder volume.' },
+        { name: 'Close-Grip Bench Press', muscle: 'Triceps',   tag: 'C1', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Tricep peak strength.' },
+        { name: 'DB Lateral Raise',       muscle: 'Shoulders', tag: 'C2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Final delt volume.' },
       ],
       B: [
-        { name: 'Barbell Bench Press',     muscle: 'Chest',      tag: 'A1', sets: '5', reps: '5-8',  tempo: '20X1', note: 'Accumulated strength. Best bench.' },
-        { name: 'Weighted Pull-Up',        muscle: 'Back',        tag: 'A2', sets: '5', reps: '5-8',  tempo: '20X1', note: 'Program peak. Heaviest.' },
-        { name: 'DB Flat Press',           muscle: 'Chest',       tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Volume add.' },
-        { name: 'Seated Cable Row',        muscle: 'Back',        tag: 'B2', sets: '3', reps: '10-12', tempo: '21X1', note: '1s pause at contraction.' },
-        { name: 'Overhead Tricep Ext',     muscle: 'Triceps',     tag: 'C1', sets: '3', reps: '12-15', tempo: '31X0', note: 'Long head peak.' },
-        { name: 'Face Pull',               muscle: 'Shoulders',   tag: 'C2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Finish every push day with this.' },
+        { name: 'Barbell Bench Press',    muscle: 'Chest',     tag: 'A1', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Program peak bench. Best flat press.' },
+        { name: 'Overhead Press',         muscle: 'Shoulders', tag: 'A2', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Program peak OHP. Best press.' },
+        { name: 'DB Incline Press',       muscle: 'Chest',     tag: 'B1', sets: '3', reps: '10-12', tempo: '21X1', note: 'Volume add.' },
+        { name: 'Cable Lateral Raise',    muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Delt volume peak.' },
+        { name: 'Overhead Tricep Ext',    muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '12-15', tempo: '31X0', note: 'Long head peak.' },
+        { name: 'Skull Crusher',          muscle: 'Triceps',   tag: 'C2', sets: '3', reps: '8-10',  tempo: '31X0', note: 'Tricep finish. Best of program.' },
       ],
     },
   },
 
-  // ── PULL (horizontal + vertical pulling) ──────────────────
+  // ── PULL (pulling movements only — back, biceps, rear delts) ──
+  // Superset pairs within the pull family: vertical + horizontal, or pull + curl
   PULL: {
     1: {
       A: [
-        { name: 'Barbell Row',          muscle: 'Back',     tag: 'A1', sets: '4', reps: '8-12', tempo: '20X1', note: 'Hinge 45°. Drive elbows to ceiling.' },
-        { name: 'DB Floor Press',       muscle: 'Chest',    tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'Antagonist pair. Chest activated from floor.' },
-        { name: 'Lat Pulldown',         muscle: 'Back',     tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Pull to upper chest. Lead elbows.' },
-        { name: 'Overhead Tricep Ext',  muscle: 'Triceps',  tag: 'B2', sets: '3', reps: '12-15', tempo: '31X0', note: 'Antagonist pair. Long head.' },
-        { name: 'Hammer Curl',          muscle: 'Biceps',   tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Neutral grip. Brachialis.' },
-        { name: 'Rear Delt Fly',        muscle: 'Shoulders',tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'High rep. Shoulder health.' },
+        { name: 'Barbell Row',            muscle: 'Back',      tag: 'A1', sets: '4', reps: '8-12',  tempo: '20X1', note: 'Hinge 45°. Drive elbows to ceiling.' },
+        { name: 'Lat Pulldown',           muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '21X1', note: 'Superset: horizontal + vertical pull.' },
+        { name: 'Seated Cable Row',       muscle: 'Back',      tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Squeeze scaps at end range.' },
+        { name: 'Face Pull',              muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'External rotation finish. Shoulder health.' },
+        { name: 'Hammer Curl',            muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Neutral grip. Brachialis.' },
+        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'High rep. Pair with curls.' },
       ],
       B: [
-        { name: 'Pull-Up',              muscle: 'Back',     tag: 'A1', sets: '4', reps: '6-10', tempo: '20X1', note: 'Full hang to chin over bar.' },
-        { name: 'DB Push Press',        muscle: 'Shoulders',tag: 'A2', sets: '4', reps: '8-10', tempo: '10X1', note: 'Antagonist pair. Explosive press.' },
-        { name: 'Seated Cable Row',     muscle: 'Back',     tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Squeeze scaps at end range.' },
-        { name: 'DB Lateral Raise',     muscle: 'Shoulders',tag: 'B2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Antagonist pair. Side delt.' },
-        { name: 'EZ-Bar Curl',          muscle: 'Biceps',   tag: 'C1', sets: '3', reps: '10-12', tempo: '20X1', note: 'No swing.' },
-        { name: 'Face Pull',            muscle: 'Shoulders',tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'External rotation.' },
+        { name: 'Pull-Up',                muscle: 'Back',      tag: 'A1', sets: '4', reps: '6-10',  tempo: '20X1', note: 'Full hang to chin over bar.' },
+        { name: 'Chest-Supported DB Row', muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'No lower back. Pure back pull. Pair with pull-up.' },
+        { name: 'Close-Grip Pulldown',    muscle: 'Back',      tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Neutral grip. Higher lat activation.' },
+        { name: 'Straight-Arm Pulldown',  muscle: 'Back',      tag: 'B2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lat isolation. Squeeze at bottom.' },
+        { name: 'EZ-Bar Curl',            muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '10-12', tempo: '20X1', note: 'No swing.' },
+        { name: 'Cable Y-Raise',          muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap + rear delt.' },
       ],
     },
     2: {
       A: [
-        { name: 'Chest-Supported DB Row',muscle: 'Back',    tag: 'A1', sets: '4', reps: '10-12', tempo: '20X1', note: 'Pure back. No lower back compromise.' },
-        { name: 'Incline DB Press',       muscle: 'Chest',  tag: 'A2', sets: '4', reps: '10-12', tempo: '21X1', note: 'Antagonist pair. Upper chest.' },
-        { name: 'Close-Grip Pulldown',    muscle: 'Back',   tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Neutral grip. Higher lat activation.' },
-        { name: 'Tricep Pushdown',        muscle: 'Triceps',tag: 'B2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Antagonist pair. Lockout.' },
-        { name: 'Incline DB Curl',        muscle: 'Biceps', tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Long head. Max stretch.' },
-        { name: 'Cable Y-Raise',          muscle: 'Shoulders',tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap + rear delt health.' },
+        { name: 'Chest-Supported DB Row', muscle: 'Back',      tag: 'A1', sets: '4', reps: '10-12', tempo: '20X1', note: 'Pure back. No lower back compromise.' },
+        { name: 'Weighted Pull-Up',       muscle: 'Back',      tag: 'A2', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Add weight. Full hang. Pair with row.' },
+        { name: 'T-Bar Row',              muscle: 'Back',      tag: 'B1', sets: '3', reps: '8-12',  tempo: '20X1', note: 'Mid-back thickness.' },
+        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'High rep finisher. Pair with T-bar.' },
+        { name: 'Incline DB Curl',        muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Long head. Max stretch.' },
+        { name: 'Cable Curl',             muscle: 'Biceps',    tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Constant tension. Pair with incline curl.' },
       ],
       B: [
-        { name: 'Weighted Pull-Up',       muscle: 'Back',   tag: 'A1', sets: '4', reps: '6-8',  tempo: '20X1', note: 'Add weight. Full hang.' },
-        { name: 'DB Shoulder Press',      muscle: 'Shoulders',tag: 'A2', sets: '4', reps: '8-10', tempo: '20X1', note: 'Antagonist pair. Strict press.' },
-        { name: 'T-Bar Row',              muscle: 'Back',   tag: 'B1', sets: '3', reps: '8-12', tempo: '20X1', note: 'Mid-back thickness.' },
-        { name: 'DB Incline Press',       muscle: 'Chest',  tag: 'B2', sets: '3', reps: '10-12', tempo: '20X1', note: 'Antagonist pair.' },
-        { name: 'Cable Curl',             muscle: 'Biceps', tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Constant tension.' },
-        { name: 'Rear Delt Fly',          muscle: 'Shoulders',tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'High rep finisher.' },
+        { name: 'Pendlay Row',            muscle: 'Back',      tag: 'A1', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Dead stop. Explosive. Power row.' },
+        { name: 'Lat Pulldown',           muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '21X1', note: 'Pair with Pendlay. Vertical + horizontal.' },
+        { name: 'Seated Cable Row',       muscle: 'Back',      tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Mid-back. Squeeze scaps.' },
+        { name: 'Face Pull',              muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Shoulder health. External rotation.' },
+        { name: 'Hammer Curl',            muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Brachialis. Neutral grip.' },
+        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Pair with curls.' },
       ],
     },
     3: {
       A: [
-        { name: 'Barbell Row',            muscle: 'Back',   tag: 'A1', sets: '5', reps: '5-8',  tempo: '20X1', note: 'Heaviest back row of program.' },
-        { name: 'Flat Barbell Bench',     muscle: 'Chest',  tag: 'A2', sets: '5', reps: '5-8',  tempo: '20X1', note: 'Antagonist pair. Heavy press.' },
-        { name: 'Lat Pulldown',           muscle: 'Back',   tag: 'B1', sets: '4', reps: '8-10', tempo: '21X1', note: '1s pause at contraction.' },
-        { name: 'Overhead Press',         muscle: 'Shoulders',tag: 'B2', sets: '4', reps: '6-8', tempo: '20X1', note: 'Antagonist pair.' },
-        { name: 'Barbell Curl',           muscle: 'Biceps', tag: 'C1', sets: '4', reps: '8-10', tempo: '20X1', note: 'Heavy bilateral.' },
-        { name: 'Face Pull',              muscle: 'Shoulders',tag: 'C2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Health priority.' },
+        { name: 'Barbell Row',            muscle: 'Back',      tag: 'A1', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Heaviest back row of program.' },
+        { name: 'Weighted Pull-Up',       muscle: 'Back',      tag: 'A2', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Heaviest pull-up. Pair with row.' },
+        { name: 'Lat Pulldown',           muscle: 'Back',      tag: 'B1', sets: '4', reps: '8-10',  tempo: '21X1', note: '1s pause at contraction.' },
+        { name: 'Straight-Arm Pulldown',  muscle: 'Back',      tag: 'B2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lat isolation. Pair with pulldown.' },
+        { name: 'Barbell Curl',           muscle: 'Biceps',    tag: 'C1', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Heavy bilateral.' },
+        { name: 'Face Pull',              muscle: 'Shoulders', tag: 'C2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Health priority. Always included.' },
       ],
       B: [
-        { name: 'Chin-Up',                muscle: 'Back',   tag: 'A1', sets: '4', reps: '8-12', tempo: '20X1', note: 'Underhand. More bicep.' },
-        { name: 'DB Bench Press',         muscle: 'Chest',  tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'Antagonist pair.' },
-        { name: 'Seated Cable Row',       muscle: 'Back',   tag: 'B1', sets: '4', reps: '10-12', tempo: '21X1', note: 'Heavier than block 1.' },
-        { name: 'Arnold Press',           muscle: 'Shoulders',tag: 'B2', sets: '3', reps: '10-12', tempo: '20X1', note: 'Antagonist pair.' },
-        { name: 'Preacher Curl',          muscle: 'Biceps', tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Short head isolation.' },
-        { name: 'Cable Y-Raise',          muscle: 'Shoulders',tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap.' },
+        { name: 'Chin-Up',                muscle: 'Back',      tag: 'A1', sets: '4', reps: '8-12',  tempo: '20X1', note: 'Underhand. More bicep involvement.' },
+        { name: 'Close-Grip Pulldown',    muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'Neutral grip. Pair with chin-up.' },
+        { name: 'Chest-Supported Row',    muscle: 'Back',      tag: 'B1', sets: '4', reps: '10-12', tempo: '20X1', note: 'Heavier than block 1.' },
+        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Pair with row. Shoulder health.' },
+        { name: 'Preacher Curl',          muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Short head isolation.' },
+        { name: 'Incline DB Curl',        muscle: 'Biceps',    tag: 'C2', sets: '3', reps: '10-12', tempo: '31X0', note: 'Long head. Pair with preacher.' },
       ],
     },
     4: {
       A: [
-        { name: 'Pendlay Row',            muscle: 'Back',   tag: 'A1', sets: '5', reps: '4-6',  tempo: '20X1', note: 'Program peak. Explosive dead stop.' },
-        { name: 'Incline Barbell Press',  muscle: 'Chest',  tag: 'A2', sets: '5', reps: '4-6',  tempo: '20X1', note: 'Antagonist pair. Best incline.' },
-        { name: 'Weighted Pull-Up',       muscle: 'Back',   tag: 'B1', sets: '4', reps: '5-8',  tempo: '20X1', note: 'Heaviest pull-up.' },
-        { name: 'Push Press',             muscle: 'Shoulders',tag: 'B2', sets: '4', reps: '4-6', tempo: '10X1', note: 'Explosive antagonist pair.' },
-        { name: 'Incline DB Curl',        muscle: 'Biceps', tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Peak long head.' },
-        { name: 'Face Pull',              muscle: 'Shoulders',tag: 'C2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Always finish pull day with this.' },
+        { name: 'Pendlay Row',            muscle: 'Back',      tag: 'A1', sets: '5', reps: '4-6',   tempo: '20X1', note: 'Program peak. Explosive dead stop.' },
+        { name: 'Weighted Pull-Up',       muscle: 'Back',      tag: 'A2', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Heaviest pull-up of program. Pair with Pendlay.' },
+        { name: 'T-Bar Row',              muscle: 'Back',      tag: 'B1', sets: '4', reps: '6-10',  tempo: '20X1', note: 'Peak mid-back.' },
+        { name: 'Straight-Arm Pulldown',  muscle: 'Back',      tag: 'B2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lat finisher.' },
+        { name: 'Incline DB Curl',        muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Peak long head.' },
+        { name: 'Face Pull',              muscle: 'Shoulders', tag: 'C2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Always finish pull day with this.' },
       ],
       B: [
-        { name: 'Barbell Row',            muscle: 'Back',   tag: 'A1', sets: '5', reps: '5-8',  tempo: '20X1', note: 'Best row of program.' },
-        { name: 'Overhead Press',         muscle: 'Shoulders',tag: 'A2', sets: '5', reps: '5-8', tempo: '20X1', note: 'Antagonist pair. Best OHP.' },
-        { name: 'Lat Pulldown',           muscle: 'Back',   tag: 'B1', sets: '4', reps: '8-10', tempo: '20X1', note: 'Volume peak lat.' },
-        { name: 'DB Flat Press',          muscle: 'Chest',  tag: 'B2', sets: '4', reps: '10-12', tempo: '20X1', note: 'Antagonist pair.' },
-        { name: 'EZ-Bar Curl',            muscle: 'Biceps', tag: 'C1', sets: '4', reps: '8-10', tempo: '20X1', note: 'Strength peak bicep.' },
-        { name: 'Rear Delt Fly',          muscle: 'Shoulders',tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Health finish.' },
+        { name: 'Barbell Row',            muscle: 'Back',      tag: 'A1', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Best row of program.' },
+        { name: 'Lat Pulldown',           muscle: 'Back',      tag: 'A2', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Volume peak lat. Pair with row.' },
+        { name: 'Seated Cable Row',       muscle: 'Back',      tag: 'B1', sets: '4', reps: '10-12', tempo: '21X1', note: '1s pause.' },
+        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Health finish.' },
+        { name: 'EZ-Bar Curl',            muscle: 'Biceps',    tag: 'C1', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Strength peak bicep.' },
+        { name: 'Cable Curl',             muscle: 'Biceps',    tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Pump finish. Pair with EZ curl.' },
       ],
     },
   },
@@ -4465,7 +4467,7 @@ const Dashboard = ({ state, onTab, onCoachPrompt }) => {
 // ============================================================
 // EXERCISE LIBRARY MODAL
 // ============================================================
-const ExerciseLibraryModal = ({ onSelect, onClose, filterMuscle = 'All', title = 'EXERCISE LIBRARY' }) => {
+const ExerciseLibraryModal = ({ onSelect, onClose, filterMuscle = 'All', validMuscles = null, title = 'EXERCISE LIBRARY' }) => {
   const [search, setSearch] = useState('');
   const [muscle, setMuscle] = useState(filterMuscle);
   const [equipment, setEquipment] = useState('All');
@@ -4475,11 +4477,16 @@ const ExerciseLibraryModal = ({ onSelect, onClose, filterMuscle = 'All', title =
     setTimeout(() => searchRef.current?.focus(), 100);
   }, []);
 
+  // If validMuscles is set, only show those muscle groups (day-type filtering)
+  const availableMuscleGroups = validMuscles
+    ? ['All', ...MUSCLE_GROUPS.filter((m) => m === 'All' || validMuscles.includes(m))]
+    : MUSCLE_GROUPS;
+
   const filtered = EXERCISE_LIBRARY_FLAT.filter((ex) => {
     const matchSearch = !search || ex.name.toLowerCase().includes(search.toLowerCase()) ||
       ex.note.toLowerCase().includes(search.toLowerCase()) ||
       ex.muscle.toLowerCase().includes(search.toLowerCase());
-    const matchMuscle = muscle === 'All' || ex.muscle === muscle;
+    const matchMuscle = muscle === 'All' ? (!validMuscles || validMuscles.includes(ex.muscle)) : ex.muscle === muscle;
     const matchEquip = equipment === 'All' || ex.equipment === equipment;
     return matchSearch && matchMuscle && matchEquip;
   });
@@ -4499,7 +4506,14 @@ const ExerciseLibraryModal = ({ onSelect, onClose, filterMuscle = 'All', title =
     }}>
       {/* Header */}
       <div style={{ padding: '12px 14px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <H size={15} mb={0}>{title}</H>
+        <div>
+          <H size={15} mb={0}>{title}</H>
+          {validMuscles && (
+            <div style={{ fontSize: 9, color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginTop: 2 }}>
+              SHOWING: {validMuscles.join(' · ')}
+            </div>
+          )}
+        </div>
         <div style={{ flex: 1 }} />
         <button onClick={onClose} style={{ background: 'transparent', color: '#fff', border: 'none', fontSize: 26, cursor: 'pointer', lineHeight: 1 }}>×</button>
       </div>
@@ -4516,7 +4530,7 @@ const ExerciseLibraryModal = ({ onSelect, onClose, filterMuscle = 'All', title =
         <div style={{ display: 'flex', gap: 6 }}>
           <div style={{ flex: 1 }}>
             <Select value={muscle} onChange={(e) => setMuscle(e.target.value)} style={{ fontSize: 12 }}>
-              {MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{m}</option>)}
+              {availableMuscleGroups.map((m) => <option key={m} value={m}>{m}</option>)}
             </Select>
           </div>
           <div style={{ flex: 1 }}>
@@ -4699,7 +4713,19 @@ const Workouts = ({ state, setState }) => {
   };
 
   const handleSwapExercise = (exIdx, muscle) => {
-    setLibraryModal({ mode: 'swap', exIdx, muscle: muscle || 'All' });
+    // Determine which muscle groups are valid for this day type
+    const dayTypeMuscleMap = {
+      PUSH:       ['Chest', 'Shoulders', 'Triceps'],
+      PULL:       ['Back', 'Biceps', 'Shoulders'],
+      LEGS:       ['Quads', 'Hamstrings', 'Glutes', 'Calves', 'Core'],
+      UPPER:      ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps'],
+      LOWER:      ['Quads', 'Hamstrings', 'Glutes', 'Calves', 'Core'],
+      FULL:       null, // all muscles
+      PUSH_LOWER: ['Chest', 'Shoulders', 'Triceps', 'Quads', 'Glutes'],
+      PULL_UPPER: ['Back', 'Biceps', 'Shoulders', 'Hamstrings'],
+    };
+    const validMuscles = dayTypeMuscleMap[dayType] || null;
+    setLibraryModal({ mode: 'swap', exIdx, muscle: muscle || 'All', validMuscles });
   };
 
   const handleSelectSwap = (libraryEx) => {
@@ -5151,6 +5177,7 @@ const Workouts = ({ state, setState }) => {
             <ExerciseLibraryModal
               title={libraryModal.mode === 'swap' ? 'SWAP EXERCISE' : 'ADD EXERCISE'}
               filterMuscle={libraryModal.muscle || 'All'}
+              validMuscles={libraryModal.validMuscles || null}
               onSelect={libraryModal.mode === 'swap' ? handleSelectSwap : handleAddExercise}
               onClose={() => setLibraryModal(null)}
             />
@@ -6710,11 +6737,13 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
   // Initialise from item when in edit mode
   useEffect(() => {
     if (editMode) {
-      setQty(String(item.qty || 1));
-      setManCal(String(item.cal || ''));
-      setManP(String(item.p   || ''));
-      setManC(String(item.c   || ''));
-      setManF(String(item.f   || ''));
+      const q = item.qty || 1;
+      setQty(String(q));
+      // Store per-serving values (divide by qty) so scaled = perServing * qty = correct total
+      setManCal(String(q > 0 ? Math.round(item.cal / q) : item.cal || ''));
+      setManP(String(q > 0 ? Math.round((item.p / q) * 10) / 10 : item.p || ''));
+      setManC(String(q > 0 ? Math.round((item.c / q) * 10) / 10 : item.c || ''));
+      setManF(String(q > 0 ? Math.round((item.f / q) * 10) / 10 : item.f || ''));
       setOverrideMacros(true);
     }
   }, []);
@@ -6751,10 +6780,11 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
   const handleAdd = () => {
     const finalItem = {
       ...item,
-      cal: overrideMacros ? Math.abs(+manCal || 0) : base.cal * (multiplier / qtyNum),
-      p:   overrideMacros ? Math.abs(+manP   || 0) : base.p   * (multiplier / qtyNum),
-      c:   overrideMacros ? Math.abs(+manC   || 0) : base.c   * (multiplier / qtyNum),
-      f:   overrideMacros ? Math.abs(+manF   || 0) : base.f   * (multiplier / qtyNum),
+      // Use scaled values (already multiplied by qty) — consistent with what user sees displayed
+      cal: scaled.cal,
+      p:   scaled.p,
+      c:   scaled.c,
+      f:   scaled.f,
       qty: qtyNum,
       servingLabel: unitLabel === 'serving'
         ? (item.serving || '1 serving')
@@ -6922,10 +6952,18 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
 // ============================================================
 // SAVED MEALS — save individual foods or whole meal combos
 // ============================================================
-const SavedMeals = ({ savedMeals, onLoad, onDelete, activeMeal }) => {
+const SavedMeals = ({ savedMeals, onLoad, onDelete, onRename, activeMeal }) => {
   const [filter, setFilter] = useState('All');
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameVal, setRenameVal] = useState('');
   const categories = ['All', ...Array.from(new Set(savedMeals.map(m => m.category || 'Other')))];
   const filtered = filter === 'All' ? savedMeals : savedMeals.filter(m => (m.category || 'Other') === filter);
+
+  const startRename = (sm) => { setRenamingId(sm.id); setRenameVal(sm.name); };
+  const commitRename = (id) => {
+    if (renameVal.trim()) onRename(id, renameVal.trim());
+    setRenamingId(null);
+  };
 
   if (savedMeals.length === 0) {
     return (
@@ -6960,39 +6998,65 @@ const SavedMeals = ({ savedMeals, onLoad, onDelete, activeMeal }) => {
         const totalCal = sm.items.reduce((a, f) => a + (+f.cal || 0) * (f.qty || 1), 0);
         const totalP   = sm.items.reduce((a, f) => a + (+f.p || 0) * (f.qty || 1), 0);
         const isMulti  = sm.items.length > 1;
+        const isRenaming = renamingId === sm.id;
         return (
           <div key={sm.id} style={{
-            background: CARD2, border: `1px solid ${BORDER}`, borderRadius: 8,
+            background: CARD2, border: `1px solid ${isRenaming ? ACCENT : BORDER}`, borderRadius: 8,
             padding: '8px 10px', marginBottom: 6,
-            display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, color: '#fff', marginBottom: 2 }}>
-                {isMulti && <span style={{ fontSize: 9, color: ORANGE, fontFamily: 'Impact, Arial Black, sans-serif', marginRight: 4 }}>COMBO</span>}
-                {sm.name}
+            {isRenaming ? (
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <Input
+                  autoFocus
+                  value={renameVal}
+                  onChange={(e) => setRenameVal(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') commitRename(sm.id); if (e.key === 'Escape') setRenamingId(null); }}
+                  style={{ flex: 1, fontSize: 12 }}
+                />
+                <button onClick={() => commitRename(sm.id)} style={{
+                  background: ACCENT, color: '#000', border: 'none', borderRadius: 6,
+                  padding: '5px 10px', cursor: 'pointer', fontSize: 10,
+                  fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, flexShrink: 0,
+                }}>SAVE</button>
+                <button onClick={() => setRenamingId(null)} style={{
+                  background: 'transparent', color: TEXT_MUTED, border: 'none', cursor: 'pointer', fontSize: 16, padding: '5px 4px',
+                }}>×</button>
               </div>
-              <div style={{ fontSize: 10, color: TEXT_MUTED }}>
-                {Math.round(totalCal)} cal · {Math.round(totalP)}g P
-                {isMulti && ` · ${sm.items.length} foods`}
-                {sm.category && sm.category !== 'Other' && ` · ${sm.category}`}
-              </div>
-              {isMulti && (
-                <div style={{ fontSize: 9, color: TEXT_MUTED, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {sm.items.map(f => f.name).join(', ')}
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: '#fff', marginBottom: 2 }}>
+                    {isMulti && <span style={{ fontSize: 9, color: ORANGE, fontFamily: 'Impact, Arial Black, sans-serif', marginRight: 4 }}>COMBO</span>}
+                    {sm.name}
+                  </div>
+                  <div style={{ fontSize: 10, color: TEXT_MUTED }}>
+                    {Math.round(totalCal)} cal · {Math.round(totalP)}g P
+                    {isMulti && ` · ${sm.items.length} foods`}
+                    {sm.category && sm.category !== 'Other' && ` · ${sm.category}`}
+                  </div>
+                  {isMulti && (
+                    <div style={{ fontSize: 9, color: TEXT_MUTED, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {sm.items.map(f => f.name).join(', ')}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-              <button onClick={() => onLoad(sm)} style={{
-                background: `${ACCENT}22`, color: ACCENT, border: `1px solid ${ACCENT}44`,
-                borderRadius: 6, padding: '5px 10px', cursor: 'pointer',
-                fontSize: 10, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
-              }}>+ ADD</button>
-              <button onClick={() => onDelete(sm.id)} style={{
-                background: 'transparent', color: TEXT_MUTED, border: 'none',
-                cursor: 'pointer', fontSize: 14, padding: '5px 4px',
-              }}>×</button>
-            </div>
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  <button onClick={() => onLoad(sm)} style={{
+                    background: `${ACCENT}22`, color: ACCENT, border: `1px solid ${ACCENT}44`,
+                    borderRadius: 6, padding: '5px 10px', cursor: 'pointer',
+                    fontSize: 10, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+                  }}>+ ADD</button>
+                  <button onClick={() => startRename(sm)} title="Rename" style={{
+                    background: 'transparent', color: TEXT_DIM, border: 'none',
+                    cursor: 'pointer', fontSize: 13, padding: '5px 4px',
+                  }}>✏</button>
+                  <button onClick={() => onDelete(sm.id)} style={{
+                    background: 'transparent', color: TEXT_MUTED, border: 'none',
+                    cursor: 'pointer', fontSize: 14, padding: '5px 4px',
+                  }}>×</button>
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
@@ -7017,6 +7081,10 @@ const Food = ({ state, setState, onCoachPrompt }) => {
   const [newSectionName, setNewSectionName] = useState('');
   const [foodModal, setFoodModal] = useState(null);
   const [showSaved, setShowSaved] = useState(false);
+  const [pendingSaveMeal, setPendingSaveMeal] = useState(null);
+  const [saveMealName, setSaveMealName] = useState('');
+  const [renamingSection, setRenamingSection] = useState(null); // section name being renamed
+  const [renameSectionVal, setRenameSectionVal] = useState('');
 
   const currentWeight = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
   const macros = calcMacros(profile, currentWeight);
@@ -7039,14 +7107,27 @@ const Food = ({ state, setState, onCoachPrompt }) => {
   const saveMealSection = (sectionName) => {
     const items = todaysFood.filter((f) => f.meal === sectionName);
     if (!items.length) return;
+    const defaultName = sectionName + ' combo';
+    setPendingSaveMeal({ sectionName, items });
+    setSaveMealName(defaultName);
+  };
+
+  const confirmSaveMeal = () => {
+    if (!pendingSaveMeal) return;
+    const name = saveMealName.trim() || pendingSaveMeal.sectionName + ' combo';
     const entry = {
       id: 'sm_' + Date.now(),
-      name: `${sectionName} combo`,
-      category: sectionName,
-      items: items.map((f) => ({ name: f.name, cal: +f.cal || 0, p: +f.p || 0, c: +f.c || 0, f: +f.f || 0, qty: f.qty || 1, serving: f.serving || '' })),
+      name,
+      category: pendingSaveMeal.sectionName,
+      items: pendingSaveMeal.items.map((f) => ({
+        name: f.name, cal: +f.cal || 0, p: +f.p || 0, c: +f.c || 0, f: +f.f || 0,
+        qty: f.qty || 1, serving: f.serving || '',
+      })),
       savedAt: new Date().toISOString(),
     };
     setState((p) => ({ ...p, savedMeals: [...(p.savedMeals || []), entry] }));
+    setPendingSaveMeal(null);
+    setSaveMealName('');
   };
 
   // Load a saved meal — add all its items to the current active meal
@@ -7067,6 +7148,13 @@ const Food = ({ state, setState, onCoachPrompt }) => {
 
   const deleteSavedMeal = (id) => {
     setState((p) => ({ ...p, savedMeals: (p.savedMeals || []).filter((m) => m.id !== id) }));
+  };
+
+  const renameSavedMeal = (id, newName) => {
+    setState((p) => ({
+      ...p,
+      savedMeals: (p.savedMeals || []).map((m) => m.id === id ? { ...m, name: newName } : m),
+    }));
   };
 
   const totals = todaysFood.reduce((acc, f) => ({
@@ -7152,6 +7240,26 @@ const Food = ({ state, setState, onCoachPrompt }) => {
       const cur = getMealSections(p.fmeal || {}, viewISO);
       return { ...p, fmeal: { ...(p.fmeal || {}), [viewISO]: cur.filter((s) => s !== name) } };
     });
+    if (activeMeal === name) setActiveMeal(sections[0] || 'Breakfast');
+  };
+
+  const renameSection = (oldName, newName) => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) { setRenamingSection(null); return; }
+    setState((p) => {
+      // Update sections list
+      const cur = getMealSections(p.fmeal || {}, viewISO);
+      const newSections = cur.map((s) => s === oldName ? trimmed : s);
+      // Update all food items that reference this section
+      const newFood = { ...p.food };
+      Object.keys(newFood).forEach((date) => {
+        newFood[date] = newFood[date].map((f) => f.meal === oldName ? { ...f, meal: trimmed } : f);
+      });
+      return { ...p, fmeal: { ...(p.fmeal || {}), [viewISO]: newSections }, food: newFood };
+    });
+    if (activeMeal === oldName) setActiveMeal(trimmed);
+    setRenamingSection(null);
+    setRenameSectionVal('');
   };
 
   // 7-day rolling avg chart
@@ -7291,6 +7399,33 @@ const Food = ({ state, setState, onCoachPrompt }) => {
           </button>
         </div>
 
+        {/* Save meal name prompt */}
+        {pendingSaveMeal && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 300,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+          }} onClick={(e) => e.target === e.currentTarget && setPendingSaveMeal(null)}>
+            <div style={{ background: CARD, borderRadius: 12, padding: 20, width: '100%', maxWidth: 340 }}>
+              <H size={15} mb={12}>NAME THIS MEAL</H>
+              <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 10 }}>
+                {pendingSaveMeal.items.length} item{pendingSaveMeal.items.length !== 1 ? 's' : ''} from {pendingSaveMeal.sectionName}
+              </div>
+              <Input
+                autoFocus
+                value={saveMealName}
+                onChange={(e) => setSaveMealName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && confirmSaveMeal()}
+                placeholder="e.g. Post-workout shake, Big breakfast"
+                style={{ marginBottom: 12 }}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Btn onClick={confirmSaveMeal} style={{ flex: 1 }}>SAVE</Btn>
+                <Btn variant="ghost" onClick={() => setPendingSaveMeal(null)} style={{ flex: 1 }}>CANCEL</Btn>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Saved meals panel */}
         {showSaved && (
           <div style={{ marginBottom: 10, padding: 10, background: CARD2, borderRadius: 8, border: `1px solid ${BORDER}` }}>
@@ -7301,6 +7436,7 @@ const Food = ({ state, setState, onCoachPrompt }) => {
               savedMeals={savedMeals}
               onLoad={loadSavedMeal}
               onDelete={deleteSavedMeal}
+              onRename={renameSavedMeal}
               activeMeal={activeMeal}
             />
           </div>
@@ -7415,32 +7551,69 @@ const Food = ({ state, setState, onCoachPrompt }) => {
           <Card key={section} style={{ marginBottom: 8, borderTop: `3px solid ${mc}` }}>
             {/* Section header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button onClick={() => setCollapsed((c) => ({ ...c, [section]: !c[section] }))} style={{
-                flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-                background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', padding: 0, textAlign: 'left',
-              }}>
-                <H size={13} mb={0} color={mc}>{section.toUpperCase()}</H>
-                {items.length > 0 && (
-                  <span style={{ fontSize: 10, color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif' }}>
-                    {Math.round(st.cal)} cal · {Math.round(st.p)}g P
-                  </span>
-                )}
-                <span style={{ marginLeft: 'auto', color: TEXT_MUTED, fontSize: 12 }}>{isCollapsed ? '▸' : '▾'}</span>
-              </button>
-              {/* Reorder + delete controls */}
-              <div style={{ display: 'flex', gap: 2 }}>
-                {items.length > 0 && (
-                  <button onClick={() => saveMealSection(section)} title="Save this meal as a combo" style={{
-                    background: 'transparent', border: 'none', color: '#fbbf24', cursor: 'pointer',
-                    fontSize: 13, padding: '2px 4px',
-                  }}>★</button>
-                )}
-                <button onClick={() => moveSection(si, si - 1)} disabled={si === 0} style={{ background: 'transparent', border: 'none', color: si === 0 ? BORDER : TEXT_DIM, cursor: si === 0 ? 'not-allowed' : 'pointer', fontSize: 14, padding: '2px 4px' }}>↑</button>
-                <button onClick={() => moveSection(si, si + 1)} disabled={si === sections.length - 1} style={{ background: 'transparent', border: 'none', color: si === sections.length - 1 ? BORDER : TEXT_DIM, cursor: si === sections.length - 1 ? 'not-allowed' : 'pointer', fontSize: 14, padding: '2px 4px' }}>↓</button>
-                {!DEFAULT_MEAL_SECTIONS.includes(section) && (
-                  <button onClick={() => removeSection(section)} style={{ background: 'transparent', border: 'none', color: TEXT_MUTED, cursor: 'pointer', fontSize: 14, padding: '2px 4px' }}>×</button>
-                )}
-              </div>
+              {renamingSection === section ? (
+                // Inline rename input
+                <div style={{ flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <Input
+                    autoFocus
+                    value={renameSectionVal}
+                    onChange={(e) => setRenameSectionVal(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') renameSection(section, renameSectionVal);
+                      if (e.key === 'Escape') setRenamingSection(null);
+                    }}
+                    style={{ flex: 1, fontSize: 13 }}
+                  />
+                  <button onClick={() => renameSection(section, renameSectionVal)} style={{
+                    background: mc, color: '#000', border: 'none', borderRadius: 6,
+                    padding: '5px 10px', cursor: 'pointer', fontSize: 10,
+                    fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, flexShrink: 0,
+                  }}>SAVE</button>
+                  <button onClick={() => setRenamingSection(null)} style={{
+                    background: 'transparent', border: 'none', color: TEXT_MUTED,
+                    cursor: 'pointer', fontSize: 16, padding: '4px',
+                  }}>×</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setCollapsed((c) => ({ ...c, [section]: !c[section] }))}
+                  onDoubleClick={() => { setRenamingSection(section); setRenameSectionVal(section); }}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+                    background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', padding: 0, textAlign: 'left',
+                  }}>
+                  <H size={13} mb={0} color={mc}>{section.toUpperCase()}</H>
+                  {items.length > 0 && (
+                    <span style={{ fontSize: 10, color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                      {Math.round(st.cal)} cal · {Math.round(st.p)}g P
+                    </span>
+                  )}
+                  <span style={{ marginLeft: 'auto', color: TEXT_MUTED, fontSize: 12 }}>{isCollapsed ? '▸' : '▾'}</span>
+                </button>
+              )}
+              {/* Section controls */}
+              {renamingSection !== section && (
+                <div style={{ display: 'flex', gap: 2 }}>
+                  {items.length > 0 && (
+                    <button onClick={() => saveMealSection(section)} title="Save as combo" style={{
+                      background: 'transparent', border: 'none', color: '#fbbf24', cursor: 'pointer',
+                      fontSize: 13, padding: '2px 4px',
+                    }}>★</button>
+                  )}
+                  <button
+                    onClick={() => { setRenamingSection(section); setRenameSectionVal(section); }}
+                    title="Rename section"
+                    style={{ background: 'transparent', border: 'none', color: TEXT_MUTED, cursor: 'pointer', fontSize: 12, padding: '2px 4px' }}>
+                    ✏
+                  </button>
+                  <button onClick={() => moveSection(si, si - 1)} disabled={si === 0}
+                    style={{ background: 'transparent', border: 'none', color: si === 0 ? BORDER : TEXT_DIM, cursor: si === 0 ? 'not-allowed' : 'pointer', fontSize: 14, padding: '2px 4px' }}>↑</button>
+                  <button onClick={() => moveSection(si, si + 1)} disabled={si === sections.length - 1}
+                    style={{ background: 'transparent', border: 'none', color: si === sections.length - 1 ? BORDER : TEXT_DIM, cursor: si === sections.length - 1 ? 'not-allowed' : 'pointer', fontSize: 14, padding: '2px 4px' }}>↓</button>
+                  <button onClick={() => removeSection(section)}
+                    style={{ background: 'transparent', border: 'none', color: TEXT_MUTED, cursor: 'pointer', fontSize: 14, padding: '2px 4px' }}>×</button>
+                </div>
+              )}
             </div>
 
             {!isCollapsed && (
@@ -7854,6 +8027,7 @@ const Backup = ({ state, setState, onShowSummary }) => {
   const [profileDraft, setProfileDraft] = useState({ ...profile });
   const [setWeekVal, setSetWeekVal] = useState(state.week);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmWeekReset, setConfirmWeekReset] = useState(false);
   const fileInputRef = useRef(null);
 
   const exportData = () => {
@@ -7913,6 +8087,19 @@ const Backup = ({ state, setState, onShowSummary }) => {
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
     setState(defaultState());
     setConfirmReset(false);
+  };
+
+  const resetToWeek1 = () => {
+    setState((p) => ({
+      ...p,
+      week: 1,
+      sessions: {},  // clear workout sessions so week 1 starts fresh
+      profile: {
+        ...p.profile,
+        startDate: todayISO(),  // reset start date to today
+      },
+    }));
+    setConfirmWeekReset(false);
   };
 
   const previewMacros = profileDraft.weight ? calcMacros(profileDraft, profileDraft.weight) : null;
@@ -8019,6 +8206,25 @@ const Backup = ({ state, setState, onShowSummary }) => {
           <Input type="number" min="1" max={profile.weeks} value={setWeekVal} onChange={(e) => setSetWeekVal(e.target.value)} />
           <Btn onClick={setWeek}>JUMP</Btn>
         </div>
+      </Card>
+
+      {/* Reset to Week 1 */}
+      <Card style={{ marginBottom: 10, borderColor: ORANGE }}>
+        <H size={13} color={ORANGE}>RESET TO WEEK 1</H>
+        <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 8 }}>
+          Restarts your program from Week 1. Keeps all your profile settings, food logs, and weight history. Clears workout sessions and resets the start date to today.
+        </div>
+        {!confirmWeekReset ? (
+          <Btn onClick={() => setConfirmWeekReset(true)} style={{ width: '100%', background: `${ORANGE}22`, color: ORANGE, border: `1px solid ${ORANGE}` }}>
+            RESTART PROGRAM
+          </Btn>
+        ) : (
+          <div style={{ display: 'flex', gap: 6 }}>
+            <Btn onClick={resetToWeek1} style={{ background: ORANGE, color: '#000', border: 'none' }}>YES, RESTART</Btn>
+            <div style={{ flex: 1 }} />
+            <Btn variant="ghost" onClick={() => setConfirmWeekReset(false)}>CANCEL</Btn>
+          </div>
+        )}
       </Card>
 
       {/* Reset */}
