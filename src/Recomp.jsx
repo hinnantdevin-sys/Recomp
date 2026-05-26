@@ -2453,43 +2453,240 @@ FBB_EXERCISES.PULL_UPPER[4] = {
 
 // Goal-specific conditioning finishers for func_bb
 const FBB_FINISHERS = {
-  fatloss: [
-    '6 min AMRAP: 10 KB swings + 10 box jumps',
-    '5 rounds: 20s battle ropes + 20s rest',
-    '8 min EMOM: 12 burpees on the minute',
-    '4 rounds: 400m run + 20 KB swings',
-    'Tabata row: 8 × 20s max effort / 10s rest',
-    '3 rounds: 30s assault bike + 30 air squats + 30s rest',
-  ],
-  muscle: [
-    '3 sets: 12 DB curl + 12 tricep pushdown (no rest between)',
-    '2 rounds: 15 lateral raises + 15 face pulls',
-    '3 sets: 10 cable fly + 10 incline press (drop set)',
-    '2 sets: 12 calf raise + 12 tibialis raise',
-    'Pump circuit: 20 curls + 20 pushdowns × 2',
-  ],
-  recomp: [
-    '4 min AMRAP: 5 pull-ups + 10 push-ups + 15 squats',
-    '3 rounds: 200m row + 10 box jumps',
-    'EMOM 6: 8 KB swings (odd) + 8 push-ups (even)',
-    '5 min: max rounds of 5 burpees + 10 sit-ups',
-    '3 sets: 30s ski erg + 30s plank + 30s rest',
-  ],
-  performance: [
-    '5 × 5 power clean (build to 80%)',
-    '4 rounds: 3 box jumps (max height) + 3 broad jumps',
-    'EMOM 8: 2 hang cleans + 4 push press',
-    '3 rounds: 6 medicine ball slams + 6 jump squats',
-    '6 × 30m sled push (heavy) — 90s rest',
-  ],
+  // By goal AND day type — so push/pull/legs each get appropriate finishers
+  fatloss: {
+    PUSH: [
+      '3 rounds: 15 push-ups + 10 dips + 30s rest — no loading, just volume',
+      '4 min AMRAP: 10 push-ups + 10 shoulder taps + 5 pike push-ups',
+      'Tabata push-ups: 8 × 20s on / 10s off — count total reps',
+      '3 sets: 20 banded push-down + 15 lateral raise + 20s rest',
+      '5 min AMRAP: 8 push-ups + 8 DB shoulder press (light) + 8 tricep dips',
+      '4 rounds: 30s battle ropes + 10 push-ups + 30s rest',
+    ],
+    PULL: [
+      '3 rounds: 10 inverted rows + 10 face pulls + 10 band pull-aparts',
+      '4 min AMRAP: 5 pull-ups + 10 ring rows + 15 band pull-aparts',
+      'Tabata chin-ups: 8 × 20s on / 10s off — use band if needed',
+      '3 sets: 15 straight-arm pulldown + 15 bicep curl + 30s rest',
+      '5 min AMRAP: 8 DB rows + 8 hammer curls + 8 face pulls',
+      '4 rounds: max inverted rows + 10 band rows + 30s rest',
+    ],
+    LEGS: [
+      '6 min AMRAP: 10 KB swings + 10 box jumps',
+      '4 rounds: 400m run + 20 air squats',
+      'Tabata: 8 × 20s jump squats / 10s rest',
+      '3 rounds: 20 walking lunges + 20 calf raises + 30s rest',
+      '5 min AMRAP: 10 box jumps + 10 glute bridges + 10 jump lunges',
+      '4 rounds: 30s assault bike + 20 body weight squats',
+    ],
+    FULL: [
+      '8 min EMOM: 8 burpees on the minute',
+      '4 rounds: 200m run + 10 KB swings + 10 push-ups',
+      '5 min AMRAP: 5 pull-ups + 10 push-ups + 15 squats',
+      'Tabata row: 8 × 20s max effort / 10s rest',
+      '3 rounds: 30s assault bike + 15 burpees + 30s rest',
+      '6 min: 10 thrusters + 10 KB swings + 10 box jumps, repeat',
+    ],
+    UPPER: [
+      '3 rounds: 10 push-ups + 10 rows + 10 lateral raises + 30s rest',
+      '4 min AMRAP: 8 push-ups + 8 inverted rows + 8 shoulder press',
+      '3 sets: 20 band pull-aparts + 15 push-ups + 15 face pulls',
+      'Tabata: 20s push-ups / 10s rest × 4, then 20s rows / 10s rest × 4',
+      '4 rounds: 12 DB press + 12 DB row + 30s rest',
+    ],
+    LOWER: [
+      '6 min AMRAP: 10 KB swings + 10 box jumps',
+      '3 rounds: 30s jump rope + 20 KB swings + 30s rest',
+      'Tabata squat: 8 × 20s air squat / 10s rest',
+      '4 rounds: 20 walking lunges + 15 glute bridges + 30s rest',
+      '5 min: 10 jump squats + 10 RDL (light) + 10 calf jumps, repeat',
+    ],
+    PUSH_LOWER: [
+      '4 rounds: 10 push-ups + 10 jump squats + 30s rest',
+      '5 min AMRAP: 8 DB press + 8 box jumps + 10 air squats',
+      '3 rounds: 15 dips + 20 walking lunges + 30s rest',
+      'Tabata: 20s thrusters / 10s rest × 8 — light DB',
+    ],
+    PULL_UPPER: [
+      '4 rounds: 8 pull-ups + 10 face pulls + 12 band rows + 30s rest',
+      '5 min AMRAP: 5 chin-ups + 10 inverted rows + 15 band pull-aparts',
+      '3 rounds: 10 hammer curls + 10 lateral raise + 10 rear delt fly',
+      'Tabata: 20s chin-up holds / 10s rest × 8 — pause at top',
+    ],
+  },
+  muscle: {
+    PUSH: [
+      'Giant set × 3: 12 cable fly + 10 overhead press + 12 lateral raise — 60s rest',
+      '3 sets: 15 cable crossover + 10 tricep dip (weighted if possible)',
+      'Drop set bench press: work weight → -20% → -20% → failure, 1 set each',
+      '3 rounds: 12 pec deck + 12 overhead tricep ext + 12 lateral raise',
+      '2 sets: 20 banded push-ups + 20 rope pushdown — no rest between',
+      '3 sets: 15 incline cable fly + 12 skull crusher',
+    ],
+    PULL: [
+      'Giant set × 3: 12 lat pulldown + 10 cable row + 12 face pull — 60s rest',
+      '3 sets: 15 straight-arm pulldown + 12 hammer curl + 12 rear delt fly',
+      'Drop set pull-ups: full reps → band-assisted → ring rows, 1 round',
+      '3 rounds: 12 close-grip pulldown + 12 incline curl + 12 cable Y-raise',
+      '2 sets: 20 band pull-aparts + 15 bicep curl — no rest between',
+      '3 sets: 12 chest-supported row + 12 preacher curl',
+    ],
+    LEGS: [
+      '3 sets: 15 leg extension + 15 lying leg curl — no rest between',
+      'Drop set leg press: work weight → -25% → -25%, 1 drop set',
+      '3 rounds: 15 calf raise + 15 tibialis raise + 15 hip thrust',
+      '2 sets: 20 walking lunges + 20 glute bridges — no rest between',
+      '3 sets: 12 single-leg press + 10 single-leg RDL',
+      'Giant set: 15 squats + 15 leg curl + 15 calf raise × 2 rounds',
+    ],
+    FULL: [
+      'Pump circuit × 2: 15 push-ups + 15 rows + 15 squats — 30s rest',
+      '3 sets: 12 DB bench + 12 DB row + 12 goblet squat — 60s rest',
+      'Giant set: 10 pull-ups + 10 dips + 10 jump squats × 2 rounds',
+      '3 rounds: 12 shoulder press + 12 RDL + 12 lateral raise',
+      '2 sets: 20 push-ups + 20 inverted rows + 20 air squats',
+    ],
+    UPPER: [
+      '3 sets: 12 DB bench + 12 DB row + 12 lateral raise — 60s rest',
+      'Giant set: 10 push-ups + 10 rows + 12 face pulls + 12 curls × 2',
+      '3 rounds: 15 cable fly + 15 straight-arm pulldown + 15 overhead ext',
+      '2 sets: 20 band pull-aparts + 15 push-ups + 15 bicep curls',
+    ],
+    LOWER: [
+      '3 sets: 15 leg extension + 15 leg curl + 15 calf raise — 30s rest',
+      'Drop set squat: work weight → bodyweight × 20 reps, 2 rounds',
+      '3 rounds: 12 hip thrust + 12 single-leg RDL + 15 calf raise',
+      '2 sets: 20 walking lunges + 15 leg press + 20 glute bridges',
+    ],
+    PUSH_LOWER: [
+      '3 sets: 12 DB press + 12 goblet squat + 12 lateral raise — 60s rest',
+      'Giant set: 10 dips + 15 lunges + 12 overhead press × 2 rounds',
+      '3 rounds: 15 push-ups + 20 walking lunges + 12 lateral raise',
+    ],
+    PULL_UPPER: [
+      '3 sets: 12 lat pulldown + 12 hammer curl + 12 rear delt fly — 60s rest',
+      'Giant set: 10 pull-ups + 12 face pulls + 12 bicep curls × 2 rounds',
+      '3 rounds: 15 band pull-aparts + 12 cable row + 15 incline curl',
+    ],
+  },
+  recomp: {
+    PUSH: [
+      '4 min AMRAP: 8 push-ups + 6 DB shoulder press + 8 tricep dips',
+      '3 rounds: 12 push-ups + 10 pike push-ups + 15 lateral raise',
+      'EMOM 6: 10 push-ups (odd) + 10 overhead press (even)',
+      '3 sets: 15 cable fly + 12 skull crusher + 30s rest',
+      '4 rounds: 30s push-up hold + 10 shoulder press + 30s rest',
+    ],
+    PULL: [
+      '4 min AMRAP: 5 pull-ups + 8 DB rows + 10 face pulls',
+      '3 rounds: 10 chin-ups + 12 hammer curls + 10 rear delt fly',
+      'EMOM 6: 6 pull-ups (odd) + 12 inverted rows (even)',
+      '3 sets: 12 lat pulldown + 12 cable curl + 12 band pull-apart',
+      '4 rounds: max chin-up hold + 10 face pulls + 30s rest',
+    ],
+    LEGS: [
+      '5 min AMRAP: 10 KB swings + 10 box jumps + 10 air squats',
+      '3 rounds: 200m run + 15 walking lunges + 15 glute bridges',
+      'EMOM 8: 8 KB swings (odd) + 10 air squats (even)',
+      '4 rounds: 20 jump squats + 20 calf raises + 30s rest',
+      '3 sets: 15 leg press + 15 leg curl + 15 calf raise',
+    ],
+    FULL: [
+      '4 min AMRAP: 5 pull-ups + 10 push-ups + 15 squats',
+      '3 rounds: 200m row + 10 box jumps',
+      'EMOM 6: 8 KB swings (odd) + 8 push-ups (even)',
+      '5 min: max rounds of 5 burpees + 10 sit-ups',
+      '3 sets: 30s ski erg + 30s plank + 30s rest',
+    ],
+    UPPER: [
+      '4 min AMRAP: 6 pull-ups + 10 push-ups + 10 face pulls',
+      '3 rounds: 12 push-ups + 12 inverted rows + 12 lateral raise',
+      'EMOM 6: 8 push-ups (odd) + 8 rows (even)',
+      '3 sets: 12 cable fly + 12 lat pulldown + 12 shoulder press',
+    ],
+    LOWER: [
+      '5 min AMRAP: 10 KB swings + 10 box jumps',
+      '3 rounds: 20 walking lunges + 15 glute bridges + 15 calf raises',
+      'EMOM 6: 10 air squats (odd) + 10 KB swings (even)',
+      '4 rounds: 20 jump squats + 10 RDL (light) + 30s rest',
+    ],
+    PUSH_LOWER: [
+      '4 rounds: 10 push-ups + 10 jump squats + 10 lateral raise + 30s rest',
+      'EMOM 6: 8 thrusters (odd) + 10 box jumps (even)',
+      '3 rounds: 12 DB press + 20 lunges + 12 shoulder press',
+    ],
+    PULL_UPPER: [
+      '4 min AMRAP: 5 pull-ups + 10 face pulls + 10 band rows',
+      'EMOM 6: 6 chin-ups (odd) + 12 hammer curls (even)',
+      '3 rounds: 10 pull-ups + 12 rear delt fly + 12 bicep curls',
+    ],
+  },
+  performance: {
+    PUSH: [
+      '5 × 3 plyometric push-ups — max height, full reset between reps',
+      '4 rounds: 3 clap push-ups + 5 explosive DB press + 60s rest',
+      'EMOM 6: 5 push press (85%) (odd) + 5 explosive push-ups (even)',
+      '5 × 5 push press — build to today\'s max single',
+      '3 rounds: 5 med ball chest pass (wall) + 5 explosive dips + 60s rest',
+    ],
+    PULL: [
+      '5 × 3 explosive pull-ups — lat focus, max speed',
+      '4 rounds: 3 weighted pull-ups + 5 explosive rows + 60s rest',
+      'EMOM 6: 4 heavy rows (odd) + 5 pull-ups (even)',
+      '5 × 5 hang clean pulls — bar speed priority',
+      '3 rounds: 5 med ball slam + 5 explosive chin-ups + 60s rest',
+    ],
+    LEGS: [
+      '5 × 5 power clean (build to 80%)',
+      '4 rounds: 3 box jumps (max height) + 3 broad jumps',
+      'EMOM 8: 2 hang cleans + 4 push press',
+      '3 rounds: 6 medicine ball slams + 6 jump squats',
+      '6 × 30m sled push (heavy) — 90s rest',
+    ],
+    FULL: [
+      'EMOM 8: 2 power cleans + 4 push press (odd) + 5 box jumps (even)',
+      '4 rounds: 3 hang snatch + 5 explosive push-ups + 3 broad jumps',
+      '5 × 3 squat jumps (weighted vest if available) — 90s rest',
+      '3 rounds: 5 power cleans + 5 push press + 5 box jumps — 2min rest',
+      '6 × 20m sprint + walk back — full recovery between',
+    ],
+    UPPER: [
+      '5 × 3 explosive push-ups + 5 × 3 explosive pull-ups — alternate',
+      '4 rounds: 3 push press + 3 weighted pull-ups + 60s rest',
+      'EMOM 6: 4 explosive push-ups (odd) + 4 explosive rows (even)',
+      '3 rounds: 5 med ball chest pass + 5 med ball slam + 60s rest',
+    ],
+    LOWER: [
+      '5 × 5 power clean — bar speed priority',
+      '4 rounds: 3 box jumps + 3 broad jumps + 3 vertical jumps',
+      'EMOM 6: 3 hang clean (odd) + 5 jump squats (even)',
+      '6 × 30m sled push — heavy, 90s rest',
+    ],
+    PUSH_LOWER: [
+      '4 rounds: 3 push press + 3 box jumps + 3 broad jumps + 90s rest',
+      'EMOM 8: 4 thrusters (odd) + 3 box jumps (even)',
+      '5 × 3 power clean + push press complex — build weight',
+    ],
+    PULL_UPPER: [
+      '4 rounds: 3 weighted pull-ups + 3 explosive push-ups + 60s rest',
+      'EMOM 6: 4 hang clean pulls (odd) + 5 pull-ups (even)',
+      '3 rounds: 5 med ball slams + 5 explosive chin-ups + 60s rest',
+    ],
+  },
 };
+// Fallback for CARDIO/REST/unknown day types
+FBB_FINISHERS.fatloss.DEFAULT    = FBB_FINISHERS.fatloss.FULL;
+FBB_FINISHERS.muscle.DEFAULT     = FBB_FINISHERS.muscle.FULL;
+FBB_FINISHERS.recomp.DEFAULT     = FBB_FINISHERS.recomp.FULL;
+FBB_FINISHERS.performance.DEFAULT = FBB_FINISHERS.performance.FULL;
 
-const getFbbFinisher = (goal, week, totalWeeks) => {
-  const g = goal === 'fatloss' ? 'fatloss' : goal === 'muscle' ? 'muscle' : goal === 'performance' ? 'performance' : 'recomp';
-  const finishers = FBB_FINISHERS[g];
-  // Rotate finisher by week so it's different each session
-  const idx = (week - 1) % finishers.length;
-  return finishers[idx];
+const getFbbFinisher = (goal, week, totalWeeks, dayType, dayIdx) => {
+  const g = FBB_FINISHERS[goal] ? goal : 'recomp';
+  const dt = (dayType || 'FULL').toUpperCase();
+  const pool = FBB_FINISHERS[g][dt] || FBB_FINISHERS[g].DEFAULT || FBB_FINISHERS[g].FULL;
+  // Rotate by week AND day index so every session in a week is different
+  const idx = ((week - 1) * 7 + (dayIdx || 0)) % pool.length;
+  return pool[idx];
 };
 
 // Main func_bb exercise resolver
@@ -2804,7 +3001,7 @@ const getFbbExercises = (dayType, week, totalWeeks, schedule, dayIdx, goal) => {
 
   return {
     exercises: progressed,
-    finisher: getFbbFinisher(goal, week, totalWeeks),
+    finisher: getFbbFinisher(goal, week, totalWeeks, dayType, dayIdx),
     preStretches: stretches.pre,
     postStretches: stretches.post,
     variant,
@@ -5316,57 +5513,95 @@ const Workouts = ({ state, setState }) => {
 };
 
 // ── REST TIMER ────────────────────────────────────────────────
-// Plays a bell sound using Web Audio API (no external files needed)
+// iOS Safari requires AudioContext to be created synchronously
+// inside a user gesture handler. We create it on the checkbox tap,
+// resume it immediately (unlocks iOS audio), then play the bell later.
+let _audioCtx = null;
+const getAudioCtx = () => {
+  if (!_audioCtx) {
+    try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  if (_audioCtx && _audioCtx.state === 'suspended') {
+    _audioCtx.resume().catch(() => {});
+  }
+  return _audioCtx;
+};
+
 const playBell = () => {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const gain = ctx.createGain();
-    gain.connect(ctx.destination);
-    // Two oscillators for a richer bell tone
-    [523.25, 1046.5].forEach((freq, i) => {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    // Three-tone bell chord: fundamental + 2nd + 3rd harmonic
+    [523.25, 1046.5, 1568.0].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
-      osc.connect(g); g.connect(ctx.destination);
+      osc.connect(g);
+      g.connect(ctx.destination);
       osc.frequency.value = freq;
       osc.type = 'sine';
-      g.gain.setValueAtTime(i === 0 ? 0.5 : 0.3, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.5);
+      const vol = [0.6, 0.35, 0.2][i];
+      g.gain.setValueAtTime(vol, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 3.0);
       osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 2.5);
+      osc.stop(ctx.currentTime + 3.0);
     });
   } catch(e) {}
 };
 
-const RestTimer = ({ restSeconds, active, onDismiss }) => {
+// Unlock audio on first user interaction anywhere on the page
+if (typeof window !== 'undefined') {
+  const unlock = () => { getAudioCtx(); document.removeEventListener('touchstart', unlock); document.removeEventListener('click', unlock); };
+  document.addEventListener('touchstart', unlock, { passive: true });
+  document.addEventListener('click', unlock, { passive: true });
+}
+
+const RestTimer = ({ restSeconds, timerKey }) => {
   const [remaining, setRemaining] = useState(restSeconds);
   const [rung, setRung] = useState(false);
   const intervalRef = useRef(null);
+  const startTimeRef = useRef(null); // wall-clock ms when timer started
 
+  const tick = () => {
+    const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+    const left = Math.max(0, restSeconds - elapsed);
+    setRemaining(left);
+    if (left === 0) {
+      clearInterval(intervalRef.current);
+      setRung(true);
+      playBell();
+    }
+  };
+
+  // Reset and restart whenever timerKey changes (new set checked)
   useEffect(() => {
-    if (!active) { setRemaining(restSeconds); setRung(false); return; }
+    clearInterval(intervalRef.current);
+    startTimeRef.current = Date.now();
     setRemaining(restSeconds);
     setRung(false);
-    intervalRef.current = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          clearInterval(intervalRef.current);
-          setRung(true);
-          playBell();
-          return 0;
-        }
-        return r - 1;
-      });
-    }, 1000);
+    getAudioCtx();
+    intervalRef.current = setInterval(tick, 500); // 500ms for snappy updates
     return () => clearInterval(intervalRef.current);
-  }, [active, restSeconds]);
+  }, [timerKey]);
 
-  if (!active) return null;
+  // When page becomes visible again, recalculate from wall clock
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && startTimeRef.current && !rung) {
+        tick(); // jump immediately to correct time
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [rung, restSeconds]);
 
   const pct = Math.max(0, remaining / restSeconds);
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
   const timeStr = mins > 0 ? `${mins}:${String(secs).padStart(2,'0')}` : `${secs}s`;
   const color = rung ? GREEN : remaining <= 10 ? RED : remaining <= 30 ? ORANGE : BLUE;
+  const totalStr = Math.floor(restSeconds/60) > 0
+    ? `${Math.floor(restSeconds/60)}m${restSeconds%60>0?` ${restSeconds%60}s`:''}`
+    : `${restSeconds}s`;
 
   return (
     <div style={{
@@ -5374,7 +5609,6 @@ const RestTimer = ({ restSeconds, active, onDismiss }) => {
       background: `${color}15`, border: `1px solid ${color}44`,
       borderRadius: 8, padding: '8px 10px', marginTop: 6,
     }}>
-      {/* Circular progress */}
       <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
         <svg width="36" height="36" style={{ transform: 'rotate(-90deg)' }}>
           <circle cx="18" cy="18" r="15" fill="none" stroke={`${color}30`} strokeWidth="3" />
@@ -5382,7 +5616,7 @@ const RestTimer = ({ restSeconds, active, onDismiss }) => {
             strokeDasharray={`${2 * Math.PI * 15}`}
             strokeDashoffset={`${2 * Math.PI * 15 * (1 - pct)}`}
             strokeLinecap="round"
-            style={{ transition: 'stroke-dashoffset 0.9s linear' }}
+            style={{ transition: 'stroke-dashoffset 0.4s linear' }}
           />
         </svg>
         <div style={{
@@ -5394,24 +5628,18 @@ const RestTimer = ({ restSeconds, active, onDismiss }) => {
           {rung ? '✓' : '⏱'}
         </div>
       </div>
-      {/* Time + label */}
       <div style={{ flex: 1 }}>
         <div style={{
           fontSize: rung ? 13 : 18,
           fontFamily: 'Impact, Arial Black, sans-serif',
           color, letterSpacing: 1, lineHeight: 1,
         }}>
-          {rung ? 'REST DONE' : timeStr}
+          {rung ? '🔔 REST DONE' : timeStr}
         </div>
         <div style={{ fontSize: 9, color: TEXT_MUTED, marginTop: 1 }}>
-          {rung ? 'Load the bar' : `REST · ${Math.floor(restSeconds/60) > 0 ? `${Math.floor(restSeconds/60)}m${restSeconds%60>0?`${restSeconds%60}s`:''}` : `${restSeconds}s`} total`}
+          {rung ? 'Next set — load the bar' : `REST · ${totalStr} total`}
         </div>
       </div>
-      {/* Dismiss */}
-      <button onClick={onDismiss} style={{
-        background: 'transparent', border: 'none', color: TEXT_MUTED,
-        cursor: 'pointer', fontSize: 18, padding: '2px 4px', lineHeight: 1,
-      }}>×</button>
     </div>
   );
 };
@@ -5438,12 +5666,18 @@ const ExerciseBlock = ({ ex, session, sessions, currentISO, goal, onSetUpdate, r
   const prev = findPreviousLog(sessions, ex.name, currentISO);
   const suggestion = suggestNextSet(prev, ex.reps, goal, rpFeedback);
   const isKB = ex.isKB || ex.ssLabel === 'D1';
-  const [timerActive, setTimerActive] = useState(false);
+  const [timerKey, setTimerKey] = useState(0); // increment = restart timer
+  const [timerVisible, setTimerVisible] = useState(false);
   const restSeconds = parseRestSeconds(ex.rest || ex.fbbPhase?.rest);
 
   const handleSetCheck = (si, checked) => {
     onSetUpdate(ex.name, si, { done: checked });
-    if (checked) setTimerActive(true);
+    if (checked) {
+      // Unlock AudioContext synchronously inside the user gesture
+      getAudioCtx();
+      setTimerKey(k => k + 1); // always increment = restart
+      setTimerVisible(true);
+    }
   };
 
   return (
@@ -5516,12 +5750,13 @@ const ExerciseBlock = ({ ex, session, sessions, currentISO, goal, onSetUpdate, r
         );
       })}
 
-      {/* Rest timer — appears when any set is checked */}
-      <RestTimer
-        restSeconds={restSeconds}
-        active={timerActive}
-        onDismiss={() => setTimerActive(false)}
-      />
+      {/* Rest timer — restarts automatically on each set check */}
+      {timerVisible && (
+        <RestTimer
+          restSeconds={restSeconds}
+          timerKey={timerKey}
+        />
+      )}
     </Card>
   );
 };
