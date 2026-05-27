@@ -6992,15 +6992,45 @@ const MealPlanner = ({ state, setState, viewISO, macros, activeMeal, setActiveMe
 // FOOD SEARCH — AI + web search
 // ============================================================
 const searchFoodDB = async (query) => {
+  // Strategy 1: Open Food Facts free API — no rate limit, no API key
+  try {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 5000);
+    const r = await fetch(
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=6&fields=product_name,brands,nutriments,serving_size,serving_quantity`,
+      { signal: controller.signal }
+    );
+    if (r.ok) {
+      const data = await r.json();
+      const products = (data.products || []).filter(p => p.product_name);
+      if (products.length > 0) {
+        const items = products.slice(0, 6).map(p => {
+          const n = p.nutriments || {};
+          const serving = parseFloat(p.serving_quantity) || 100;
+          const per = (k) => parseFloat(n[`${k}_serving`] || 0) || (parseFloat(n[`${k}_100g`] || 0) * serving / 100);
+          return {
+            name: [p.brands, p.product_name].filter(Boolean).join(' — ').slice(0, 60),
+            serving: p.serving_size || `${serving}g`,
+            cal: Math.round(per('energy-kcal') || per('energy') / 4.184),
+            p:   Math.round(per('proteins') * 10) / 10,
+            c:   Math.round(per('carbohydrates') * 10) / 10,
+            f:   Math.round(per('fat') * 10) / 10,
+          };
+        }).filter(item => item.cal > 0);
+        if (items.length > 0) return { ok: true, items };
+      }
+    }
+  } catch {}
+
+  // Strategy 2: Claude Haiku (cheap + fast) — only if Open Food Facts found nothing
   try {
     const response = await fetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 1000,
-        system: `You are a nutrition database. When given a food or restaurant name, return ONLY a JSON array (no markdown, no explanation) of up to 6 menu items or foods with accurate nutrition data. Format: [{"name":"...","serving":"...","cal":0,"p":0,"c":0,"f":0}]. Use real nutrition data. For restaurants, give specific popular menu items.`,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        system: `You are a nutrition database. Return ONLY a JSON array, no markdown, no explanation. Up to 6 items. Format: [{"name":"...","serving":"...","cal":0,"p":0,"c":0,"f":0}]. Use accurate nutrition data.`,
         messages: [{ role: 'user', content: `Nutrition data for: ${query}` }],
       }),
     });
@@ -7723,6 +7753,10 @@ const Food = ({ state, setState, onCoachPrompt }) => {
   const [saveMealName, setSaveMealName] = useState('');
   const [renamingSection, setRenamingSection] = useState(null); // section name being renamed
   const [renameSectionVal, setRenameSectionVal] = useState('');
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyFromISO, setCopyFromISO] = useState('');
+  const [copySelections, setCopySelections] = useState({}); // { sectionName: true/false }
+  const [copyMode, setCopyMode] = useState('append'); // 'append' | 'replace'
 
   const currentWeight = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
   const macros = calcMacros(profile, currentWeight);
@@ -7793,6 +7827,46 @@ const Food = ({ state, setState, onCoachPrompt }) => {
       ...p,
       savedMeals: (p.savedMeals || []).map((m) => m.id === id ? { ...m, name: newName } : m),
     }));
+  };
+
+  // Open copy modal — pre-select source date and all sections
+  const openCopyModal = (fromISO) => {
+    const sourceISO = fromISO || dateOffsetISO(-1); // default yesterday
+    setCopyFromISO(sourceISO);
+    // Pre-select all sections that have food on that day
+    const sourceItems = food[sourceISO] || [];
+    const sourceSections = [...new Set(sourceItems.map(f => f.meal || 'Other'))];
+    const sel = {};
+    sourceSections.forEach(s => { sel[s] = true; });
+    setCopySelections(sel);
+    setShowCopyModal(true);
+  };
+
+  const executeCopy = () => {
+    const sourceItems = food[copyFromISO] || [];
+    const selectedSections = Object.keys(copySelections).filter(s => copySelections[s]);
+    if (!selectedSections.length) return;
+    const itemsToCopy = sourceItems
+      .filter(f => selectedSections.includes(f.meal || 'Other'))
+      .map(f => ({
+        ...f,
+        id: 'f_' + Date.now() + Math.random(),
+        loggedAt: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      }));
+    setState((p) => {
+      const existing = p.food[viewISO] || [];
+      let newDay;
+      if (copyMode === 'replace') {
+        // Replace only the selected sections, keep others
+        const kept = existing.filter(f => !selectedSections.includes(f.meal || 'Other'));
+        newDay = [...kept, ...itemsToCopy];
+      } else {
+        // Append — add copied items to current day
+        newDay = [...existing, ...itemsToCopy];
+      }
+      return { ...p, food: { ...p.food, [viewISO]: newDay } };
+    });
+    setShowCopyModal(false);
   };
 
   const totals = todaysFood.reduce((acc, f) => ({
@@ -8037,6 +8111,135 @@ const Food = ({ state, setState, onCoachPrompt }) => {
           </button>
         </div>
 
+        {/* Copy meals from another day */}
+        {showCopyModal && (() => {
+          const sourceItems = food[copyFromISO] || [];
+          const sourceSections = [...new Set(sourceItems.map(f => f.meal || 'Other'))];
+          const sectionTotals = sourceSections.map(s => {
+            const items = sourceItems.filter(f => (f.meal || 'Other') === s);
+            const cal = Math.round(items.reduce((a, f) => a + (+f.cal || 0) * (f.qty || 1), 0));
+            const p   = Math.round(items.reduce((a, f) => a + (+f.p   || 0) * (f.qty || 1), 0));
+            return { s, items, cal, p };
+          });
+          // Build last 7 days with food data
+          const recentDays = Array.from({ length: 14 }, (_, i) => {
+            const iso = dateOffsetISO(-(i + 1));
+            const count = (food[iso] || []).length;
+            return { iso, count };
+          }).filter(d => d.count > 0);
+
+          return (
+            <div style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 300,
+              display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+              fontFamily: 'Helvetica, Arial, sans-serif',
+            }} onClick={e => e.target === e.currentTarget && setShowCopyModal(false)}>
+              <div style={{ background: CARD, borderRadius: '12px 12px 0 0', padding: '20px 16px 32px', width: '100%', maxWidth: 480, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
+                  <H size={15} mb={0}>COPY MEALS FROM</H>
+                  <div style={{ flex: 1 }} />
+                  <button onClick={() => setShowCopyModal(false)} style={{ background: 'transparent', border: 'none', color: TEXT_MUTED, fontSize: 22, cursor: 'pointer' }}>×</button>
+                </div>
+
+                {/* Day picker */}
+                <div style={{ marginBottom: 12 }}>
+                  <Label>SELECT DAY</Label>
+                  {recentDays.length === 0 ? (
+                    <div style={{ fontSize: 12, color: TEXT_DIM }}>No food logged in the past 14 days.</div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {recentDays.map(({ iso, count }) => {
+                        const d = isoToDate(iso);
+                        const label = iso === dateOffsetISO(-1) ? 'Yesterday' :
+                          d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                        return (
+                          <button key={iso} onClick={() => {
+                            setCopyFromISO(iso);
+                            const items = food[iso] || [];
+                            const secs = [...new Set(items.map(f => f.meal || 'Other'))];
+                            const sel = {};
+                            secs.forEach(s => { sel[s] = true; });
+                            setCopySelections(sel);
+                          }} style={{
+                            background: copyFromISO === iso ? BLUE : CARD2,
+                            color: copyFromISO === iso ? '#fff' : TEXT_DIM,
+                            border: `1px solid ${copyFromISO === iso ? BLUE : BORDER}`,
+                            borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
+                            fontSize: 11, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5,
+                          }}>
+                            {label}
+                            <span style={{ fontSize: 9, opacity: 0.7, marginLeft: 4 }}>({count})</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Section checkboxes */}
+                {sectionTotals.length > 0 && (
+                  <div style={{ flex: 1, overflowY: 'auto', marginBottom: 12 }}>
+                    <Label>SELECT MEALS TO COPY</Label>
+                    {sectionTotals.map(({ s, items, cal, p }) => (
+                      <label key={s} style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '10px 12px', marginBottom: 6,
+                        background: copySelections[s] ? `${BLUE}15` : CARD2,
+                        border: `1px solid ${copySelections[s] ? BLUE : BORDER}`,
+                        borderRadius: 8, cursor: 'pointer',
+                      }}>
+                        <input type="checkbox" checked={copySelections[s] || false}
+                          onChange={e => setCopySelections(prev => ({ ...prev, [s]: e.target.checked }))}
+                          style={{ width: 16, height: 16, accentColor: BLUE }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, color: '#fff' }}>{s}</div>
+                          <div style={{ fontSize: 10, color: TEXT_DIM, marginTop: 1 }}>
+                            {items.length} item{items.length !== 1 ? 's' : ''} · {cal} cal · {p}g P
+                          </div>
+                          <div style={{ fontSize: 9, color: TEXT_MUTED, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {items.map(f => f.name).join(', ')}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {/* Append vs Replace */}
+                {sectionTotals.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <Label>COPY MODE</Label>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {[['append', 'ADD TO EXISTING'], ['replace', 'REPLACE SECTIONS']].map(([mode, label]) => (
+                        <button key={mode} onClick={() => setCopyMode(mode)} style={{
+                          flex: 1, padding: '8px 0', borderRadius: 8, cursor: 'pointer',
+                          background: copyMode === mode ? BLUE : 'transparent',
+                          color: copyMode === mode ? '#fff' : TEXT_DIM,
+                          border: `1px solid ${copyMode === mode ? BLUE : BORDER}`,
+                          fontSize: 11, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5,
+                        }}>{label}</button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 4 }}>
+                      {copyMode === 'append' ? 'Adds copied foods alongside anything already logged today.' : 'Removes existing entries in the selected sections, then copies.'}
+                    </div>
+                  </div>
+                )}
+
+                {/* Confirm */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Btn onClick={executeCopy}
+                    disabled={!Object.values(copySelections).some(Boolean) || sectionTotals.length === 0}
+                    style={{ flex: 1 }}>
+                    COPY {Object.values(copySelections).filter(Boolean).length > 0 ? Object.values(copySelections).filter(Boolean).length + ' MEAL' + (Object.values(copySelections).filter(Boolean).length > 1 ? 'S' : '') : 'MEALS'}
+                  </Btn>
+                  <Btn variant="ghost" onClick={() => setShowCopyModal(false)}>CANCEL</Btn>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Save meal name prompt */}
         {pendingSaveMeal && (
           <div style={{
@@ -8101,9 +8304,13 @@ const Food = ({ state, setState, onCoachPrompt }) => {
         {searchError && !searching && (
           <div style={{ marginTop: 8, padding: 8, background: `${RED}15`, border: `1px solid ${RED}55`, borderRadius: 6, fontSize: 11, color: RED }}>⚠ {searchError}</div>
         )}
-        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
           <Btn size="sm" variant="ghost" onClick={() => setManualMode(!manualMode)}>
             {manualMode ? 'HIDE MANUAL' : '+ MANUAL ENTRY'}
+          </Btn>
+          <Btn size="sm" variant="ghost" onClick={() => openCopyModal(null)}
+            style={{ color: BLUE, border: `1px solid ${BLUE}44` }}>
+            📋 COPY FROM
           </Btn>
           <Btn size="sm" variant="accent2" onClick={() => onCoachPrompt(
             `Fill my remaining macros for today. I have exactly ${Math.round(remaining.cal)} calories, ${Math.round(remaining.p)}g protein, ${Math.round(remaining.c)}g carbs, and ${Math.round(remaining.f)}g fat left. Suggest 2-4 real foods and add them using add_food. CRITICAL: the combined macros of everything you add must NOT exceed these remaining amounts. Prioritize hitting protein first. If a food would push any macro over the limit, choose a smaller serving or skip it. Do the math before adding each food.`
