@@ -5243,11 +5243,15 @@ const Workouts = ({ state, setState }) => {
               )}
             </div>
           )}
-          {(session?.skipped || session?.done) && undoHistory.length > 0 && (
-            <Btn size="sm" variant="ghost" onClick={undoLast}
-              style={{ color: ORANGE, border: `1px solid ${ORANGE}44` }}>
-              ↩ UNDO
-            </Btn>
+          {(session?.skipped || session?.done) && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {undoHistory.length > 0 && (
+                <Btn size="sm" variant="ghost" onClick={undoLast}
+                  style={{ color: ORANGE, border: `1px solid ${ORANGE}44` }}>
+                  ↩ UNDO
+                </Btn>
+              )}
+            </div>
           )}
         </div>
 
