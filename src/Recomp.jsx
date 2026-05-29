@@ -5342,7 +5342,20 @@ const Workouts = ({ state, setState }) => {
 
       {/* Status badges */}
       {session?.done && <Card style={{ background: `${GREEN}20`, marginBottom: 10 }}><H size={13} color={GREEN} mb={0}>✓ DONE</H></Card>}
-      {session?.skipped && <Card style={{ background: `${RED}20`, marginBottom: 10 }}><H size={13} color={RED} mb={0}>× SKIPPED{session.moved ? ' (MOVED)' : ''}</H></Card>}
+      {session?.skipped && (
+        <Card style={{ background: `${RED}20`, marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <H size={13} color={RED} mb={0}>× SKIPPED{session.moved ? ' (MOVED)' : ''}</H>
+          <Btn size="sm" variant="ghost" onClick={() => {
+            setState(prev => {
+              const sk = sessionKey(viewISO);
+              const existing = prev.sessions[sk] || {};
+              return { ...prev, sessions: { ...prev.sessions, [sk]: { ...existing, skipped: false, moved: false } } };
+            });
+          }} style={{ color: GREEN, border: `1px solid ${GREEN}44`, flexShrink: 0 }}>
+            ↩ UN-SKIP
+          </Btn>
+        </Card>
+      )}
 
       {/* Block transition banner */}
       {isBlockTransition && dayType !== 'REST' && !session?.skipped && (
