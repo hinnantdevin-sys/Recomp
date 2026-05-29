@@ -3706,7 +3706,12 @@ const getProgramWeek = (iso, startISO, totalWeeks) => {
 };
 
 const getDayTypeForDate = (profile, iso) => {
-  // Check overrides
+  // First check date-specific overrides (exact ISO date key — used for moves/skips)
+  const dateOverrides = profile.weekOverrides && profile.weekOverrides['dates'];
+  if (dateOverrides && dateOverrides[iso]) {
+    return { type: dateOverrides[iso], overridden: true };
+  }
+  // Legacy week+dayIdx overrides (kept for backwards compatibility)
   const programWeek = getProgramWeek(iso, profile.startDate, profile.weeks);
   const overrides = profile.weekOverrides && profile.weekOverrides[`w${programWeek}`];
   const dayIdx = getDayIdx(iso);
@@ -4840,6 +4845,28 @@ const Workouts = ({ state, setState }) => {
   const [viewWeek, setViewWeek] = useState(week);
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [showScheduleEditor, setShowScheduleEditor] = useState(false);
+  const [undoHistory, setUndoHistory] = useState([]); // stack of { desc, weekOverrides, sessions }
+
+  const saveUndo = (desc, prevState) => {
+    setUndoHistory(h => [
+      { desc, weekOverrides: prevState.profile.weekOverrides, sessions: prevState.sessions },
+      ...h.slice(0, 9), // keep last 10
+    ]);
+  };
+
+  const undoLast = () => {
+    setUndoHistory(h => {
+      if (!h.length) return h;
+      const [top, ...rest] = h;
+      setState(prev => ({
+        ...prev,
+        profile: { ...prev.profile, weekOverrides: top.weekOverrides },
+        sessions: top.sessions,
+      }));
+      return rest;
+    });
+    setShowMoveMenu(false);
+  };
 
   const saveScheduleFromWorkouts = (newSchedule) => {
     setState((p) => ({ ...p, profile: { ...p.profile, schedule: newSchedule } }));
@@ -4946,7 +4973,11 @@ const Workouts = ({ state, setState }) => {
   };
 
   const skipDay = () => {
-    updateSession({ skipped: true, done: false });
+    setState(prev => {
+      saveUndo(`Unskip ${formatDate(viewISO)}`, prev);
+      const curSess = prev.sessions[sessKey] || { iso: viewISO, dayType, setLogs: {}, feedback: {}, exercises: [] };
+      return { ...prev, sessions: { ...prev.sessions, [sessKey]: { ...curSess, skipped: true, done: false } } };
+    });
     setShowMoveMenu(false);
   };
 
@@ -5024,20 +5055,14 @@ const Workouts = ({ state, setState }) => {
     const fromInfo = getDayTypeForDate(profile, fromISO);
     const fromKey = sessionKey(fromISO);
     setState((prev) => {
-      const newOverrides = { ...(prev.profile.weekOverrides || {}) };
-      const programWeek = getProgramWeek(todayISO(), prev.profile.startDate, prev.profile.weeks);
-      const wKey = `w${programWeek}`;
-      newOverrides[wKey] = { ...(newOverrides[wKey] || {}), [getDayIdx(todayISO())]: fromInfo.type };
-
-      // Mark the original day as skipped
+      const today = todayISO();
+      const dateOverrides = { ...((prev.profile.weekOverrides || {}).dates || {}), [today]: fromInfo.type };
+      const newOverrides = { ...(prev.profile.weekOverrides || {}), dates: dateOverrides };
       const fromSess = prev.sessions[fromKey] || { iso: fromISO, dayType: fromInfo.type, setLogs: {}, feedback: {}, exercises: [] };
       return {
         ...prev,
         profile: { ...prev.profile, weekOverrides: newOverrides },
-        sessions: {
-          ...prev.sessions,
-          [fromKey]: { ...fromSess, skipped: true, moved: true },
-        },
+        sessions: { ...prev.sessions, [fromKey]: { ...fromSess, skipped: true, moved: true } },
       };
     });
     setViewISO(todayISO());
@@ -5047,11 +5072,11 @@ const Workouts = ({ state, setState }) => {
   const swapDay = (targetISO) => {
     const newType = dayType;
     setState((prev) => {
-      const programWeek = getProgramWeek(targetISO, prev.profile.startDate, prev.profile.weeks);
-      const wKey = `w${programWeek}`;
-      const newOverrides = { ...(prev.profile.weekOverrides || {}) };
-      newOverrides[wKey] = { ...(newOverrides[wKey] || {}), [getDayIdx(targetISO)]: newType };
-      // Mark current as skipped
+      saveUndo(`Undo move ${formatDate(viewISO)} → ${formatDate(targetISO)}`, prev);
+      // Write override keyed by the exact target date (not week+dayIdx) — only affects that specific day
+      const dateOverrides = { ...((prev.profile.weekOverrides || {}).dates || {}), [targetISO]: newType };
+      const newOverrides = { ...(prev.profile.weekOverrides || {}), dates: dateOverrides };
+      // Auto-skip source day
       const curSess = prev.sessions[sessKey] || { iso: viewISO, dayType, setLogs: {}, feedback: {}, exercises: [] };
       return {
         ...prev,
@@ -5199,32 +5224,114 @@ const Workouts = ({ state, setState }) => {
             )}
           </div>
           {!session?.skipped && !session?.done && dayType !== 'REST' && (
-            <Btn size="sm" variant="ghost" onClick={() => setShowMoveMenu(!showMoveMenu)}>MOVE/SKIP</Btn>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <Btn size="sm" variant="ghost"
+                onClick={() => setShowMoveMenu(showMoveMenu === 'move' ? null : 'move')}
+                style={showMoveMenu === 'move' ? { color: ACCENT, border: `1px solid ${ACCENT}` } : {}}>
+                📅 MOVE
+              </Btn>
+              <Btn size="sm" variant="ghost"
+                onClick={() => setShowMoveMenu(showMoveMenu === 'skip' ? null : 'skip')}
+                style={showMoveMenu === 'skip' ? { color: RED, border: `1px solid ${RED}` } : {}}>
+                × SKIP
+              </Btn>
+              {undoHistory.length > 0 && (
+                <Btn size="sm" variant="ghost" onClick={undoLast}
+                  style={{ color: ORANGE, border: `1px solid ${ORANGE}44` }}>
+                  ↩ UNDO
+                </Btn>
+              )}
+            </div>
+          )}
+          {(session?.skipped || session?.done) && undoHistory.length > 0 && (
+            <Btn size="sm" variant="ghost" onClick={undoLast}
+              style={{ color: ORANGE, border: `1px solid ${ORANGE}44` }}>
+              ↩ UNDO
+            </Btn>
           )}
         </div>
 
-        {/* Move/skip menu */}
-        {showMoveMenu && (
-          <div style={{ marginTop: 12, padding: 10, background: CARD2, borderRadius: 6, border: `1px solid ${BORDER}` }}>
-            <Label>MOVE TO ANOTHER DAY THIS WEEK</Label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 8 }}>
-              {strip.map((d) => {
-                if (d.iso === viewISO) return null;
-                return (
-                  <button key={d.idx} onClick={() => swapDay(d.iso)} style={{
-                    background: CARD, color: '#fff', border: `1px solid ${BORDER}`,
-                    borderRadius: 4, padding: 6, cursor: 'pointer', fontSize: 10,
-                    fontFamily: 'Impact, Arial Black, sans-serif',
-                  }}>
-                    <div style={{ color: TEXT_DIM }}>{DAY_LETTERS[d.idx]}</div>
-                    <div style={{ color: DAY_TYPE_COLOR[d.type], marginTop: 2 }}>{DAY_TYPE_ABBR[d.type] || d.type.slice(0, 3)}</div>
-                    {d.stat === 'done' && <div style={{ color: GREEN, fontSize: 10 }}>✓</div>}
-                    {d.stat === 'skipped' && <div style={{ color: RED, fontSize: 10 }}>×</div>}
-                  </button>
-                );
-              })}
+        {/* Move menu */}
+        {showMoveMenu === 'move' && (() => {
+          const candidates = [];
+          for (let offset = -14; offset <= 14; offset++) {
+            if (offset === 0) continue;
+            const base = isoToDate(viewISO);
+            base.setDate(base.getDate() + offset);
+            const iso = dateToISO(base);
+            const info = getDayTypeForDate(profile, iso);
+            if (info.type === 'REST') continue;
+            const sk = sessionKey(iso);
+            const s = sessions[sk];
+            const d = isoToDate(iso);
+            const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            const isPast = iso < viewISO;
+            candidates.push({ iso, info, s, label, isPast });
+          }
+          const future = candidates.filter(c => !c.isPast);
+          const past = candidates.filter(c => c.isPast).reverse();
+
+          const DayBtn = ({ iso: cISO, info, s, label }) => (
+            <button onClick={() => swapDay(cISO)} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%', background: CARD, border: `1px solid ${BORDER}`,
+              borderRadius: 6, padding: '8px 10px', cursor: 'pointer', marginBottom: 4,
+              color: '#fff', textAlign: 'left',
+            }}>
+              <div>
+                <span style={{ fontSize: 12 }}>{label}</span>
+                <span style={{ fontSize: 10, color: DAY_TYPE_COLOR[info.type] || ACCENT, marginLeft: 8, fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                  {info.type}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                {s?.done && <span style={{ fontSize: 10, color: GREEN }}>✓ done</span>}
+                {s?.skipped && <span style={{ fontSize: 10, color: RED }}>× skipped</span>}
+                <span style={{ fontSize: 10, color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif' }}>MOVE →</span>
+              </div>
+            </button>
+          );
+
+          return (
+            <div style={{ marginTop: 10, padding: 12, background: CARD2, borderRadius: 8, border: `1px solid ${BORDER}` }}>
+              <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 10 }}>
+                Moves <span style={{ color: ACCENT }}>{dayType}</span> to the selected day. Today is automatically skipped. Only affects that specific date.
+              </div>
+              {future.length > 0 && (
+                <>
+                  <Label style={{ color: GREEN }}>UPCOMING</Label>
+                  {future.map(c => <DayBtn key={c.iso} {...c} />)}
+                </>
+              )}
+              {past.length > 0 && (
+                <details style={{ marginTop: future.length ? 10 : 0 }}>
+                  <summary style={{ fontSize: 11, color: TEXT_DIM, cursor: 'pointer', marginBottom: 6, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+                    PAST DAYS ({past.length})
+                  </summary>
+                  {past.map(c => <DayBtn key={c.iso} {...c} />)}
+                </details>
+              )}
+              {future.length === 0 && past.length === 0 && (
+                <div style={{ fontSize: 12, color: TEXT_DIM }}>No non-REST days available in ±14 days.</div>
+              )}
             </div>
-            <Btn size="sm" variant="danger" onClick={skipDay} style={{ width: '100%' }}>SKIP THIS DAY</Btn>
+          );
+        })()}
+
+        {/* Skip menu */}
+        {showMoveMenu === 'skip' && (
+          <div style={{ marginTop: 10, padding: 12, background: CARD2, borderRadius: 8, border: `1px solid ${RED}44` }}>
+            <div style={{ fontSize: 12, color: TEXT_DIM, marginBottom: 10 }}>
+              Marks today as skipped. The workout is not moved anywhere — you just won't do it this week.
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Btn variant="danger" onClick={skipDay} style={{ flex: 1 }}>
+                SKIP TODAY
+              </Btn>
+              <Btn variant="ghost" onClick={() => setShowMoveMenu(null)} style={{ flex: 1 }}>
+                CANCEL
+              </Btn>
+            </div>
           </div>
         )}
       </Card>
