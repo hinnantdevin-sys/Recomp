@@ -1903,156 +1903,160 @@ const fbbPhaseForWeek = (week, totalWeeks, goal) => {
 // Pairing logic: compound + antagonist/isolation/carries
 // ============================================================
 const FBB_EXERCISES = {
-  // ── PUSH (pressing movements only — chest, shoulders, triceps) ──
-  // Superset pairs are within the push family: horizontal + vertical, or push + isolation
+  // ── PUSH DAY ─────────────────────────────────────────────────
+  // Superset rule: A1 press → A2 antagonist pull (rear delt/row) allows full recovery
+  // B: press + DIFFERENT muscle/plane (lateral raise, not another press)
+  // C: tricep isolation + shoulder health movement
   PUSH: {
     1: {
       A: [
-        { name: 'Barbell Bench Press',    muscle: 'Chest',     tag: 'A1', sets: '4', reps: '8-12',  tempo: '21X1', note: 'Retract scapula. Drive heels. Control the descent.' },
-        { name: 'DB Shoulder Press',      muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'Superset with bench. Vertical paired with horizontal.' },
-        { name: 'Incline DB Press',       muscle: 'Chest',     tag: 'B1', sets: '3', reps: '10-12', tempo: '21X1', note: '30-degree incline. Upper chest emphasis.' },
-        { name: 'DB Lateral Raise',       muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Lead with elbow. Light load. Side delt.' },
-        { name: 'Tricep Rope Pushdown',   muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Spread rope at bottom. Full lockout.' },
-        { name: 'Cable Front Raise',      muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Anterior delt finisher. Light.' },
+        { name: 'Barbell Bench Press',     muscle: 'Chest',     tag: 'A1', sets: '4', reps: '6-10',  tempo: '21X1', note: 'Horizontal press. Retract scapula. Drive heels.' },
+        { name: 'Band Pull-Apart',         muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '20',    tempo: '20X1', note: 'Rear delt while chest recovers. Arms straight. Light band.' },
+        { name: 'DB Overhead Press',       muscle: 'Shoulders', tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Vertical press. Strict — no leg drive. Different plane to A1.' },
+        { name: 'DB Lateral Raise',        muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Side delt. Completely different head to overhead press.' },
+        { name: 'Tricep Rope Pushdown',    muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Spread rope at bottom. Full lockout.' },
+        { name: 'Rear Delt Fly',           muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Posterior shoulder while triceps recover.' },
       ],
       B: [
-        { name: 'Overhead Press',         muscle: 'Shoulders', tag: 'A1', sets: '4', reps: '6-10',  tempo: '20X1', note: 'Glutes tight. Full lockout overhead.' },
-        { name: 'DB Flat Press',          muscle: 'Chest',     tag: 'A2', sets: '4', reps: '10-12', tempo: '21X1', note: 'Horizontal pair. Squeeze at top.' },
-        { name: 'DB Incline Press',       muscle: 'Chest',     tag: 'B1', sets: '3', reps: '10-12', tempo: '21X1', note: 'Upper chest. Full ROM.' },
-        { name: 'Cable Lateral Raise',    muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Constant tension. Pair with incline.' },
-        { name: 'Skull Crusher',          muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric. Elbows in.' },
-        { name: 'Overhead Tricep Ext',    muscle: 'Triceps',   tag: 'C2', sets: '3', reps: '12-15', tempo: '31X0', note: 'Long head stretch. Keep elbows in.' },
+        { name: 'Incline DB Press',        muscle: 'Chest',     tag: 'A1', sets: '4', reps: '8-12',  tempo: '21X1', note: 'Upper chest. 30°.' },
+        { name: 'Face Pull',               muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Rear delt + external rotation. Antagonist while chest recovers.' },
+        { name: 'DB Lateral Raise',        muscle: 'Shoulders', tag: 'B1', sets: '3', reps: '15-20', tempo: '20X1', note: 'Side delt. Not a pressing movement — lets chest fully recover.' },
+        { name: 'Overhead Tricep Ext',     muscle: 'Triceps',   tag: 'B2', sets: '3', reps: '12-15', tempo: '31X0', note: 'Long head stretch. Completely different from lateral raise.' },
+        { name: 'Cable Chest Fly',         muscle: 'Chest',     tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Pec isolation. Constant tension.' },
+        { name: 'Cable Y-Raise',           muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap + rear delt. Pairs with chest fly.' },
       ],
     },
     2: {
       A: [
-        { name: 'Incline Barbell Press',  muscle: 'Chest',     tag: 'A1', sets: '4', reps: '8-12',  tempo: '21X1', note: 'Upper chest emphasis. 45°.' },
-        { name: 'Arnold Press',           muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'Pair with incline. Full rotation through 3 delt heads.' },
-        { name: 'Weighted Dip',           muscle: 'Chest',     tag: 'B1', sets: '3', reps: '8-12',  tempo: '20X1', note: 'Lean forward for chest. Full ROM.' },
-        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'High rep. Slight elbow bend. Shoulder health.' },
-        { name: 'JM Press',               muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Tricep mass builder.' },
-        { name: 'Machine Lateral Raise',  muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Dropset on last set.' },
+        { name: 'Incline Barbell Press',   muscle: 'Chest',     tag: 'A1', sets: '4', reps: '8-12',  tempo: '21X1', note: 'Upper chest. 45°.' },
+        { name: 'Seated Cable Row',        muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'Full antagonist — back pulls while chest fully recovers.' },
+        { name: 'DB Shoulder Press',       muscle: 'Shoulders', tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Vertical push. Fresh shoulder — not pre-fatigued.' },
+        { name: 'DB Lateral Raise',        muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Side delt isolation. Different head than B1 anterior.' },
+        { name: 'Weighted Dip',            muscle: 'Chest',     tag: 'C1', sets: '3', reps: '8-12',  tempo: '20X1', note: 'Lean forward. Chest emphasis.' },
+        { name: 'Rear Delt Fly',           muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Posterior shoulder. Antagonist to dips.' },
       ],
       B: [
-        { name: 'Push Press',             muscle: 'Shoulders', tag: 'A1', sets: '4', reps: '5-8',   tempo: '10X1', note: 'Leg drive → explosive press. Power development.' },
-        { name: 'DB Flat Press',          muscle: 'Chest',     tag: 'A2', sets: '4', reps: '10-12', tempo: '21X1', note: 'Pair with push press. Volume chest.' },
-        { name: 'Cable Chest Fly',        muscle: 'Chest',     tag: 'B1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Constant tension. Full stretch.' },
-        { name: 'DB Lateral Raise',       muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Side delt finisher.' },
-        { name: 'DB Overhead Extension',  muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '12-15', tempo: '31X0', note: 'Long head stretch.' },
-        { name: 'Cable Y-Raise',          muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap + rear delt health.' },
+        { name: 'Push Press',              muscle: 'Shoulders', tag: 'A1', sets: '4', reps: '5-8',   tempo: '10X1', note: 'Leg drive → explosive overhead. Power.' },
+        { name: 'Chin-Up',                 muscle: 'Back',      tag: 'A2', sets: '4', reps: '6-10',  tempo: '20X1', note: 'Full back antagonist while shoulder recovers.' },
+        { name: 'DB Flat Press',           muscle: 'Chest',     tag: 'B1', sets: '3', reps: '10-12', tempo: '21X1', note: 'Horizontal volume. Different from A1 vertical.' },
+        { name: 'Band Pull-Apart',         muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '20',    tempo: '20X1', note: 'Rear delt — opposite direction to pressing.' },
+        { name: 'Skull Crusher',           muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Slow eccentric. Elbows tracked.' },
+        { name: 'Cable Lateral Raise',     muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Side delt. Different plane from tricep.' },
       ],
     },
     3: {
       A: [
-        { name: 'Barbell Bench Press',    muscle: 'Chest',     tag: 'A1', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Heaviest block. Strength peak on bench.' },
-        { name: 'Overhead Press',         muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Heavier than block 1. Pair with bench.' },
-        { name: 'Incline DB Press',       muscle: 'Chest',     tag: 'B1', sets: '4', reps: '8-10',  tempo: '21X1', note: 'Strength volume upper chest.' },
-        { name: 'Cable Lateral Raise',    muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Pair with incline. Constant tension.' },
-        { name: 'Close-Grip Bench Press', muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '6-10',  tempo: '20X1', note: 'Tricep strength finisher.' },
-        { name: 'Cable Front Raise',      muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Anterior delt.' },
+        { name: 'Barbell Bench Press',     muscle: 'Chest',     tag: 'A1', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Strength block. Heaviest bench.' },
+        { name: 'Inverted Row',            muscle: 'Back',      tag: 'A2', sets: '5', reps: '8-12',  tempo: '21X1', note: 'Back antagonist. Scapula retraction while chest fully recovers.' },
+        { name: 'DB Overhead Press',       muscle: 'Shoulders', tag: 'B1', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Vertical press. Heavier than block 1.' },
+        { name: 'DB Lateral Raise',        muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Side delt. Completely different from B1.' },
+        { name: 'Close-Grip Bench Press',  muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '6-10',  tempo: '20X1', note: 'Tricep strength. Different target from pressing.' },
+        { name: 'Face Pull',               muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'External rotation health. Pairs with tricep.' },
       ],
       B: [
-        { name: 'Weighted Dip',           muscle: 'Chest',     tag: 'A1', sets: '4', reps: '6-10',  tempo: '20X1', note: 'Belt or vest. Full ROM. Heavy.' },
-        { name: 'DB Shoulder Press',      muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Strict. Heavy. Pair with dips.' },
-        { name: 'DB Flat Press',          muscle: 'Chest',     tag: 'B1', sets: '4', reps: '10-12', tempo: '20X1', note: 'Volume chest. Heavy DB.' },
-        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Shoulder health. Always included.' },
-        { name: 'Tricep Pushdown',        muscle: 'Triceps',   tag: 'C1', sets: '4', reps: '12-15', tempo: '20X1', note: 'Volume finisher.' },
-        { name: 'Machine Lateral Raise',  muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Pump finisher.' },
+        { name: 'Weighted Dip',            muscle: 'Chest',     tag: 'A1', sets: '4', reps: '6-10',  tempo: '20X1', note: 'Heaviest dip. Belt or vest.' },
+        { name: 'Face Pull',               muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Rear delt pull while pecs recover.' },
+        { name: 'Incline DB Press',        muscle: 'Chest',     tag: 'B1', sets: '4', reps: '8-10',  tempo: '21X1', note: 'Upper chest. Different angle to A1.' },
+        { name: 'Rear Delt Cable Fly',     muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Posterior shoulder. Antagonist to incline.' },
+        { name: 'Tricep Pushdown',         muscle: 'Triceps',   tag: 'C1', sets: '4', reps: '12-15', tempo: '20X1', note: 'Volume finisher.' },
+        { name: 'Cable Lateral Raise',     muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Side delt. Different from tricep work.' },
       ],
     },
     4: {
       A: [
-        { name: 'Incline Barbell Press',  muscle: 'Chest',     tag: 'A1', sets: '5', reps: '4-6',   tempo: '20X1', note: 'Peak strength upper chest. Best lift.' },
-        { name: 'Push Press',             muscle: 'Shoulders', tag: 'A2', sets: '4', reps: '4-6',   tempo: '10X1', note: 'Explosive overhead peak. Pair with incline.' },
-        { name: 'Weighted Dip',           muscle: 'Chest',     tag: 'B1', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Heaviest dip of program.' },
-        { name: 'Arnold Press',           muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Peak shoulder volume.' },
-        { name: 'Close-Grip Bench Press', muscle: 'Triceps',   tag: 'C1', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Tricep peak strength.' },
-        { name: 'DB Lateral Raise',       muscle: 'Shoulders', tag: 'C2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Final delt volume.' },
+        { name: 'Incline Barbell Press',   muscle: 'Chest',     tag: 'A1', sets: '5', reps: '4-6',   tempo: '20X1', note: 'Peak strength upper chest.' },
+        { name: 'Chest-Supported Row',     muscle: 'Back',      tag: 'A2', sets: '5', reps: '8-10',  tempo: '20X1', note: 'Full back antagonist. Back builds while chest fully rests.' },
+        { name: 'Overhead Press',          muscle: 'Shoulders', tag: 'B1', sets: '4', reps: '5-8',   tempo: '20X1', note: 'Peak overhead. Fresh — not pre-fatigued by chest.' },
+        { name: 'DB Lateral Raise',        muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Side delt peak volume. Entirely different angle.' },
+        { name: 'Close-Grip Bench Press',  muscle: 'Triceps',   tag: 'C1', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Tricep peak.' },
+        { name: 'Band Pull-Apart',         muscle: 'Shoulders', tag: 'C2', sets: '4', reps: '20',    tempo: '20X1', note: 'Rear delt health. Always end push day with this.' },
       ],
       B: [
-        { name: 'Barbell Bench Press',    muscle: 'Chest',     tag: 'A1', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Program peak bench. Best flat press.' },
-        { name: 'Overhead Press',         muscle: 'Shoulders', tag: 'A2', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Program peak OHP. Best press.' },
-        { name: 'DB Incline Press',       muscle: 'Chest',     tag: 'B1', sets: '3', reps: '10-12', tempo: '21X1', note: 'Volume add.' },
-        { name: 'Cable Lateral Raise',    muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Delt volume peak.' },
-        { name: 'Overhead Tricep Ext',    muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '12-15', tempo: '31X0', note: 'Long head peak.' },
-        { name: 'Skull Crusher',          muscle: 'Triceps',   tag: 'C2', sets: '3', reps: '8-10',  tempo: '31X0', note: 'Tricep finish. Best of program.' },
+        { name: 'Barbell Bench Press',     muscle: 'Chest',     tag: 'A1', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Best flat press of program.' },
+        { name: 'Seated Cable Row',        muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'Back antagonist while bench recovers.' },
+        { name: 'DB Shoulder Press',       muscle: 'Shoulders', tag: 'B1', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Vertical press. Different plane to flat bench.' },
+        { name: 'Face Pull',               muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Rear delt. Antagonist to shoulder press.' },
+        { name: 'Overhead Tricep Ext',     muscle: 'Triceps',   tag: 'C1', sets: '3', reps: '12-15', tempo: '31X0', note: 'Long head peak.' },
+        { name: 'Cable Chest Fly',         muscle: 'Chest',     tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Pec isolation. Different from tricep.' },
       ],
     },
   },
 
-  // ── PULL (pulling movements only — back, biceps, rear delts) ──
-  // Superset pairs within the pull family: vertical + horizontal, or pull + curl
+  // ── PULL DAY ─────────────────────────────────────────────────
+  // Superset rule: A1 horizontal pull → A2 vertical pull (different angle, allows recovery)
+  // B: compound pull + bicep isolation (bicep works while back recovers)
+  // C: rear delt isolation + bicep or upper back
   PULL: {
     1: {
       A: [
-        { name: 'Barbell Row',            muscle: 'Back',      tag: 'A1', sets: '4', reps: '8-12',  tempo: '20X1', note: 'Hinge 45°. Drive elbows to ceiling.' },
-        { name: 'Lat Pulldown',           muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '21X1', note: 'Superset: horizontal + vertical pull.' },
-        { name: 'Seated Cable Row',       muscle: 'Back',      tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Squeeze scaps at end range.' },
-        { name: 'Face Pull',              muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'External rotation finish. Shoulder health.' },
-        { name: 'Hammer Curl',            muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Neutral grip. Brachialis.' },
-        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'High rep. Pair with curls.' },
+        { name: 'Barbell Row',             muscle: 'Back',      tag: 'A1', sets: '4', reps: '8-12',  tempo: '20X1', note: 'Horizontal pull. Hinge 45°. Elbows to ceiling.' },
+        { name: 'Lat Pulldown',            muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '21X1', note: 'Vertical pull. Different angle — mid-back rests while lats work.' },
+        { name: 'Seated Cable Row',        muscle: 'Back',      tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Horizontal mid-back.' },
+        { name: 'Hammer Curl',             muscle: 'Biceps',    tag: 'B2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Bicep isolation while back recovers. Neutral grip brachialis.' },
+        { name: 'Face Pull',               muscle: 'Shoulders', tag: 'C1', sets: '3', reps: '15-20', tempo: '20X1', note: 'Rear delt + external rotation health.' },
+        { name: 'Rear Delt Fly',           muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Posterior shoulder. Pairs with face pull.' },
       ],
       B: [
-        { name: 'Pull-Up',                muscle: 'Back',      tag: 'A1', sets: '4', reps: '6-10',  tempo: '20X1', note: 'Full hang to chin over bar.' },
-        { name: 'Chest-Supported DB Row', muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'No lower back. Pure back pull. Pair with pull-up.' },
-        { name: 'Close-Grip Pulldown',    muscle: 'Back',      tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Neutral grip. Higher lat activation.' },
-        { name: 'Straight-Arm Pulldown',  muscle: 'Back',      tag: 'B2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lat isolation. Squeeze at bottom.' },
-        { name: 'EZ-Bar Curl',            muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '10-12', tempo: '20X1', note: 'No swing.' },
-        { name: 'Cable Y-Raise',          muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap + rear delt.' },
+        { name: 'Pull-Up',                 muscle: 'Back',      tag: 'A1', sets: '4', reps: '6-10',  tempo: '20X1', note: 'Vertical pull. Full hang to chin over bar.' },
+        { name: 'Chest-Supported DB Row',  muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'Horizontal while lats recover. Pure mid-back.' },
+        { name: 'Close-Grip Pulldown',     muscle: 'Back',      tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Vertical. Neutral grip lat activation.' },
+        { name: 'EZ-Bar Curl',             muscle: 'Biceps',    tag: 'B2', sets: '3', reps: '10-12', tempo: '20X1', note: 'Bicep isolation while lats recover between sets.' },
+        { name: 'Rear Delt Cable Fly',     muscle: 'Shoulders', tag: 'C1', sets: '3', reps: '15-20', tempo: '20X1', note: 'Posterior shoulder.' },
+        { name: 'Incline DB Curl',         muscle: 'Biceps',    tag: 'C2', sets: '3', reps: '10-12', tempo: '31X0', note: 'Long head stretch. Different from EZ curl angle.' },
       ],
     },
     2: {
       A: [
-        { name: 'Chest-Supported DB Row', muscle: 'Back',      tag: 'A1', sets: '4', reps: '10-12', tempo: '20X1', note: 'Pure back. No lower back compromise.' },
-        { name: 'Weighted Pull-Up',       muscle: 'Back',      tag: 'A2', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Add weight. Full hang. Pair with row.' },
-        { name: 'T-Bar Row',              muscle: 'Back',      tag: 'B1', sets: '3', reps: '8-12',  tempo: '20X1', note: 'Mid-back thickness.' },
-        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'High rep finisher. Pair with T-bar.' },
-        { name: 'Incline DB Curl',        muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Long head. Max stretch.' },
-        { name: 'Cable Curl',             muscle: 'Biceps',    tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Constant tension. Pair with incline curl.' },
+        { name: 'Chest-Supported DB Row',  muscle: 'Back',      tag: 'A1', sets: '4', reps: '10-12', tempo: '20X1', note: 'Horizontal pull. Pure back — no spinal load.' },
+        { name: 'Lat Pulldown',            muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '21X1', note: 'Vertical pull. Different plane to A1 — mid-back rests.' },
+        { name: 'T-Bar Row',               muscle: 'Back',      tag: 'B1', sets: '3', reps: '8-12',  tempo: '20X1', note: 'Mid-back thickness.' },
+        { name: 'Incline DB Curl',         muscle: 'Biceps',    tag: 'B2', sets: '3', reps: '10-12', tempo: '31X0', note: 'Bicep long head. Works while back recovers.' },
+        { name: 'Cable Y-Raise',           muscle: 'Shoulders', tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap + rear delt.' },
+        { name: 'Cable Curl',              muscle: 'Biceps',    tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Constant tension bicep. Different from C1.' },
       ],
       B: [
-        { name: 'Pendlay Row',            muscle: 'Back',      tag: 'A1', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Dead stop. Explosive. Power row.' },
-        { name: 'Lat Pulldown',           muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '21X1', note: 'Pair with Pendlay. Vertical + horizontal.' },
-        { name: 'Seated Cable Row',       muscle: 'Back',      tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Mid-back. Squeeze scaps.' },
-        { name: 'Face Pull',              muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Shoulder health. External rotation.' },
-        { name: 'Hammer Curl',            muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Brachialis. Neutral grip.' },
-        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Pair with curls.' },
+        { name: 'Pendlay Row',             muscle: 'Back',      tag: 'A1', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Dead stop. Explosive horizontal pull.' },
+        { name: 'Weighted Pull-Up',        muscle: 'Back',      tag: 'A2', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Vertical. Different angle — mid-back recovers.' },
+        { name: 'Seated Cable Row',        muscle: 'Back',      tag: 'B1', sets: '3', reps: '10-12', tempo: '20X1', note: 'Scapula retraction. Mid-back.' },
+        { name: 'Face Pull',               muscle: 'Shoulders', tag: 'B2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Rear delt + external rotation. While back recovers.' },
+        { name: 'Hammer Curl',             muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Brachialis neutral grip.' },
+        { name: 'Rear Delt Fly',           muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '15-20', tempo: '20X1', note: 'Posterior shoulder. Different from curls.' },
       ],
     },
     3: {
       A: [
-        { name: 'Barbell Row',            muscle: 'Back',      tag: 'A1', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Heaviest back row of program.' },
-        { name: 'Weighted Pull-Up',       muscle: 'Back',      tag: 'A2', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Heaviest pull-up. Pair with row.' },
-        { name: 'Lat Pulldown',           muscle: 'Back',      tag: 'B1', sets: '4', reps: '8-10',  tempo: '21X1', note: '1s pause at contraction.' },
-        { name: 'Straight-Arm Pulldown',  muscle: 'Back',      tag: 'B2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lat isolation. Pair with pulldown.' },
-        { name: 'Barbell Curl',           muscle: 'Biceps',    tag: 'C1', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Heavy bilateral.' },
-        { name: 'Face Pull',              muscle: 'Shoulders', tag: 'C2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Health priority. Always included.' },
+        { name: 'Barbell Row',             muscle: 'Back',      tag: 'A1', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Strength block. Heaviest horizontal pull.' },
+        { name: 'Weighted Pull-Up',        muscle: 'Back',      tag: 'A2', sets: '4', reps: '6-8',   tempo: '20X1', note: 'Vertical. Mid-back recovers while lats work.' },
+        { name: 'Lat Pulldown',            muscle: 'Back',      tag: 'B1', sets: '4', reps: '8-10',  tempo: '21X1', note: 'Vertical lat volume. 1s pause.' },
+        { name: 'Preacher Curl',           muscle: 'Biceps',    tag: 'B2', sets: '3', reps: '10-12', tempo: '31X0', note: 'Bicep isolation while lats recover.' },
+        { name: 'Barbell Curl',            muscle: 'Biceps',    tag: 'C1', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Heavy bilateral bicep.' },
+        { name: 'Face Pull',               muscle: 'Shoulders', tag: 'C2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Rear delt health. Completely different from curls.' },
       ],
       B: [
-        { name: 'Chin-Up',                muscle: 'Back',      tag: 'A1', sets: '4', reps: '8-12',  tempo: '20X1', note: 'Underhand. More bicep involvement.' },
-        { name: 'Close-Grip Pulldown',    muscle: 'Back',      tag: 'A2', sets: '4', reps: '10-12', tempo: '20X1', note: 'Neutral grip. Pair with chin-up.' },
-        { name: 'Chest-Supported Row',    muscle: 'Back',      tag: 'B1', sets: '4', reps: '10-12', tempo: '20X1', note: 'Heavier than block 1.' },
-        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Pair with row. Shoulder health.' },
-        { name: 'Preacher Curl',          muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Short head isolation.' },
-        { name: 'Incline DB Curl',        muscle: 'Biceps',    tag: 'C2', sets: '3', reps: '10-12', tempo: '31X0', note: 'Long head. Pair with preacher.' },
+        { name: 'Chin-Up',                 muscle: 'Back',      tag: 'A1', sets: '4', reps: '8-12',  tempo: '20X1', note: 'Vertical pull. Underhand — more bicep.' },
+        { name: 'T-Bar Row',               muscle: 'Back',      tag: 'A2', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Horizontal. Lats recover while mid-back works.' },
+        { name: 'Close-Grip Pulldown',     muscle: 'Back',      tag: 'B1', sets: '4', reps: '10-12', tempo: '20X1', note: 'Neutral grip lat.' },
+        { name: 'Hammer Curl',             muscle: 'Biceps',    tag: 'B2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Brachialis. Completely different from lat pulldown.' },
+        { name: 'Rear Delt Fly',           muscle: 'Shoulders', tag: 'C1', sets: '4', reps: '15-20', tempo: '20X1', note: 'Posterior shoulder health.' },
+        { name: 'Incline DB Curl',         muscle: 'Biceps',    tag: 'C2', sets: '3', reps: '10-12', tempo: '31X0', note: 'Long head stretch. Different from rear delt fly.' },
       ],
     },
     4: {
       A: [
-        { name: 'Pendlay Row',            muscle: 'Back',      tag: 'A1', sets: '5', reps: '4-6',   tempo: '20X1', note: 'Program peak. Explosive dead stop.' },
-        { name: 'Weighted Pull-Up',       muscle: 'Back',      tag: 'A2', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Heaviest pull-up of program. Pair with Pendlay.' },
-        { name: 'T-Bar Row',              muscle: 'Back',      tag: 'B1', sets: '4', reps: '6-10',  tempo: '20X1', note: 'Peak mid-back.' },
-        { name: 'Straight-Arm Pulldown',  muscle: 'Back',      tag: 'B2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lat finisher.' },
-        { name: 'Incline DB Curl',        muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '10-12', tempo: '31X0', note: 'Peak long head.' },
-        { name: 'Face Pull',              muscle: 'Shoulders', tag: 'C2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Always finish pull day with this.' },
+        { name: 'Pendlay Row',             muscle: 'Back',      tag: 'A1', sets: '5', reps: '4-6',   tempo: '20X1', note: 'Peak power row. Explosive dead stop.' },
+        { name: 'Weighted Pull-Up',        muscle: 'Back',      tag: 'A2', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Vertical peak. Mid-back rests while lats fire.' },
+        { name: 'Chest-Supported Row',     muscle: 'Back',      tag: 'B1', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Horizontal volume. Heavier than block 1.' },
+        { name: 'Incline DB Curl',         muscle: 'Biceps',    tag: 'B2', sets: '3', reps: '10-12', tempo: '31X0', note: 'Bicep isolation while back recovers.' },
+        { name: 'Face Pull',               muscle: 'Shoulders', tag: 'C1', sets: '4', reps: '15-20', tempo: '20X1', note: 'Finish every pull day with this.' },
+        { name: 'EZ-Bar Curl',             muscle: 'Biceps',    tag: 'C2', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Strength peak bicep. Different from face pull.' },
       ],
       B: [
-        { name: 'Barbell Row',            muscle: 'Back',      tag: 'A1', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Best row of program.' },
-        { name: 'Lat Pulldown',           muscle: 'Back',      tag: 'A2', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Volume peak lat. Pair with row.' },
-        { name: 'Seated Cable Row',       muscle: 'Back',      tag: 'B1', sets: '4', reps: '10-12', tempo: '21X1', note: '1s pause.' },
-        { name: 'Rear Delt Fly',          muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Health finish.' },
-        { name: 'EZ-Bar Curl',            muscle: 'Biceps',    tag: 'C1', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Strength peak bicep.' },
-        { name: 'Cable Curl',             muscle: 'Biceps',    tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Pump finish. Pair with EZ curl.' },
+        { name: 'Barbell Row',             muscle: 'Back',      tag: 'A1', sets: '5', reps: '5-8',   tempo: '20X1', note: 'Best horizontal row of program.' },
+        { name: 'Lat Pulldown',            muscle: 'Back',      tag: 'A2', sets: '4', reps: '8-10',  tempo: '20X1', note: 'Vertical. Lats work while horizontal back recovers.' },
+        { name: 'Seated Cable Row',        muscle: 'Back',      tag: 'B1', sets: '4', reps: '10-12', tempo: '21X1', note: '1s pause at contraction.' },
+        { name: 'Rear Delt Fly',           muscle: 'Shoulders', tag: 'B2', sets: '4', reps: '15-20', tempo: '20X1', note: 'Posterior shoulder. Different from rowing.' },
+        { name: 'Cable Curl',              muscle: 'Biceps',    tag: 'C1', sets: '3', reps: '12-15', tempo: '20X1', note: 'Constant tension pump.' },
+        { name: 'Cable Y-Raise',           muscle: 'Shoulders', tag: 'C2', sets: '3', reps: '12-15', tempo: '20X1', note: 'Lower trap + rear delt. Different from curls.' },
       ],
     },
   },
@@ -4842,6 +4846,11 @@ const ExerciseLibraryModal = ({ onSelect, onClose, filterMuscle = 'All', validMu
 const Workouts = ({ state, setState }) => {
   const { profile, sessions, week, wlog } = state;
   const [viewISO, setViewISO] = useState(todayISO());
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calMonthISO, setCalMonthISO] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+  });
   const [viewWeek, setViewWeek] = useState(week);
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [showScheduleEditor, setShowScheduleEditor] = useState(false);
@@ -5124,10 +5133,28 @@ const Workouts = ({ state, setState }) => {
         <Btn size="sm" variant="ghost" onClick={() => {
           const d = isoToDate(viewISO); d.setDate(d.getDate() - 7); setViewISO(dateToISO(d));
         }}>‹</Btn>
-        <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: TEXT_DIM, letterSpacing: 1 }}>
-          WEEK {dayProgramWeek} OF {profile.weeks}
-          <span style={{ color: ORANGE, marginLeft: 6 }}>BLOCK {currentBlock}</span>
+        <div style={{ flex: 1, textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: TEXT_DIM, letterSpacing: 1 }}>
+            WEEK {dayProgramWeek} OF {profile.weeks}
+            <span style={{ color: ORANGE, marginLeft: 6 }}>BLOCK {currentBlock}</span>
+          </div>
+          {viewISO !== todayISO() && (
+            <button onClick={() => setViewISO(todayISO())} style={{
+              background: 'transparent', border: 'none', color: ACCENT, cursor: 'pointer',
+              fontSize: 10, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginTop: 2,
+            }}>↩ TODAY</button>
+          )}
         </div>
+        <Btn size="sm" variant="ghost"
+          onClick={() => {
+            // sync calendar month to viewISO when opening
+            const d = isoToDate(viewISO);
+            setCalMonthISO(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`);
+            setShowCalendar(v => !v);
+          }}
+          style={{ border: showCalendar ? `1px solid ${BLUE}` : undefined, color: showCalendar ? BLUE : undefined }}>
+          📆
+        </Btn>
         <Btn size="sm" variant="ghost" onClick={() => setShowScheduleEditor(!showScheduleEditor)}
           style={{ border: showScheduleEditor ? `1px solid ${ACCENT}` : undefined, color: showScheduleEditor ? ACCENT : undefined }}>
           {showScheduleEditor ? 'DONE' : '📅 DAYS'}
@@ -5137,41 +5164,126 @@ const Workouts = ({ state, setState }) => {
         }}>›</Btn>
       </div>
 
-      {/* Inline schedule editor — shown when 📅 DAYS is tapped */}
+      {/* Month calendar */}
+      {showCalendar && (() => {
+        const calDate = isoToDate(calMonthISO);
+        const year = calDate.getFullYear();
+        const month = calDate.getMonth();
+        const monthLabel = calDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        // First day of month, padded to Monday start
+        const firstDay = new Date(year, month, 1);
+        const startPad = (firstDay.getDay() + 6) % 7; // 0=Mon
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = todayISO();
+        const cells = [];
+        // Empty cells before month start
+        for (let i = 0; i < startPad; i++) cells.push(null);
+        for (let d = 1; d <= daysInMonth; d++) {
+          const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          const info = getDayTypeForDate(profile, iso);
+          const sk = sessionKey(iso);
+          const s = sessions[sk];
+          const stat = s?.done ? 'done' : s?.skipped ? 'skipped' : null;
+          cells.push({ d, iso, type: info.type, stat, overridden: info.overridden });
+        }
+        return (
+          <div style={{ background: CARD, borderRadius: 8, padding: '10px 8px', marginBottom: 10, border: `1px solid ${BLUE}44` }}>
+            {/* Month nav */}
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+              <button onClick={() => {
+                const d = new Date(year, month - 1, 1);
+                setCalMonthISO(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`);
+              }} style={{ background: 'transparent', border: 'none', color: TEXT_DIM, cursor: 'pointer', fontSize: 18, padding: '0 6px' }}>‹</button>
+              <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: '#fff', letterSpacing: 1 }}>
+                {monthLabel.toUpperCase()}
+              </div>
+              <button onClick={() => setViewISO(today)} style={{
+                background: 'transparent', border: `1px solid ${ACCENT}44`, color: ACCENT,
+                cursor: 'pointer', fontSize: 9, padding: '2px 6px', borderRadius: 4,
+                fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+              }}>TODAY</button>
+              <button onClick={() => {
+                const d = new Date(year, month + 1, 1);
+                setCalMonthISO(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`);
+              }} style={{ background: 'transparent', border: 'none', color: TEXT_DIM, cursor: 'pointer', fontSize: 18, padding: '0 6px' }}>›</button>
+            </div>
+            {/* Day-of-week headers */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+              {['M','T','W','T','F','S','S'].map((l, i) => (
+                <div key={i} style={{ textAlign: 'center', fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif' }}>{l}</div>
+              ))}
+            </div>
+            {/* Day cells */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+              {cells.map((cell, i) => {
+                if (!cell) return <div key={i} />;
+                const isToday = cell.iso === today;
+                const isViewing = cell.iso === viewISO;
+                const isRest = cell.type === 'REST';
+                const c = DAY_TYPE_COLOR[cell.type] || TEXT_MUTED;
+                const bg = isViewing ? `${ACCENT}30`
+                  : cell.stat === 'done' ? `${GREEN}25`
+                  : cell.stat === 'skipped' ? `${RED}20`
+                  : isRest ? 'transparent'
+                  : `${c}12`;
+                const border = isViewing ? `1px solid ${ACCENT}`
+                  : isToday ? `1px solid ${BLUE}`
+                  : cell.overridden ? `1px solid ${YELLOW}44`
+                  : `1px solid transparent`;
+                return (
+                  <button key={i} onClick={() => {
+                    setViewISO(cell.iso);
+                    if (!isRest) setShowCalendar(false);
+                  }} style={{
+                    background: bg, border, borderRadius: 4,
+                    padding: '3px 1px', cursor: 'pointer', textAlign: 'center',
+                    minHeight: 38,
+                  }}>
+                    <div style={{ fontSize: 11, color: isToday ? BLUE : isViewing ? ACCENT : '#fff', fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                      {cell.d}
+                    </div>
+                    {!isRest && (
+                      <div style={{ fontSize: 7, color: c, lineHeight: 1.1, marginTop: 1 }}>
+                        {DAY_TYPE_ABBR[cell.type] || cell.type.slice(0, 3)}
+                      </div>
+                    )}
+                    {cell.stat === 'done' && <div style={{ fontSize: 8, color: GREEN }}>✓</div>}
+                    {cell.stat === 'skipped' && <div style={{ fontSize: 8, color: RED }}>×</div>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Inline schedule editor */}
       {showScheduleEditor && (
         <ScheduleEditor profile={profile} onSave={saveScheduleFromWorkouts} />
       )}
 
-      {/* Day strip */}
+      {/* Day strip with dates */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 10 }}>
         {strip.map((d) => {
           const c = DAY_TYPE_COLOR[d.type] || TEXT_MUTED;
           const isViewing = d.iso === viewISO;
+          const isToday = d.iso === todayISO();
           const bg = d.stat === 'done' ? `${GREEN}33` : d.stat === 'skipped' ? `${RED}33` : d.stat === 'moved' ? `${YELLOW}33` : isViewing ? CARD2 : CARD;
-          const border = isViewing ? `2px solid ${ACCENT}` : d.overridden && !d.stat ? `1px solid ${YELLOW}` : `1px solid ${BORDER}`;
+          const border = isViewing ? `2px solid ${ACCENT}` : isToday ? `1px solid ${BLUE}` : d.overridden && !d.stat ? `1px solid ${YELLOW}` : `1px solid ${BORDER}`;
+          const dayNum = isoToDate(d.iso).getDate();
           return (
             <button key={d.idx} onClick={() => setViewISO(d.iso)} style={{
-              background: bg,
-              border,
-              borderRadius: 5,
-              padding: '6px 2px',
-              cursor: 'pointer',
-              minHeight: 56,
-              fontFamily: 'Impact, Arial Black, sans-serif',
-              color: '#fff',
+              background: bg, border, borderRadius: 5, padding: '4px 2px',
+              cursor: 'pointer', minHeight: 60, fontFamily: 'Impact, Arial Black, sans-serif',
+              color: '#fff', position: 'relative',
             }}>
-              <div style={{ fontSize: 10, color: TEXT_DIM }}>{DAY_LETTERS[d.idx]}</div>
+              <div style={{ fontSize: 9, color: isToday ? BLUE : TEXT_DIM }}>{DAY_LETTERS[d.idx]}</div>
+              <div style={{ fontSize: 11, color: isToday ? BLUE : '#fff', fontWeight: isToday ? 700 : 400, marginTop: 1 }}>{dayNum}</div>
               <div style={{
-                fontSize: 9,
-                color: c,
-                marginTop: 2,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                maxWidth: 60,
-                margin: '2px auto 0',
+                fontSize: 8, color: c, marginTop: 2,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 52, margin: '2px auto 0',
               }}>{DAY_TYPE_ABBR[d.type] || d.type.slice(0, 3)}</div>
-              <div style={{ fontSize: 10, marginTop: 2 }}>
+              <div style={{ fontSize: 10, marginTop: 1 }}>
                 {d.stat === 'done' && <span style={{ color: GREEN }}>✓</span>}
                 {d.stat === 'skipped' && <span style={{ color: RED }}>×</span>}
                 {d.stat === 'moved' && <span style={{ color: YELLOW }}>↔</span>}
