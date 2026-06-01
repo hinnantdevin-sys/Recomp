@@ -1734,6 +1734,56 @@ const prescribeCardio = (profile, currentWeight, macros, programWeek, weeklyBurn
   const stepsPerMile = 2100;
   const dist = (mph, min) => +(mph * min / 60).toFixed(1);
 
+  // Equivalent alternatives by intensity zone
+  // Zone 1-2 = easy/walk equivalent, Zone 2-3 = moderate/run equivalent, Zone 3-4 = hard/tempo equivalent
+  const altsByZone = {
+    'walk': [ // Zone 1-2 equivalents — same MET, same calorie burn
+      { name: 'Peloton (Easy)',     icon: '🚴', met: 4.0,  note: 'Endurance or low output ride. Resistance 20-35. Conversational pace.' },
+      { name: 'Stair Master',       icon: '🪜', met: 5.0,  note: 'Low speed (4-6). Hands off rails. Huge calorie burn per minute for Zone 2.' },
+      { name: 'Elliptical (Easy)',  icon: '🏃', met: 4.5,  note: 'Low resistance. Stride rate 140-160. Heart rate under 130.' },
+      { name: 'Rowing (Easy)',      icon: '🚣', met: 4.5,  note: '20 spm. Keep split time 2:20+/500m. Technique over pace.' },
+      { name: 'Swim (Easy)',        icon: '🏊', met: 5.0,  note: 'Freestyle at easy pace. Best Zone 2 cardio for joint health.' },
+      { name: 'Cycling (Outdoor)',  icon: '🚵', met: 4.0,  note: 'Flat road, easy gear. Conversational pace. Zone 2 is the goal.' },
+      { name: 'Incline Treadmill',  icon: '🏔', met: 5.0,  note: '10-12% incline, 2.5-3.0 mph. Better calorie burn than flat walk with less impact than running.' },
+    ],
+    'run': [ // Zone 2-3 equivalents — moderate intensity
+      { name: 'Peloton (Moderate)', icon: '🚴', met: 7.0,  note: 'Moderate ride, output 50-70%. Resistance 35-50. Breathing elevated but controlled.' },
+      { name: 'Stair Master (Fast)',icon: '🪜', met: 7.0,  note: 'Speed 8-10. Interval programs. Calorie burn matches running at this intensity.' },
+      { name: 'Elliptical (Mod)',   icon: '🏃', met: 6.5,  note: 'Moderate resistance. Stride rate 160-180. Heart rate 130-150.' },
+      { name: 'Rowing (Moderate)',  icon: '🚣', met: 7.0,  note: '24-26 spm. Target split 2:05-2:15/500m. Powerful drive each stroke.' },
+      { name: 'Swim (Moderate)',    icon: '🏊', met: 7.0,  note: 'Steady freestyle with effort. 1-2 beats per stroke rest. Heart rate 130-145.' },
+      { name: 'Jump Rope',          icon: '⚡', met: 8.0,  note: '30s on / 10s rest intervals. Same zone as easy running. More skill, more fun.' },
+      { name: 'Cycling (Moderate)', icon: '🚵', met: 7.0,  note: 'Rolling terrain or moderate effort. Heart rate 130-150.' },
+      { name: 'Assault Bike',       icon: '💪', met: 7.5,  note: 'Arms + legs. Zone 2-3 steady effort. Brutal but time-efficient.' },
+    ],
+    'tempo': [ // Zone 3-4 equivalents — hard effort
+      { name: 'Peloton (Hard)',     icon: '🚴', met: 10.0, note: 'High output 70-85%. Resistance 50-65. Heart rate 155-170. Hard but sustainable.' },
+      { name: 'Stair Master (Max)', icon: '🪜', met: 9.0,  note: 'Speed 12-14 or interval program. Maximum sustainable effort.' },
+      { name: 'Rowing (Hard)',      icon: '🚣', met: 10.0, note: '28-32 spm. Target split under 2:00/500m. Race pace effort.' },
+      { name: 'Assault Bike (Hard)',icon: '💪', met: 11.0, note: 'Maximum sustainable effort. Calories per minute among the highest of any cardio.' },
+      { name: 'Jump Rope (Fast)',   icon: '⚡', met: 11.0, note: 'Double unders or max speed singles. Heart rate 160+.' },
+      { name: 'Swim (Fast)',        icon: '🏊', met: 10.0, note: 'Interval sets at threshold pace. Rest between sets.' },
+      { name: 'Cycling (Hard)',     icon: '🚵', met: 9.0,  note: 'Hard climbs or sustained high effort. Heart rate 155-170.' },
+    ],
+  };
+
+  // Map session type to alternatives zone
+  const getAlts = (sessionType, zone) => {
+    if (zone && (zone.includes('3') || zone.includes('4'))) return altsByZone['tempo'];
+    if (sessionType === 'run') return altsByZone['run'];
+    return altsByZone['walk'];
+  };
+
+  // Attach alternatives to a session object
+  const withAlts = (session) => ({
+    ...session,
+    alternatives: getAlts(session.type, session.zone).map(alt => ({
+      ...alt,
+      dur: session.dur,
+      cal: kcal(alt.met, session.dur),
+    })),
+  });
+
   // Progressive duration/intensity — increases through program
   const walkDur  = Math.round(25 + pct * 20); // 25min wk1 → 45min final
   const runDur   = Math.round(15 + pct * 20); // 15min wk1 → 35min final
@@ -1898,7 +1948,7 @@ const prescribeCardio = (profile, currentWeight, macros, programWeek, weeklyBurn
     );
   }
 
-  return s;
+  return s.map(withAlts);
 };
 
 const TABS = [
@@ -5387,6 +5437,77 @@ const Dashboard = ({ state, onTab, onCoachPrompt }) => {
         <Btn variant="ghost" onClick={() => onTab('runs')}>LOG RUN</Btn>
         <Btn variant="ghost" onClick={() => onTab('metrics')}>LOG WEIGHT</Btn>
       </div>
+
+      {/* Coach comments — today's workout + macro feedback */}
+      {(() => {
+        const todayISO_ = todayISO();
+        const todaySessKey = `s_${todayISO_}`;
+        const todaySess = sessions[todaySessKey];
+        const dayInfo = profile.schedule ? profile.schedule[getDayIdx(todayISO_)] : null;
+        const messages = [];
+
+        // Workout completion check
+        if (todaySess && !todaySess.skipped) {
+          const setLogs = todaySess.setLogs || {};
+          const allKeys = Object.keys(setLogs);
+          const doneSets = allKeys.filter(k => setLogs[k]?.done).length;
+          const totalWithWeight = allKeys.filter(k => setLogs[k]?.weight).length;
+          const totalLogged = allKeys.length;
+
+          if (todaySess.done) {
+            messages.push({ color: GREEN, icon: '✅', msg: `Today's ${todaySess.dayType || 'workout'} is complete. Good work.` });
+          } else if (doneSets > 0) {
+            messages.push({ color: YELLOW, icon: '⚠️', msg: `You started today's workout (${doneSets} sets done) but haven't marked it complete. Finish strong.` });
+          } else if (dayInfo && dayInfo !== 'REST') {
+            messages.push({ color: TEXT_DIM, icon: '🏋️', msg: `Today is a ${dayInfo} day. You haven't logged any sets yet.` });
+          }
+
+          if (doneSets > 0 && totalWithWeight < doneSets * 0.5) {
+            messages.push({ color: ORANGE, icon: '📝', msg: `You're not logging weights. Your coach can't track your progression without numbers — log every set.` });
+          }
+        } else if (!todaySess && dayInfo && dayInfo !== 'REST') {
+          messages.push({ color: TEXT_DIM, icon: '🏋️', msg: `Today is a ${dayInfo} day. Head to Workouts when you're ready.` });
+        }
+
+        // Macro / food check
+        const todayCal = totals.cal;
+        const now = new Date();
+        const hourOfDay = now.getHours();
+        if (hourOfDay >= 14) {
+          if (todayCal === 0) {
+            messages.push({ color: RED, icon: '🍽️', msg: `No food logged today. Track your intake — you can't hit a target you can't see.` });
+          } else if (todayCal < macros.calories * 0.6) {
+            messages.push({ color: RED, icon: '🍽️', msg: `Only ${Math.round(todayCal)} of ${macros.calories} cal logged so far. You're likely undereating — hit your protein target.` });
+          } else if (todayCal > macros.calories * 1.2) {
+            messages.push({ color: ORANGE, icon: '⚠️', msg: `${Math.round(todayCal)} cal logged — ${Math.round(todayCal - macros.calories)} over target. One day is fine; just get back on track tomorrow.` });
+          } else {
+            messages.push({ color: GREEN, icon: '🎯', msg: `${Math.round(totals.p)}g protein · ${Math.round(todayCal)} cal logged. ${totals.p >= macros.protein * 0.9 ? 'Protein target hit.' : `${Math.round(macros.protein - totals.p)}g protein left.`}` });
+          }
+        }
+
+        // Macro coach advisory
+        if (macros.advisory && macros.advisory.type === 'extend') {
+          messages.push({ color: ORANGE, icon: '📊', msg: macros.advisory.msg });
+        } else if (macros.advisory && macros.advisory.type === 'ease') {
+          messages.push({ color: YELLOW, icon: '📊', msg: macros.advisory.msg });
+        }
+
+        if (!messages.length) return null;
+        return (
+          <Card style={{ marginTop: 12 }}>
+            <Label style={{ color: ACCENT }}>💬 COACH</Label>
+            {messages.map((m, i) => (
+              <div key={i} style={{
+                padding: '8px 10px', marginBottom: i < messages.length - 1 ? 6 : 0,
+                borderRadius: 6, background: `${m.color}15`, borderLeft: `3px solid ${m.color}`,
+                fontSize: 11, color: '#ddd', lineHeight: 1.5,
+              }}>
+                <span style={{ marginRight: 6 }}>{m.icon}</span>{m.msg}
+              </div>
+            ))}
+          </Card>
+        );
+      })()}
     </div>
   );
 };
@@ -5516,6 +5637,9 @@ const Workouts = ({ state, setState }) => {
   const { profile, sessions, week, wlog } = state;
   const [viewISO, setViewISO] = useState(todayISO());
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showBurnDetails, setShowBurnDetails] = useState(false);
+  const [showWorkout, setShowWorkout] = useState(true);
+  const [cardioSwaps, setCardioSwaps] = useState({}); // { sessionIndex: altIndex | null }
   const [calMonthISO, setCalMonthISO] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
@@ -6415,131 +6539,192 @@ const Workouts = ({ state, setState }) => {
 
         return (
           <Card style={{ marginBottom: 10, borderLeft: `3px solid ${BLUE}` }}>
-            {/* Weekly burn goal header */}
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                <Label style={{ margin: 0 }}>🍎 WEEKLY BURN GOAL</Label>
+            {/* Collapsible header — always visible */}
+            <button onClick={() => setShowBurnDetails(v => !v)} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
+            }}>
+              <Label style={{ margin: 0 }}>🍎 WEEKLY BURN GOAL</Label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: burnColor }}>
                   {burnActual.toLocaleString()} / {burnTarget.toLocaleString()} cal
                 </div>
+                <span style={{ color: TEXT_MUTED, fontSize: 12 }}>{showBurnDetails ? '▾' : '▸'}</span>
               </div>
-              <div style={{ background: CARD2, borderRadius: 4, height: 6, overflow: 'hidden', marginBottom: 4 }}>
-                <div style={{ background: burnColor, height: '100%', width: `${burnPct}%`, transition: 'width 0.3s' }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5 }}>
-                <span>WK {dayProgramWeek} OF {profile.weeks}</span>
-                <span style={{ color: burnLeft > 0 ? burnColor : GREEN }}>
-                  {burnLeft > 0 ? `${burnLeft.toLocaleString()} TO GO` : '✓ GOAL MET'}
-                </span>
-              </div>
+            </button>
+
+            {/* Progress bar — always visible */}
+            <div style={{ background: CARD2, borderRadius: 4, height: 5, overflow: 'hidden', marginTop: 6 }}>
+              <div style={{ background: burnColor, height: '100%', width: `${burnPct}%`, transition: 'width 0.3s' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5, marginTop: 3 }}>
+              <span>WK {dayProgramWeek} OF {profile.weeks}</span>
+              <span style={{ color: burnLeft > 0 ? burnColor : GREEN }}>
+                {burnLeft > 0 ? `${burnLeft.toLocaleString()} TO GO` : '✓ GOAL MET'}
+              </span>
             </div>
 
-            {/* Workout calorie entry */}
-            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 8, marginBottom: 10 }}>
-              <div style={{ fontSize: 10, color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 4 }}>
-                ⌚ LOG WORKOUT CALORIES (Apple Watch)
-              </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <Input
-                  type="number"
-                  placeholder="Active cal burned"
-                  value={session?.watchCal || ''}
-                  onChange={e => updateSession({ watchCal: e.target.value })}
-                  style={{ flex: 1, fontSize: 13 }}
-                />
-                <div style={{ fontSize: 10, color: TEXT_MUTED }}>cal</div>
-                {session?.watchCal && (
-                  <div style={{ fontSize: 10, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif' }}>✓ SAVED</div>
-                )}
-              </div>
-            </div>
-
-            {/* Cardio sessions */}
-            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <div style={{ fontSize: 10, color: BLUE, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
-                  🏃 CARDIO THIS WEEK
+            {/* Expanded details */}
+            {showBurnDetails && (
+              <div style={{ marginTop: 10, borderTop: `1px solid ${BORDER}`, paddingTop: 10 }}>
+                {/* Workout calorie entry */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 4 }}>
+                    ⌚ LOG WORKOUT CALORIES (Apple Watch)
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <Input
+                      type="number"
+                      placeholder="Active cal burned"
+                      value={session?.watchCal || ''}
+                      onChange={e => updateSession({ watchCal: e.target.value })}
+                      style={{ flex: 1, fontSize: 13 }}
+                    />
+                    <div style={{ fontSize: 10, color: TEXT_MUTED }}>cal</div>
+                    {session?.watchCal && (
+                      <div style={{ fontSize: 10, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif' }}>✓</div>
+                    )}
+                  </div>
                 </div>
-                <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif' }}>
-                  {cardioSessions.filter((_,i) => session?.[`cardio_${i}`]).length}/{cardioSessions.length}
-                </div>
-              </div>
 
-              {cardioSessions.map((cs, i) => {
-                const isDone = !!session?.[`cardio_${i}`];
-                const loggedCal = session?.[`cardio_${i}_cal`] || '';
-                return (
-                  <div key={i} style={{
-                    padding: '8px 10px', marginBottom: 6, borderRadius: 6,
-                    background: isDone ? `${GREEN}15` : cs.isMakeup ? `${ORANGE}15` : CARD2,
-                    border: `1px solid ${isDone ? GREEN : cs.isMakeup ? ORANGE : BORDER}`,
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 12, color: cs.isMakeup ? ORANGE : '#fff' }}>
-                            {cs.type === 'run' ? '🏃' : '🚶'} {cs.label}
-                          </span>
-                          <span style={{ fontSize: 8, color: BLUE, fontFamily: 'Impact, Arial Black, sans-serif', background: `${BLUE}20`, padding: '1px 5px', borderRadius: 8 }}>
-                            {cs.timing.toUpperCase()}
-                          </span>
-                          {cs.isMakeup && (
-                            <span style={{ fontSize: 8, color: ORANGE, fontFamily: 'Impact, Arial Black, sans-serif', background: `${ORANGE}20`, padding: '1px 5px', borderRadius: 8 }}>
-                              MAKE-UP
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
-                          {[
-                            { l: '⏱', v: `${cs.dur} min` },
-                            { l: '📍', v: `${cs.dist} mi` },
-                            { l: '👟', v: `${cs.steps.toLocaleString()}` },
-                            { l: '🍎', v: `~${cs.cal} cal` },
-                            { l: '❤️', v: `Z${cs.zone}` },
-                          ].map(m => (
-                            <span key={m.l} style={{ fontSize: 10, color: TEXT_DIM }}>{m.l} {m.v}</span>
-                          ))}
-                        </div>
-                        <div style={{ fontSize: 10, color: TEXT_MUTED, fontStyle: 'italic', marginBottom: isDone ? 6 : 0 }}>{cs.note}</div>
-                        {/* Calorie entry when done */}
-                        {isDone && (
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
-                            <span style={{ fontSize: 9, color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif' }}>⌚ ACTUAL CAL:</span>
-                            <Input
-                              type="number"
-                              placeholder="e.g. 280"
-                              value={loggedCal}
-                              onChange={e => setState(prev => {
-                                const sk2 = sessKey;
-                                const cur = prev.sessions[sk2] || { iso: viewISO, dayType };
-                                return { ...prev, sessions: { ...prev.sessions, [sk2]: { ...cur, [`cardio_${i}_cal`]: e.target.value } } };
-                              })}
-                              style={{ width: 80, fontSize: 12, padding: '3px 6px' }}
-                            />
-                            <span style={{ fontSize: 9, color: TEXT_MUTED }}>cal</span>
-                            {loggedCal && <span style={{ fontSize: 9, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif' }}>+{loggedCal} to weekly</span>}
-                          </div>
-                        )}
-                      </div>
-                      {/* Done toggle */}
-                      <button onClick={() => {
-                        setState(prev => {
-                          const sk2 = sessKey;
-                          const cur = prev.sessions[sk2] || { iso: viewISO, dayType };
-                          return { ...prev, sessions: { ...prev.sessions, [sk2]: { ...cur, [`cardio_${i}`]: !cur[`cardio_${i}`] } } };
-                        });
-                      }} style={{
-                        background: isDone ? GREEN : 'transparent',
-                        border: `2px solid ${isDone ? GREEN : BORDER}`,
-                        color: isDone ? '#000' : TEXT_MUTED,
-                        borderRadius: 6, width: 32, height: 32, cursor: 'pointer',
-                        fontSize: 14, flexShrink: 0, marginTop: 2,
-                      }}>✓</button>
+                {/* Cardio sessions */}
+                <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <div style={{ fontSize: 10, color: BLUE, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+                      🏃 CARDIO THIS WEEK
+                    </div>
+                    <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                      {cardioSessions.filter((_,i) => session?.[`cardio_${i}`]).length}/{cardioSessions.length}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {cardioSessions.map((cs, i) => {
+                    const isDone = !!session?.[`cardio_${i}`];
+                    const loggedCal = session?.[`cardio_${i}_cal`] || '';
+                    const swappedIdx = cardioSwaps[i]; // index into cs.alternatives
+                    const active = swappedIdx != null ? cs.alternatives[swappedIdx] : null;
+                    const displayName = active ? active.name : cs.label;
+                    const displayIcon = active ? active.icon : (cs.type === 'run' ? '🏃' : '🚶');
+                    const displayCal  = active ? active.cal : cs.cal;
+                    const displayNote = active ? active.note : cs.note;
+                    const showSwapMenu = cardioSwaps[`open_${i}`];
+
+                    return (
+                      <div key={i} style={{
+                        padding: '8px 10px', marginBottom: 6, borderRadius: 6,
+                        background: isDone ? `${GREEN}15` : cs.isMakeup ? `${ORANGE}15` : CARD2,
+                        border: `1px solid ${isDone ? GREEN : cs.isMakeup ? ORANGE : BORDER}`,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 12, color: cs.isMakeup ? ORANGE : '#fff' }}>
+                                {displayIcon} {displayName}
+                                {active && <span style={{ fontSize: 9, color: BLUE, marginLeft: 4 }}>(swapped)</span>}
+                              </span>
+                              <span style={{ fontSize: 8, color: BLUE, fontFamily: 'Impact, Arial Black, sans-serif', background: `${BLUE}20`, padding: '1px 5px', borderRadius: 8 }}>
+                                {cs.timing.toUpperCase()}
+                              </span>
+                              {cs.isMakeup && (
+                                <span style={{ fontSize: 8, color: ORANGE, fontFamily: 'Impact, Arial Black, sans-serif', background: `${ORANGE}20`, padding: '1px 5px', borderRadius: 8 }}>
+                                  MAKE-UP
+                                </span>
+                              )}
+                              {/* Swap button */}
+                              {!isDone && (
+                                <button onClick={() => setCardioSwaps(prev => ({ ...prev, [`open_${i}`]: !prev[`open_${i}`] }))} style={{
+                                  background: 'transparent', border: `1px solid ${BORDER}`, color: TEXT_DIM,
+                                  borderRadius: 6, padding: '1px 6px', cursor: 'pointer',
+                                  fontSize: 9, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5,
+                                }}>⇄ SWAP</button>
+                              )}
+                              {active && !isDone && (
+                                <button onClick={() => setCardioSwaps(prev => { const n = {...prev}; delete n[i]; delete n[`open_${i}`]; return n; })} style={{
+                                  background: 'transparent', border: 'none', color: TEXT_MUTED,
+                                  cursor: 'pointer', fontSize: 11, padding: '0 2px',
+                                }}>↺</button>
+                              )}
+                            </div>
+
+                            {/* Alternatives picker */}
+                            {showSwapMenu && (
+                              <div style={{ marginBottom: 8, padding: '6px 8px', background: CARD, borderRadius: 6, border: `1px solid ${BORDER}` }}>
+                                <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5, marginBottom: 6 }}>
+                                  EQUAL ALTERNATIVES · {cs.dur} min · same intensity
+                                </div>
+                                {cs.alternatives.map((alt, ai) => (
+                                  <button key={ai} onClick={() => setCardioSwaps(prev => ({ ...prev, [i]: ai, [`open_${i}`]: false }))} style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    width: '100%', background: swappedIdx === ai ? `${BLUE}20` : CARD2,
+                                    border: `1px solid ${swappedIdx === ai ? BLUE : BORDER}`,
+                                    borderRadius: 5, padding: '6px 8px', marginBottom: 4,
+                                    cursor: 'pointer', textAlign: 'left',
+                                  }}>
+                                    <div>
+                                      <div style={{ fontSize: 11, color: swappedIdx === ai ? BLUE : '#fff' }}>{alt.icon} {alt.name}</div>
+                                      <div style={{ fontSize: 9, color: TEXT_MUTED, marginTop: 1 }}>{alt.note}</div>
+                                    </div>
+                                    <div style={{ fontSize: 10, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', flexShrink: 0, marginLeft: 8 }}>~{alt.cal} cal</div>
+                                  </button>
+                                ))}
+                                <button onClick={() => setCardioSwaps(prev => ({ ...prev, [`open_${i}`]: false }))} style={{
+                                  background: 'transparent', border: 'none', color: TEXT_MUTED,
+                                  cursor: 'pointer', fontSize: 11, width: '100%', marginTop: 2,
+                                }}>CANCEL</button>
+                              </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
+                              {[
+                                { l: '⏱', v: `${cs.dur} min` },
+                                !active && cs.dist && { l: '📍', v: `${cs.dist} mi` },
+                                !active && cs.steps && { l: '👟', v: `${cs.steps.toLocaleString()}` },
+                                { l: '🍎', v: `~${displayCal} cal` },
+                                { l: '❤️', v: `Z${cs.zone}` },
+                              ].filter(Boolean).map(m => (
+                                <span key={m.l} style={{ fontSize: 10, color: TEXT_DIM }}>{m.l} {m.v}</span>
+                              ))}
+                            </div>
+                            <div style={{ fontSize: 10, color: TEXT_MUTED, fontStyle: 'italic', marginBottom: isDone ? 6 : 0 }}>{displayNote}</div>
+                            {isDone && (
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
+                                <span style={{ fontSize: 9, color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif' }}>⌚ ACTUAL CAL:</span>
+                                <Input
+                                  type="number"
+                                  placeholder="e.g. 280"
+                                  value={loggedCal}
+                                  onChange={e => setState(prev => {
+                                    const sk2 = sessKey;
+                                    const cur = prev.sessions[sk2] || { iso: viewISO, dayType };
+                                    return { ...prev, sessions: { ...prev.sessions, [sk2]: { ...cur, [`cardio_${i}_cal`]: e.target.value } } };
+                                  })}
+                                  style={{ width: 80, fontSize: 12, padding: '3px 6px' }}
+                                />
+                                <span style={{ fontSize: 9, color: TEXT_MUTED }}>cal</span>
+                                {loggedCal && <span style={{ fontSize: 9, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif' }}>+{loggedCal}</span>}
+                              </div>
+                            )}
+                          </div>
+                          <button onClick={() => {
+                            setState(prev => {
+                              const sk2 = sessKey;
+                              const cur = prev.sessions[sk2] || { iso: viewISO, dayType };
+                              return { ...prev, sessions: { ...prev.sessions, [sk2]: { ...cur, [`cardio_${i}`]: !cur[`cardio_${i}`] } } };
+                            });
+                          }} style={{
+                            background: isDone ? GREEN : 'transparent',
+                            border: `2px solid ${isDone ? GREEN : BORDER}`,
+                            color: isDone ? '#000' : TEXT_MUTED,
+                            borderRadius: 6, width: 32, height: 32, cursor: 'pointer',
+                            fontSize: 14, flexShrink: 0, marginTop: 2,
+                          }}>✓</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </Card>
         );
       })()}
@@ -6650,6 +6835,45 @@ const Workouts = ({ state, setState }) => {
       )}
 
       {/* Race sim — race time input */}
+      {/* Collapsible workout section */}
+      {dayType !== 'REST' && dayType !== 'ACTIVE_RECOVERY' && !session?.skipped && exData?.exercises?.length > 0 && (() => {
+        const setLogs = session?.setLogs || {};
+        const totalSets = exData.exercises.reduce((a, ex) => a + (parseInt(ex.sets) || 3), 0);
+        const doneSets = Object.values(setLogs).filter(s => s?.done).length;
+        const pct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
+        const statusColor = pct === 100 ? GREEN : pct > 0 ? YELLOW : TEXT_DIM;
+        return (
+          <button onClick={() => setShowWorkout(v => !v)} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            width: '100%', background: CARD, border: `1px solid ${BORDER}`,
+            borderRadius: 8, padding: '10px 12px', cursor: 'pointer', marginBottom: 8,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16 }}>{pct === 100 ? '✅' : '🏋️'}</span>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: '#fff', letterSpacing: 0.5 }}>
+                  TODAY'S WORKOUT
+                </div>
+                <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 1 }}>
+                  {exData.exercises.length} exercises · {totalSets} sets
+                  {doneSets > 0 && <span style={{ color: statusColor, marginLeft: 6 }}>{doneSets}/{totalSets} done</span>}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {doneSets > 0 && (
+                <div style={{ width: 40, height: 5, background: CARD2, borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ background: statusColor, height: '100%', width: `${pct}%` }} />
+                </div>
+              )}
+              <span style={{ color: TEXT_MUTED, fontSize: 14 }}>{showWorkout ? '▾' : '▸'}</span>
+            </div>
+          </button>
+        );
+      })()}
+
+      <div style={{ display: showWorkout ? 'block' : 'none' }}>
+
       {exData?.isRaceSim && !session?.skipped && (
         <Card style={{ marginBottom: 10 }}>
           <Label>RACE TIME (mm:ss)</Label>
@@ -6828,60 +7052,6 @@ const Workouts = ({ state, setState }) => {
             </Card>
           )}
 
-          {/* Coach Feedback */}
-          {session && (() => {
-            const setLogs = session.setLogs || {};
-            const exercises = getSessionExercises();
-            // Count completed vs total sets
-            let totalSets = 0, doneSets = 0, loggedWeights = 0;
-            exercises.forEach(ex => {
-              const setCount = parseInt(ex.sets) || 3;
-              totalSets += setCount;
-              for (let i = 0; i < setCount; i++) {
-                const k = `${ex.name}__${i}`;
-                const s = setLogs[k];
-                if (s?.done) doneSets++;
-                if (s?.weight) loggedWeights++;
-              }
-            });
-            const pctComplete = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
-            const loggedPct = totalSets > 0 ? Math.round((loggedWeights / totalSets) * 100) : 0;
-
-            const messages = [];
-            if (pctComplete === 100) messages.push({ color: GREEN, icon: '✅', msg: `All ${doneSets} sets completed. Solid session.` });
-            else if (pctComplete >= 75) messages.push({ color: YELLOW, icon: '⚠', msg: `${pctComplete}% of sets done (${doneSets}/${totalSets}). Finish what you started — the last sets are where growth happens.` });
-            else if (pctComplete > 0) messages.push({ color: RED, icon: '❌', msg: `Only ${pctComplete}% complete (${doneSets}/${totalSets} sets). That\'s not enough stimulus for progress. Push through or come back to finish.` });
-
-            if (loggedPct < 50 && doneSets > 0) messages.push({ color: ORANGE, icon: '📝', msg: `${100 - loggedPct}% of your sets have no weight logged. Your coach can\'t track progression without data. Log every set.` });
-
-            // Check food data for today
-            const todayFood = state.food?.[viewISO] || [];
-            const todayCal = todayFood.reduce((a, f) => a + (+f.cal||0)*(f.qty||1), 0);
-            const cw = wlog.length ? [...wlog].sort((a,b) => a.date < b.date ? 1 : -1)[0].weight : profile.weight;
-            const todayMacros = calcMacros(profile, cw, wlog);
-            if (todayCal > 0 && todayCal < todayMacros.calories * 0.7) {
-              messages.push({ color: RED, icon: '🍽️', msg: `Only ${Math.round(todayCal)} of ${todayMacros.calories} cal logged today. Undereating kills performance and muscle retention. Eat your target.` });
-            } else if (todayCal > todayMacros.calories * 1.25) {
-              messages.push({ color: ORANGE, icon: '⚠️', msg: `${Math.round(todayCal)} cal logged — ${Math.round(todayCal - todayMacros.calories)} over target. One day won't ruin progress but consistency matters.` });
-            }
-
-            if (!messages.length) return null;
-            return (
-              <div style={{ marginBottom: 12 }}>
-                <Label style={{ color: ACCENT }}>💬 COACH</Label>
-                {messages.map((m, i) => (
-                  <div key={i} style={{
-                    padding: '8px 10px', marginBottom: 5, borderRadius: 6,
-                    background: `${m.color}15`, borderLeft: `3px solid ${m.color}`,
-                    fontSize: 11, color: '#ddd', lineHeight: 1.5,
-                  }}>
-                    <span style={{ marginRight: 6 }}>{m.icon}</span>{m.msg}
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
-
           {/* Session notes + complete */}
           <Card style={{ marginTop: 10 }}>
             <Label>SESSION NOTES</Label>
@@ -6911,6 +7081,7 @@ const Workouts = ({ state, setState }) => {
           )}
         </>
       )}
+      </div>
     </div>
   );
 };
