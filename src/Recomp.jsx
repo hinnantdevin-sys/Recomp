@@ -21,27 +21,36 @@ const STORAGE_KEY = 'recomp_data';
 const SCHEMA_VERSION = 10;
 
 const WORKOUT_STYLES = [
-  { id: 'rp_hyp', name: 'RP Hypertrophy', desc: 'MEV/MAV/MRV mesocycle, RIR drops 3→0' },
-  { id: 'hyrox', name: 'HYROX', desc: '8 stations + run blocks, periodized' },
-  { id: 'hyrox_hybrid', name: 'HYROX Hybrid', desc: 'Heavy lifts + race prep + KB' },
-  { id: 'func_bb', name: 'Functional Bodybuilding', desc: 'Supersets A1/A2, RPE-based' },
-  { id: 'trad_bb', name: 'Traditional Bodybuilding', desc: 'Bro split, isolation, hypertrophy' },
-  { id: 'powerlifting', name: 'Powerlifting', desc: 'SBD focus, max strength' },
-  { id: 'crossfit', name: 'CrossFit', desc: 'WODs, AMRAP, EMOM, Oly' },
-  { id: 'athletic', name: 'Athletic Performance', desc: 'Speed, power, agility' },
-  { id: 'hiit', name: 'HIIT/Circuit', desc: 'High intensity intervals' },
+  // ── STRENGTH PROGRAMS ────────────────────────────────────────
+  { id: 'func_bb', name: 'Functional Bodybuilding', desc: 'Brian Mackenzie-inspired. Supersets A1/A2, RPE-based, conditioning finishers. Best for aesthetic + function.' },
+  { id: 'rp_hyp', name: 'RP Hypertrophy', desc: 'Renaissance Periodization protocol. MEV→MAV→MRV mesocycles. RIR drops 3→0. Science-backed muscle growth.' },
+  { id: 'trad_bb', name: 'Traditional Bodybuilding', desc: 'Classic bro split. High volume, isolation emphasis. Chest/Back/Shoulders/Arms/Legs. Proven aesthetic results.' },
+  { id: 'powerlifting', name: 'Powerlifting', desc: '5/3/1 Wendler-style. Squat/Bench/Deadlift focus, progressive overload, AMRAP top sets. Max strength.' },
+  { id: 'phul', name: 'PHUL (Power Hypertrophy)', desc: 'Power days (4-6 reps) + Hypertrophy days (8-12 reps). 4 days/week. Strength and size simultaneously.' },
+  { id: 'phat', name: 'PHAT (Layne Norton)', desc: '5 days. Power days Mon/Tue + Hypertrophy days Wed/Thu/Fri. Periodized strength AND hypertrophy in one program.' },
+  { id: 'gzclp', name: 'GZCLP (Zac Cain)', desc: 'Tiered movement structure. T1: heavy compounds 5×3+. T2: accessory compounds 3×10. T3: isolation 3×15+. Linear progression.' },
+  // ── CONDITIONING PROGRAMS ────────────────────────────────────
+  { id: 'crossfit', name: 'CrossFit', desc: 'WODs, AMRAP, EMOM, Oly lifts. Constantly varied functional movements. High intensity. GPP focus.' },
+  { id: 'hyrox', name: 'HYROX', desc: '8 stations + 1km run blocks. Periodized BASE→BUILD→PEAK→TAPER. Competition ready in 12-16 weeks.' },
+  { id: 'hyrox_hybrid', name: 'HYROX Hybrid', desc: 'Heavy barbell lifts + HYROX race prep + KB conditioning. Strength + endurance hybrid.' },
+  { id: 'hiit', name: 'HIIT/Circuit', desc: 'Tabata, AMRAP, EMOM structure. 30-45 min sessions. Max calorie burn. Fat loss accelerator.' },
+  { id: 'athletic', name: 'Athletic Performance', desc: 'Speed, power, agility, plyometrics. Olympic lifting principles. For athletes who play sports.' },
 ];
 
 const DAY_TYPES_BY_STYLE = {
-  rp_hyp: ['PUSH', 'PULL', 'LEGS', 'UPPER', 'LOWER', 'FULL', 'CARDIO', 'REST'],
-  hyrox: ['STRENGTH_LOWER', 'STRENGTH_UPPER', 'RUN_INTERVALS', 'Z2_RUN', 'RACE_SIM', 'CARDIO', 'REST'],
-  hyrox_hybrid: ['STRENGTH_LOWER', 'KB_RUN', 'STRENGTH_UPPER', 'Z2_RUN', 'RACE_SIM', 'CARDIO', 'REST'],
-  powerlifting: ['SQUAT', 'BENCH', 'DEADLIFT', 'ACCESSORY', 'CARDIO', 'REST'],
-  crossfit: ['WOD', 'STRENGTH', 'OLY', 'GYMNASTICS', 'CARDIO', 'REST'],
-  athletic: ['SPEED', 'POWER', 'STRENGTH', 'CONDITIONING', 'CARDIO', 'REST'],
-  hiit: ['HIIT', 'STRENGTH', 'FULL', 'CARDIO', 'REST'],
-  trad_bb: ['CHEST', 'BACK', 'SHOULDERS', 'ARMS', 'LEGS', 'PUSH', 'PULL', 'CARDIO', 'REST'],
-  func_bb: ['PUSH', 'PULL', 'LEGS', 'UPPER', 'LOWER', 'FULL', 'PUSH_LOWER', 'PULL_UPPER', 'STRENGTH', 'POWER', 'CARDIO', 'ACTIVE_RECOVERY', 'REST'],
+  rp_hyp:         ['PUSH', 'PULL', 'LEGS', 'UPPER', 'LOWER', 'FULL', 'CARDIO', 'REST'],
+  hyrox:          ['STRENGTH_LOWER', 'STRENGTH_UPPER', 'RUN_INTERVALS', 'Z2_RUN', 'RACE_SIM', 'CARDIO', 'REST'],
+  hyrox_hybrid:   ['STRENGTH_LOWER', 'KB_RUN', 'STRENGTH_UPPER', 'Z2_RUN', 'RACE_SIM', 'CARDIO', 'REST'],
+  powerlifting:   ['SQUAT', 'BENCH', 'DEADLIFT', 'ACCESSORY', 'CARDIO', 'REST'],
+  crossfit:       ['WOD', 'STRENGTH', 'OLY', 'GYMNASTICS', 'CARDIO', 'REST'],
+  athletic:       ['SPEED', 'POWER', 'STRENGTH', 'CONDITIONING', 'CARDIO', 'REST'],
+  hiit:           ['HIIT', 'STRENGTH', 'FULL', 'CARDIO', 'REST'],
+  trad_bb:        ['CHEST', 'BACK', 'SHOULDERS', 'ARMS', 'LEGS', 'PUSH', 'PULL', 'CARDIO', 'REST'],
+  func_bb:        ['PUSH', 'PULL', 'LEGS', 'UPPER', 'LOWER', 'FULL', 'PUSH_LOWER', 'PULL_UPPER', 'STRENGTH', 'POWER', 'CARDIO', 'ACTIVE_RECOVERY', 'REST'],
+  // New programs
+  phul:  ['POWER_UPPER', 'POWER_LOWER', 'HYPER_UPPER', 'HYPER_LOWER', 'CARDIO', 'REST'],
+  phat:  ['POWER_UPPER', 'POWER_LOWER', 'REST', 'HYPER_BACK_SHOULDERS', 'HYPER_LOWER', 'HYPER_CHEST_ARMS', 'REST'],
+  gzclp: ['SQUAT_T1', 'BENCH_T1', 'DEADLIFT_T1', 'OHP_T1', 'CARDIO', 'REST'],
 };
 
 const SPLIT_PRESETS = {
@@ -89,6 +98,17 @@ const SPLIT_PRESETS = {
     { name: '5-Day Hybrid Strength', days: ['PUSH_LOWER', 'PULL_UPPER', 'REST', 'LEGS', 'FULL', 'CARDIO', 'REST'] },
     { name: '6-Day PPL x2',          days: ['PUSH', 'PULL', 'LEGS', 'PUSH', 'PULL', 'LEGS', 'REST'] },
   ],
+  // New programs
+  phul: [
+    { name: 'Standard PHUL 4-Day',  days: ['POWER_UPPER', 'POWER_LOWER', 'REST', 'HYPER_UPPER', 'HYPER_LOWER', 'REST', 'REST'] },
+  ],
+  phat: [
+    { name: 'Standard PHAT 5-Day',  days: ['POWER_UPPER', 'POWER_LOWER', 'REST', 'HYPER_BACK_SHOULDERS', 'HYPER_LOWER', 'HYPER_CHEST_ARMS', 'REST'] },
+  ],
+  gzclp: [
+    { name: 'GZCLP A/B 3-Day',     days: ['SQUAT_T1', 'BENCH_T1', 'REST', 'DEADLIFT_T1', 'OHP_T1', 'REST', 'REST'] },
+    { name: 'GZCLP 4-Day Frequency',days: ['SQUAT_T1', 'BENCH_T1', 'REST', 'DEADLIFT_T1', 'SQUAT_T1', 'OHP_T1', 'REST'] },
+  ],
 };
 
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -103,6 +123,12 @@ const DAY_TYPE_ABBR = {
   SPEED: 'SPD', POWER: 'POW', CONDITIONING: 'CON',
   HIIT: 'HIT',
   PUSH_LOWER: 'P+L', PULL_UPPER: 'PU+',
+  // PHUL
+  POWER_UPPER: 'P-U', POWER_LOWER: 'P-L', HYPER_UPPER: 'H-U', HYPER_LOWER: 'H-L',
+  // PHAT
+  HYPER_BACK_SHOULDERS: 'HBS', HYPER_CHEST_ARMS: 'HCA',
+  // GZCLP
+  SQUAT_T1: 'SQT', BENCH_T1: 'BNC', DEADLIFT_T1: 'DL', OHP_T1: 'OHP',
   CARDIO: 'CAR', ACTIVE_RECOVERY: 'AR', REST: '—',
 };
 
@@ -198,6 +224,184 @@ const RP_EXERCISES = {
 const RP_PUMP = ['💀 None', '😐 Low', '💪 Mod', '🔥 Great', '🌋 Insane'];
 const RP_WORKLOAD = ['🐌 Easy', '😎 Pretty', '😅 Avg', '😤 Pushed', '💀 Too Much'];
 const RP_SORENESS = ['😴 None', '😌 Healed', '😬 A Bit', '🥵 Sore', '🪦 Crushed'];
+
+// ============================================================
+// NEW PROGRAM DATA — PHUL, PHAT, GZCLP
+// Real proven programs with proper structure
+// ============================================================
+
+// PHUL — Power Hypertrophy Upper Lower (Nick Nilsson)
+// Mon: Power Upper, Tue: Power Lower, Thu: Hyper Upper, Fri: Hyper Lower
+const PHUL_EXERCISES = {
+  POWER_UPPER: {
+    exercises: [
+      { name: 'Barbell Bench Press',     muscle: 'Chest',     sets: '4', reps: '3-5',  tempo: '20X1', rest: '3min', note: 'Max strength focus. Full ROM. Control descent. Drive hard.' },
+      { name: 'Incline DB Press',        muscle: 'Chest',     sets: '4', reps: '6-8',  tempo: '21X1', rest: '2min', note: 'Secondary press. 30° incline. Heavier than hypertrophy day.' },
+      { name: 'Barbell Row',             muscle: 'Back',      sets: '4', reps: '3-5',  tempo: '20X1', rest: '3min', note: 'Power row. Explosive pull. Heavy. Hinge 45°.' },
+      { name: 'Lat Pulldown',            muscle: 'Back',      sets: '4', reps: '6-8',  tempo: '21X1', rest: '2min', note: 'Vertical pull. Full stretch at top.' },
+      { name: 'Overhead Press',          muscle: 'Shoulders', sets: '3', reps: '5-7',  tempo: '20X1', rest: '2min', note: 'Strict. No leg drive. Build pressing strength overhead.' },
+      { name: 'Barbell Curl',            muscle: 'Biceps',    sets: '3', reps: '6-8',  tempo: '20X1', rest: '90s',  note: 'Strength curl. Heavier than hypertrophy day. No swing.' },
+      { name: 'Skull Crusher',           muscle: 'Triceps',   sets: '3', reps: '6-8',  tempo: '31X0', rest: '90s',  note: 'Heavy tricep. Slow descent. Elbows in.' },
+    ],
+    finisher: 'None — power day. Get out.',
+  },
+  POWER_LOWER: {
+    exercises: [
+      { name: 'Back Squat',              muscle: 'Quads',      sets: '4', reps: '3-5',  tempo: '20X1', rest: '3min', note: 'Power squat. Belt if needed above 90%. Depth below parallel.' },
+      { name: 'Deadlift',                muscle: 'Hamstrings', sets: '4', reps: '3-5',  tempo: '20X1', rest: '3min', note: 'Conventional. Heaviest movement of the week. Setup is everything.' },
+      { name: 'Leg Press',               muscle: 'Quads',      sets: '3', reps: '6-8',  tempo: '20X1', rest: '2min', note: 'Quad strength volume after squat. Full ROM. Don\'t lock out.' },
+      { name: 'Romanian Deadlift',       muscle: 'Hamstrings', sets: '3', reps: '5-7',  tempo: '31X0', rest: '2min', note: 'Hip hinge. Soft knees. Feel the hamstring stretch.' },
+      { name: 'Leg Curl',                muscle: 'Hamstrings', sets: '3', reps: '6-8',  tempo: '21X0', rest: '90s',  note: 'Hamstring isolation. 1s pause at contraction.' },
+      { name: 'Standing Calf Raise',     muscle: 'Calves',     sets: '4', reps: '8-10', tempo: '20X1', rest: '60s',  note: 'Heavy. Full ROM — big stretch at bottom.' },
+    ],
+    finisher: 'None — power day. Eat and recover.',
+  },
+  HYPER_UPPER: {
+    exercises: [
+      { name: 'Incline Barbell Press',   muscle: 'Chest',     sets: '4', reps: '8-12', tempo: '21X1', rest: '90s', note: 'Hypertrophy chest. Squeeze at top. Controlled descent.' },
+      { name: 'Flat DB Press',           muscle: 'Chest',     sets: '4', reps: '10-12',tempo: '21X1', rest: '90s', note: 'Second press. Full stretch. Lighter than power day.' },
+      { name: 'Cable Fly',               muscle: 'Chest',     sets: '3', reps: '12-15',tempo: '20X1', rest: '60s', note: 'Isolation. Constant tension. Squeeze at peak contraction.' },
+      { name: 'Weighted Pull-Up',        muscle: 'Back',      sets: '4', reps: '8-12', tempo: '20X1', rest: '90s', note: 'Vertical pull for back width. Full hang.' },
+      { name: 'Seated Cable Row',        muscle: 'Back',      sets: '4', reps: '10-12',tempo: '21X1', rest: '90s', note: 'Mid-back thickness. 1s pause at contraction.' },
+      { name: 'DB Shoulder Press',       muscle: 'Shoulders', sets: '3', reps: '10-12',tempo: '20X1', rest: '60s', note: 'Shoulder volume. Strict. Control.' },
+      { name: 'Lateral Raise',           muscle: 'Shoulders', sets: '3', reps: '12-15',tempo: '20X1', rest: '60s', note: 'Lead with elbow. Light and controlled. High rep for growth.' },
+      { name: 'Face Pull',               muscle: 'Shoulders', sets: '3', reps: '15-20',tempo: '20X1', rest: '45s', note: 'External rotation health. Always included.' },
+      { name: 'Incline DB Curl',         muscle: 'Biceps',    sets: '3', reps: '10-12',tempo: '31X0', rest: '60s', note: 'Long head stretch. Max bicep stimulus.' },
+      { name: 'Overhead Tricep Ext',     muscle: 'Triceps',   sets: '3', reps: '10-12',tempo: '31X0', rest: '60s', note: 'Long head. Full stretch overhead.' },
+    ],
+    finisher: '3 sets: 15 cable fly + 15 pushdown + 10 curls — no rest between (tri-set pump)',
+  },
+  HYPER_LOWER: {
+    exercises: [
+      { name: 'Front Squat',             muscle: 'Quads',      sets: '4', reps: '8-12', tempo: '21X1', rest: '90s', note: 'Quad dominant. Upright torso. More volume than power day.' },
+      { name: 'Hack Squat',              muscle: 'Quads',      sets: '4', reps: '10-12',tempo: '21X1', rest: '90s', note: 'Quad isolation machine. Heels forward. Deepest ROM you can do.' },
+      { name: 'Leg Extension',           muscle: 'Quads',      sets: '3', reps: '12-15',tempo: '21X0', rest: '60s', note: '1s hold at top. Full quad isolation.' },
+      { name: 'Romanian Deadlift',       muscle: 'Hamstrings', sets: '4', reps: '10-12',tempo: '31X0', rest: '90s', note: 'Hamstring stretch. Hip hinge only.' },
+      { name: 'Lying Leg Curl',          muscle: 'Hamstrings', sets: '3', reps: '12-15',tempo: '21X0', rest: '60s', note: 'Full ROM. Squeeze hard at contraction.' },
+      { name: 'Hip Thrust',              muscle: 'Glutes',     sets: '3', reps: '12-15',tempo: '11X1', rest: '60s', note: 'Glute isolation. Full extension at top. Pause 1s.' },
+      { name: 'Seated Calf Raise',       muscle: 'Calves',     sets: '4', reps: '15-20',tempo: '20X1', rest: '45s', note: 'Soleus focus. Full stretch at bottom — most people skip this.' },
+    ],
+    finisher: '4 × 20 walking lunges — bodyweight only. Finisher for legs.',
+  },
+};
+
+// PHAT — Power Hypertrophy Adaptive Training (Dr. Layne Norton)
+// Mon: Power Upper, Tue: Power Lower, Wed: REST
+// Thu: Back/Shoulders Hypertrophy, Fri: Lower Hypertrophy, Sat: Chest/Arms Hypertrophy
+const PHAT_EXERCISES = {
+  POWER_UPPER: {
+    exercises: [
+      { name: 'Barbell Row',             muscle: 'Back',      sets: '4', reps: '3-5',  tempo: '20X1', rest: '3min', note: 'PHAT day 1 starts with rows. Build the back before you press.' },
+      { name: 'Pull-Up',                 muscle: 'Back',      sets: '4', reps: '6-10', tempo: '20X1', rest: '2min', note: 'Vertical pull. Add weight if 10+ is easy.' },
+      { name: 'Barbell Bench Press',     muscle: 'Chest',     sets: '4', reps: '3-5',  tempo: '20X1', rest: '3min', note: 'Power bench. Heavier than hypertrophy days. Best set counts.' },
+      { name: 'Overhead Press',          muscle: 'Shoulders', sets: '3', reps: '5-7',  tempo: '20X1', rest: '2min', note: 'Strict overhead strength.' },
+      { name: 'Barbell Curl',            muscle: 'Biceps',    sets: '3', reps: '5-7',  tempo: '20X1', rest: '90s',  note: 'Strength curl. Controlled but heavy.' },
+      { name: 'Close-Grip Bench Press',  muscle: 'Triceps',   sets: '3', reps: '5-7',  tempo: '20X1', rest: '90s',  note: 'Tricep strength compound.' },
+    ],
+    finisher: 'None — power day.',
+  },
+  POWER_LOWER: {
+    exercises: [
+      { name: 'Back Squat',              muscle: 'Quads',      sets: '5', reps: '3-5',  tempo: '20X1', rest: '3min', note: 'Layne Norton\'s squat: controlled eccentric, explosive concentric.' },
+      { name: 'Hack Squat',              muscle: 'Quads',      sets: '3', reps: '5-8',  tempo: '21X1', rest: '2min', note: 'Second quad movement. Heavier than hypertrophy days.' },
+      { name: 'Leg Press',               muscle: 'Quads',      sets: '3', reps: '5-8',  tempo: '20X1', rest: '2min', note: 'Volume after squat and hack.' },
+      { name: 'Romanian Deadlift',       muscle: 'Hamstrings', sets: '4', reps: '5-7',  tempo: '31X0', rest: '2min', note: 'Hip hinge. Build posterior chain strength.' },
+      { name: 'Seated Leg Curl',         muscle: 'Hamstrings', sets: '3', reps: '5-8',  tempo: '21X0', rest: '90s',  note: 'Seated leg curl keeps constant tension. Power rep range.' },
+      { name: 'Calf Press',              muscle: 'Calves',     sets: '5', reps: '8-10', tempo: '20X1', rest: '60s',  note: 'Layne trains calves heavy. Full ROM is non-negotiable.' },
+    ],
+    finisher: 'None — power day.',
+  },
+  HYPER_BACK_SHOULDERS: {
+    exercises: [
+      { name: 'Seated Cable Row',        muscle: 'Back',      sets: '4', reps: '8-12', tempo: '21X1', rest: '90s', note: 'Horizontal pull. 3× speed of Monday.' },
+      { name: 'Lat Pulldown',            muscle: 'Back',      sets: '4', reps: '10-12',tempo: '21X1', rest: '90s', note: 'Vertical pull. Pause at contraction.' },
+      { name: 'Chest-Supported DB Row',  muscle: 'Back',      sets: '3', reps: '12-15',tempo: '20X1', rest: '60s', note: 'Pure back — no lower back.' },
+      { name: 'Rear Delt Cable Fly',     muscle: 'Shoulders', sets: '3', reps: '15-20',tempo: '20X1', rest: '45s', note: 'Posterior shoulder health. Always included.' },
+      { name: 'DB Shoulder Press',       muscle: 'Shoulders', sets: '4', reps: '10-12',tempo: '20X1', rest: '90s', note: 'Hypertrophy shoulder. Controlled.' },
+      { name: 'Cable Lateral Raise',     muscle: 'Shoulders', sets: '4', reps: '12-15',tempo: '20X1', rest: '60s', note: 'Constant tension. Side delt development.' },
+      { name: 'Face Pull',               muscle: 'Shoulders', sets: '3', reps: '15-20',tempo: '20X1', rest: '45s', note: 'Rear delt + external rotation. Shoulder health end of every back day.' },
+    ],
+    finisher: '2 × 20 band pull-aparts superset with 20 cable lateral raises',
+  },
+  HYPER_LOWER: {
+    exercises: [
+      { name: 'Leg Press',               muscle: 'Quads',      sets: '5', reps: '15-20',tempo: '21X1', rest: '90s', note: 'PHAT high-rep leg press. Layne loves volume. Full ROM.' },
+      { name: 'Hack Squat',              muscle: 'Quads',      sets: '4', reps: '12-15',tempo: '21X1', rest: '90s', note: 'Quad hypertrophy. More reps than power day.' },
+      { name: 'Leg Extension',           muscle: 'Quads',      sets: '4', reps: '15-20',tempo: '21X0', rest: '60s', note: '1s hold at top. Burn the quads out.' },
+      { name: 'Romanian Deadlift',       muscle: 'Hamstrings', sets: '4', reps: '10-12',tempo: '31X0', rest: '90s', note: 'Moderate RDL for hypertrophy. Feel the stretch.' },
+      { name: 'Lying Leg Curl',          muscle: 'Hamstrings', sets: '4', reps: '12-15',tempo: '21X0', rest: '60s', note: 'Full contraction hamstring.' },
+      { name: 'Hip Thrust',              muscle: 'Glutes',     sets: '4', reps: '12-15',tempo: '11X1', rest: '60s', note: 'Glute maximum stimulus. 1s hold at top.' },
+      { name: 'Seated Calf Raise',       muscle: 'Calves',     sets: '5', reps: '20-25',tempo: '20X1', rest: '45s', note: 'High rep calves. Soleus. Full ROM.' },
+    ],
+    finisher: 'Walking lunges 3 × 20 steps + bodyweight squats 3 × 20',
+  },
+  HYPER_CHEST_ARMS: {
+    exercises: [
+      { name: 'Incline DB Press',        muscle: 'Chest',     sets: '4', reps: '12-15',tempo: '21X1', rest: '90s', note: 'Upper chest emphasis. 3× the volume of Monday\'s power.' },
+      { name: 'Flat DB Fly',             muscle: 'Chest',     sets: '4', reps: '12-15',tempo: '21X0', rest: '60s', note: 'Pec stretch isolation. Full ROM.' },
+      { name: 'Machine Chest Press',     muscle: 'Chest',     sets: '3', reps: '15-20',tempo: '21X0', rest: '60s', note: 'Pump finisher. Constant tension.' },
+      { name: 'Preacher Curl',           muscle: 'Biceps',    sets: '4', reps: '10-12',tempo: '31X0', rest: '60s', note: 'Short head isolation. No swing.' },
+      { name: 'Incline DB Curl',         muscle: 'Biceps',    sets: '4', reps: '12-15',tempo: '31X0', rest: '60s', note: 'Long head stretch. Layne\'s favourite.' },
+      { name: 'Cable Curl',              muscle: 'Biceps',    sets: '3', reps: '15-20',tempo: '20X1', rest: '45s', note: 'Constant tension pump set.' },
+      { name: 'Overhead Tricep Ext',     muscle: 'Triceps',   sets: '4', reps: '10-12',tempo: '31X0', rest: '60s', note: 'Long head. Full stretch.' },
+      { name: 'Rope Pushdown',           muscle: 'Triceps',   sets: '4', reps: '12-15',tempo: '20X1', rest: '60s', note: 'Spread rope at bottom. Squeeze both heads.' },
+      { name: 'Reverse Curl',            muscle: 'Biceps',    sets: '3', reps: '12-15',tempo: '20X1', rest: '45s', note: 'Brachioradialis and brachialis. Overhand grip.' },
+    ],
+    finisher: '21s barbell curl × 2 sets + max pushdowns × 2 sets',
+  },
+};
+
+// GZCLP — Zac Cain LP (Linear Progression)
+// Tier 1 (T1): 5×3 heavy compounds, linear progression each session
+// Tier 2 (T2): 3×10 accessory compounds, add weight when 3×10 is complete
+// Tier 3 (T3): 3×15+ isolation, progress reps before weight
+const GZCLP_EXERCISES = {
+  SQUAT_T1: {
+    exercises: [
+      { name: 'Back Squat',         muscle: 'Quads',      sets: '5', reps: '3',    tempo: '20X1', rest: '3min', note: 'T1 — Add 10 lbs each session. When you fail, drop to 6×2. When you fail 6×2, drop to 10×1.' },
+      { name: 'Romanian Deadlift',  muscle: 'Hamstrings', sets: '3', reps: '10',   tempo: '31X0', rest: '2min', note: 'T2 — Add 10 lbs when 3×10 is complete.' },
+      { name: 'Leg Press',          muscle: 'Quads',      sets: '3', reps: '15',   tempo: '21X1', rest: '90s',  note: 'T2 secondary — increase reps to 25 before adding weight.' },
+      { name: 'Leg Curl',           muscle: 'Hamstrings', sets: '3', reps: '15+',  tempo: '21X0', rest: '60s',  note: 'T3 — Progress reps 15→25 then add weight.' },
+      { name: 'Calf Raise',         muscle: 'Calves',     sets: '3', reps: '15+',  tempo: '20X1', rest: '60s',  note: 'T3 — High rep, full ROM.' },
+    ],
+    finisher: 'None — GZCLP is focused. Get in, add weight, get out.',
+  },
+  BENCH_T1: {
+    exercises: [
+      { name: 'Barbell Bench Press', muscle: 'Chest',    sets: '5', reps: '3',    tempo: '20X1', rest: '3min', note: 'T1 — Add 5 lbs each session. Fail → 6×2. Fail again → 10×1. Then reset to 85%.' },
+      { name: 'Barbell Row',         muscle: 'Back',     sets: '3', reps: '10',   tempo: '20X1', rest: '2min', note: 'T2 — Add 10 lbs when 3×10 is done. Pendlay style.' },
+      { name: 'Incline DB Press',    muscle: 'Chest',    sets: '3', reps: '15',   tempo: '21X1', rest: '90s',  note: 'T2 secondary — secondary pressing volume.' },
+      { name: 'Lat Pulldown',        muscle: 'Back',     sets: '3', reps: '15+',  tempo: '21X1', rest: '60s',  note: 'T3 — Vertical pulling volume.' },
+      { name: 'Lateral Raise',       muscle: 'Shoulders',sets: '3', reps: '15+',  tempo: '20X1', rest: '60s',  note: 'T3 — Shoulder health and width.' },
+    ],
+    finisher: 'None — GZCLP. Linear progression is the goal.',
+  },
+  DEADLIFT_T1: {
+    exercises: [
+      { name: 'Deadlift',            muscle: 'Hamstrings',sets: '5', reps: '3',    tempo: '20X1', rest: '3min', note: 'T1 — Add 10 lbs each session. Conventional. Focus setup before every single rep.' },
+      { name: 'Front Squat',         muscle: 'Quads',    sets: '3', reps: '10',   tempo: '21X1', rest: '2min', note: 'T2 — Quad volume. Add 5 lbs per session when 3×10 is complete.' },
+      { name: 'Leg Press',           muscle: 'Quads',    sets: '3', reps: '15',   tempo: '21X1', rest: '90s',  note: 'T2 — Volume accumulation.' },
+      { name: 'Good Morning',        muscle: 'Hamstrings',sets: '3', reps: '15+', tempo: '31X0', rest: '60s',  note: 'T3 — Posterior chain. Light. Hamstring and lower back health.' },
+      { name: 'Ab Wheel Rollout',    muscle: 'Core',     sets: '3', reps: '10+',  tempo: '20X1', rest: '60s',  note: 'T3 — Core. Progress reps then add difficulty.' },
+    ],
+    finisher: 'None — deadlift day is the hardest day. Recover.',
+  },
+  OHP_T1: {
+    exercises: [
+      { name: 'Overhead Press',      muscle: 'Shoulders',sets: '5', reps: '3',    tempo: '20X1', rest: '3min', note: 'T1 — Add 5 lbs each session. OHP progresses slowest. Strict. No leg drive.' },
+      { name: 'Pull-Up',             muscle: 'Back',     sets: '3', reps: '10',   tempo: '20X1', rest: '2min', note: 'T2 — Add weight when 3×10 is complete. Negatives if needed.' },
+      { name: 'DB Bench Press',      muscle: 'Chest',    sets: '3', reps: '15',   tempo: '21X1', rest: '90s',  note: 'T2 — Horizontal press secondary. More reps than T1 day.' },
+      { name: 'Face Pull',           muscle: 'Shoulders',sets: '3', reps: '15+',  tempo: '20X1', rest: '60s',  note: 'T3 — Rear delt + external rotation. OHP days need extra rear delt work.' },
+      { name: 'Tricep Pushdown',     muscle: 'Triceps',  sets: '3', reps: '15+',  tempo: '20X1', rest: '60s',  note: 'T3 — Tricep isolation after heavy overhead pressing.' },
+    ],
+    finisher: 'None — GZCLP. Show up. Add weight. Go home.',
+  },
+};
+
+// Default schedules for new programs
+const PHUL_DEFAULT_SCHEDULE    = ['POWER_UPPER', 'POWER_LOWER', 'REST', 'HYPER_UPPER', 'HYPER_LOWER', 'REST', 'REST'];
+const PHAT_DEFAULT_SCHEDULE    = ['POWER_UPPER', 'POWER_LOWER', 'REST', 'HYPER_BACK_SHOULDERS', 'HYPER_LOWER', 'HYPER_CHEST_ARMS', 'REST'];
+const GZCLP_DEFAULT_SCHEDULE   = ['SQUAT_T1', 'BENCH_T1', 'REST', 'DEADLIFT_T1', 'OHP_T1', 'REST', 'REST'];
 
 // ============================================================
 // A/B EXERCISE VARIATION — non-RP styles
@@ -1441,6 +1645,96 @@ const GOAL_OPTIONS = [
 
 const PROGRAM_LENGTHS = [4, 8, 10, 12, 16];
 
+// ── CARDIO PRESCRIPTION ENGINE ──────────────────────────────
+// Prescribes 3x/week walking/running based on goal + current progress
+// Returns sessions the user should do this week
+
+const prescribeCardio = (profile, currentWeight, macros) => {
+  const goal = profile.goal || 'recomp';
+  const cw = currentWeight || profile.weight;
+  const target = profile.target || cw;
+  const lbsToGo = cw - target;
+  const weeksLeft = macros?.weeksLeft || 8;
+  const recentTrend = macros?.recentTrend; // lbs/week, negative = losing
+  const weightKg = cw * 0.453592;
+
+  // Base cardio calories burned per session (active only) — used for Apple Watch ring target
+  const walkCalPerMin   = (3.5 * weightKg * 3.5) / 200; // MET 3.5 walking
+  const easyRunCalPerMin = (8.0 * weightKg * 3.5) / 200; // MET 8.0 easy run
+  const tempoCalPerMin  = (10.0 * weightKg * 3.5) / 200; // MET 10 tempo
+
+  // Steps at typical cadences
+  const stepsPerMile = 2100; // average
+
+  const sessions = [];
+
+  if (goal === 'fatloss') {
+    // Determine aggressiveness based on progress
+    const onTrack = recentTrend !== null && (-recentTrend) >= 0.5; // losing ≥0.5/week
+    const behindSchedule = lbsToGo > 5 && weeksLeft <= 6;
+    const atGoal = lbsToGo <= 0;
+
+    if (atGoal) {
+      // Maintenance cardio — keep the habit
+      sessions.push(
+        { label: 'Morning Walk', timing: 'morning', type: 'walk', dur: 30, dist: 1.5, steps: Math.round(1.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 30), zone: '1-2', note: 'You\'ve hit your goal. Keep the habit. Easy pace, breathe through your nose.' },
+        { label: 'Zone 2 Walk/Run', timing: 'evening', type: 'walk', dur: 30, dist: 1.8, steps: Math.round(1.8 * stepsPerMile), cal: Math.round(walkCalPerMin * 30), zone: '2', note: 'Conversational pace. This is maintenance — not exercise, it\'s lifestyle.' },
+        { label: 'Long Walk', timing: 'morning', type: 'walk', dur: 45, dist: 2.5, steps: Math.round(2.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 45), zone: '1-2', note: 'Get outside. 45 min easy. No phone. Mental recovery.' },
+      );
+    } else if (behindSchedule) {
+      // Behind — ramp up cardio to assist deficit
+      sessions.push(
+        { label: 'Fasted Morning Walk', timing: 'fasted morning', type: 'walk', dur: 45, dist: 2.5, steps: Math.round(2.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 45), zone: '2', note: 'Before breakfast. Fasted cardio taps into fat stores. Keep it Zone 2 or it burns muscle.' },
+        { label: 'Post-Workout Incline Walk', timing: 'post-workout', type: 'walk', dur: 30, dist: 1.5, steps: Math.round(1.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 30), zone: '2', note: 'Treadmill at 10-12% incline, 3.0 mph. Best fat-burn finisher after lifting. No impact on recovery.' },
+        { label: 'Easy Evening Run', timing: 'evening', type: 'run', dur: 25, dist: 2.0, steps: Math.round(2.0 * stepsPerMile), cal: Math.round(easyRunCalPerMin * 25), zone: '2-3', note: 'Conversational pace. You should be able to say full sentences. If not, slow down.' },
+      );
+    } else if (!onTrack) {
+      // Not losing fast enough — moderate increase
+      sessions.push(
+        { label: 'Fasted Morning Walk', timing: 'fasted morning', type: 'walk', dur: 40, dist: 2.2, steps: Math.round(2.2 * stepsPerMile), cal: Math.round(walkCalPerMin * 40), zone: '2', note: 'Zone 2 before eating. 40 min steady. This is where fat loss cardio lives — not sprinting.' },
+        { label: 'Incline Walk', timing: 'post-workout', type: 'walk', dur: 25, dist: 1.2, steps: Math.round(1.2 * stepsPerMile), cal: Math.round(walkCalPerMin * 25), zone: '2', note: 'Post-lifting incline walk burns ~200 cal without taxing recovery. 10% incline, 3.0-3.5 mph.' },
+        { label: 'Easy Run', timing: 'morning', type: 'run', dur: 20, dist: 1.8, steps: Math.round(1.8 * stepsPerMile), cal: Math.round(easyRunCalPerMin * 20), zone: '2', note: 'Slow and easy. This is not a race. Heart rate under 140 bpm. Builds aerobic base.' },
+      );
+    } else {
+      // On track — maintain current cardio, don't overdo it
+      sessions.push(
+        { label: 'Morning Walk', timing: 'morning', type: 'walk', dur: 35, dist: 2.0, steps: Math.round(2.0 * stepsPerMile), cal: Math.round(walkCalPerMin * 35), zone: '2', note: 'On track! Keep cardio moderate. Too much and you\'ll spike cortisol and slow muscle retention.' },
+        { label: 'Post-Workout Walk', timing: 'post-workout', type: 'walk', dur: 20, dist: 1.0, steps: Math.round(1.0 * stepsPerMile), cal: Math.round(walkCalPerMin * 20), zone: '1-2', note: 'Cooldown + fat burn. Low-intensity after lifting is optimal for fat mobilization.' },
+        { label: 'Zone 2 Run or Walk', timing: 'evening', type: 'run', dur: 25, dist: 2.0, steps: Math.round(2.0 * stepsPerMile), cal: Math.round(easyRunCalPerMin * 25), zone: '2', note: 'Run if you feel good, walk if legs are sore. Zone 2 is the goal either way.' },
+      );
+    }
+  } else if (goal === 'muscle') {
+    // Minimal cardio — just enough for heart health + keep insulin sensitivity
+    sessions.push(
+      { label: 'Easy Walk', timing: 'morning', type: 'walk', dur: 25, dist: 1.3, steps: Math.round(1.3 * stepsPerMile), cal: Math.round(walkCalPerMin * 25), zone: '1-2', note: 'Muscle building: cardio is just for heart health. Keep it easy or you\'ll eat into your surplus.' },
+      { label: 'Post-Workout Walk', timing: 'post-workout', type: 'walk', dur: 15, dist: 0.8, steps: Math.round(0.8 * stepsPerMile), cal: Math.round(walkCalPerMin * 15), zone: '1', note: 'Just a 15-min walk for blood flow and recovery. Do NOT run — keep the calories.' },
+      { label: 'Rest Day Walk', timing: 'morning', type: 'walk', dur: 30, dist: 1.5, steps: Math.round(1.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 30), zone: '1-2', note: 'On a rest day. Active recovery. Promotes nutrient delivery to recovering muscles.' },
+    );
+  } else if (goal === 'recomp') {
+    sessions.push(
+      { label: 'Zone 2 Walk', timing: 'morning', type: 'walk', dur: 35, dist: 2.0, steps: Math.round(2.0 * stepsPerMile), cal: Math.round(walkCalPerMin * 35), zone: '2', note: 'Zone 2 cardio builds mitochondrial density — key for recomp. 35 min before or after eating.' },
+      { label: 'Easy Run', timing: 'morning', type: 'run', dur: 20, dist: 1.8, steps: Math.round(1.8 * stepsPerMile), cal: Math.round(easyRunCalPerMin * 20), zone: '2', note: 'Light jog. Improves insulin sensitivity which directly helps recomp.' },
+      { label: 'Post-Workout Walk', timing: 'post-workout', type: 'walk', dur: 20, dist: 1.0, steps: Math.round(1.0 * stepsPerMile), cal: Math.round(walkCalPerMin * 20), zone: '1-2', note: 'After lifting. Blood flow promotes recovery and muscle protein synthesis.' },
+    );
+  } else if (goal === 'performance') {
+    // 2 easy + 1 tempo
+    sessions.push(
+      { label: 'Easy Aerobic Run', timing: 'morning', type: 'run', dur: 30, dist: 2.8, steps: Math.round(2.8 * stepsPerMile), cal: Math.round(easyRunCalPerMin * 30), zone: '2', note: 'Base building. Conversational pace. Performance athletes need an aerobic base — this is it.' },
+      { label: 'Tempo Run', timing: 'morning', type: 'run', dur: 20, dist: 2.2, steps: Math.round(2.2 * stepsPerMile), cal: Math.round(tempoCalPerMin * 20), zone: '3-4', note: 'Comfortably hard. You can say a few words but not full sentences. 80% effort. Builds lactate threshold.' },
+      { label: 'Recovery Walk', timing: 'evening', type: 'walk', dur: 25, dist: 1.3, steps: Math.round(1.3 * stepsPerMile), cal: Math.round(walkCalPerMin * 25), zone: '1', note: 'Flush soreness. Easy walk. This is recovery, not training.' },
+    );
+  } else {
+    // maintain
+    sessions.push(
+      { label: 'Walk', timing: 'morning', type: 'walk', dur: 30, dist: 1.5, steps: Math.round(1.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 30), zone: '2', note: 'Maintenance cardio. Good for heart, joints, sleep, and stress.' },
+      { label: 'Walk', timing: 'evening', type: 'walk', dur: 30, dist: 1.5, steps: Math.round(1.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 30), zone: '2', note: 'Evening walk is one of the best things you can do for blood sugar and sleep quality.' },
+      { label: 'Easy Run', timing: 'morning', type: 'run', dur: 20, dist: 1.8, steps: Math.round(1.8 * stepsPerMile), cal: Math.round(easyRunCalPerMin * 20), zone: '2', note: 'Light jog. Keep it easy. Consistency beats intensity for maintenance.' },
+    );
+  }
+
+  return sessions;
+};
+
 const TABS = [
   { id: 'dashboard', label: 'DASH' },
   { id: 'workouts', label: 'WORKOUTS' },
@@ -1512,22 +1806,190 @@ const calcBMR = (weightLb, heightCm, age, sex) => {
   return 10 * kg + 6.25 * heightCm - 5 * age + 5;
 };
 
-// Macros from profile (uses currentWeight = most recent weight log)
-const calcMacros = (profile, currentWeight) => {
-  const w = currentWeight || profile.weight;
+// ── MACRO COACHING ENGINE ────────────────────────────────────
+// Safe rate constants (evidence-based)
+const SAFE_MAX_LOSS_PER_WEEK   = 1.5;  // lbs — above this risks muscle loss and metabolic adaptation
+const SAFE_MIN_LOSS_PER_WEEK   = 0.25; // lbs — below this and deficit is meaningful but gentle
+const SAFE_MAX_GAIN_PER_WEEK   = 0.5;  // lbs — above this causes excess fat gain
+const SAFE_MIN_DEFICIT         = 250;  // cal/day — below this isn't meaningful
+const SAFE_MAX_DEFICIT         = 750;  // cal/day — hard cap, above risks muscle loss + metabolic slowdown
+const SAFE_MAX_SURPLUS         = 400;  // cal/day — above this gains fat too fast
+const ABSOLUTE_MIN_CALORIES    = 1400; // cal/day — hard floor, never below this
+const WEEKS_TO_SUGGEST_EXTEND  = 4;    // if goal requires more than 4 extra weeks, strongly suggest extension
+
+// Compute weeks elapsed from startDate to today
+const getWeeksElapsed = (startDate) => {
+  if (!startDate) return 0;
+  const ms = isoToDate(todayISO()) - isoToDate(startDate);
+  return Math.max(0, Math.floor(ms / (7 * 86400000)));
+};
+
+// Main macro coaching calculation — returns macros + full advisory
+const calcMacros = (profile, currentWeight, wlog) => {
+  const cw = currentWeight || profile.weight;
+  const target = profile.target || cw;
   const heightCm = parseHeight(profile.height) || 175;
-  const bmr = calcBMR(w, heightCm, profile.age || 30, profile.sex || 'male');
+  const age = profile.age || 30;
+  const sex = profile.sex || 'male';
   const actLevel = ACTIVITY_LEVELS.find((a) => a.id === profile.activity) || ACTIVITY_LEVELS[2];
-  const tdee = bmr * actLevel.mult;
-  const goal = GOAL_OPTIONS.find((g) => g.id === profile.goal) || GOAL_OPTIONS[2];
-  const calories = Math.round(tdee + goal.adj);
-  // Protein: max(current, target) lbs in grams
-  const proteinAnchor = Math.max(w, profile.target || w);
-  const protein = Math.round(proteinAnchor);
+  const bmr = calcBMR(cw, heightCm, age, sex);
+  const tdee = Math.round(bmr * actLevel.mult);
+  const weeksTotal = profile.weeks || 12;
+  const weeksElapsed = getWeeksElapsed(profile.startDate);
+  const weeksLeft = Math.max(1, weeksTotal - weeksElapsed);
+  const lbsToGo = +(cw - target).toFixed(1); // positive=need to lose, negative=need to gain
+
+  // Weekly trend from last 3 weight logs (if available)
+  let recentTrend = null; // lbs/week over last 3 logs
+  if (wlog && wlog.length >= 3) {
+    const sorted = [...wlog].sort((a, b) => a.date < b.date ? 1 : -1);
+    const newest = sorted[0];
+    const third = sorted[2];
+    const weeks = Math.max(0.5, (isoToDate(newest.date) - isoToDate(third.date)) / (7 * 86400000));
+    recentTrend = +((newest.weight - third.weight) / weeks).toFixed(2); // negative = losing
+  }
+
+  let calAdj = 0, protein = Math.round(cw);
+  let advisory = null; // coaching message
+  let suggestWeeks = null; // suggested extension weeks
+  let extendReason = null;
+
+  if (profile.goal === 'fatloss') {
+    if (lbsToGo <= 0) {
+      // At or past goal — switch to maintenance
+      calAdj = 0;
+      protein = Math.round(target * 1.0);
+      advisory = { type: 'success', msg: `You've reached your goal weight! Macros set to maintenance. Consider updating your target or switching to Recomp.` };
+    } else {
+      // How fast do we need to lose to hit goal by program end?
+      const rateNeeded = lbsToGo / weeksLeft; // lbs/week needed
+
+      // Is the goal achievable within program at safe rates?
+      const weeksNeededSafe = Math.ceil(lbsToGo / SAFE_MAX_LOSS_PER_WEEK);
+      const weeksNeededModerate = Math.ceil(lbsToGo / 1.0);
+      const weeksNeededGentle = Math.ceil(lbsToGo / 0.5);
+
+      if (rateNeeded > SAFE_MAX_LOSS_PER_WEEK) {
+        // Can't hit goal safely in remaining time — recommend extension
+        const extraWeeksNeeded = weeksNeededSafe - weeksLeft;
+        suggestWeeks = weeksNeededSafe;
+        extendReason = `losing ${lbsToGo} lbs safely requires ~${weeksNeededSafe} weeks at ${SAFE_MAX_LOSS_PER_WEEK} lbs/week`;
+        // Cap deficit at safe max anyway
+        calAdj = -SAFE_MAX_DEFICIT;
+        advisory = {
+          type: 'extend',
+          msg: `${lbsToGo} lbs in ${weeksLeft} weeks would need ${rateNeeded.toFixed(1)} lbs/week — that's too aggressive and risks muscle loss. Safe rate is max ${SAFE_MAX_LOSS_PER_WEEK} lbs/week. Recommend extending your program by ${extraWeeksNeeded} weeks (to ${weeksTotal + extraWeeksNeeded} total).`,
+          suggestWeeks: weeksNeededSafe,
+          extraWeeks: extraWeeksNeeded,
+        };
+      } else if (rateNeeded < SAFE_MIN_LOSS_PER_WEEK) {
+        // Very gentle rate — ahead of schedule or goal is conservative
+        calAdj = -SAFE_MIN_DEFICIT;
+        advisory = {
+          type: 'gentle',
+          msg: `You're on track — only ${rateNeeded.toFixed(2)} lbs/week needed. Using a gentle ${SAFE_MIN_DEFICIT} cal deficit to preserve metabolism. You may reach goal early.`,
+        };
+      } else {
+        // Within safe range — calculate precise deficit
+        const dailyDeficitNeeded = (rateNeeded * 3500) / 7;
+        calAdj = -Math.round(Math.max(SAFE_MIN_DEFICIT, Math.min(SAFE_MAX_DEFICIT, dailyDeficitNeeded)));
+      }
+
+      // Adjust based on recent trend — if losing too fast, ease up; too slow, tighten
+      if (recentTrend !== null && !advisory) {
+        const actualRate = -recentTrend; // positive = losing
+        if (actualRate > SAFE_MAX_LOSS_PER_WEEK + 0.3) {
+          // Losing too fast — increase calories to protect muscle
+          calAdj = Math.min(-SAFE_MIN_DEFICIT, calAdj + 150);
+          advisory = {
+            type: 'ease',
+            msg: `You're losing ${actualRate.toFixed(1)} lbs/week recently — faster than the safe max of ${SAFE_MAX_LOSS_PER_WEEK}. Increased calories by 150 to protect muscle and keep metabolism healthy.`,
+          };
+        } else if (actualRate < 0.1 && lbsToGo > 2) {
+          // Barely losing — tighten slightly
+          calAdj = Math.max(-SAFE_MAX_DEFICIT, calAdj - 100);
+          advisory = {
+            type: 'tighten',
+            msg: `Recent trend shows minimal loss (${actualRate.toFixed(1)} lbs/week). Reduced calories by 100. Check food logging accuracy and consider a diet break if you've been in deficit over 8 weeks.`,
+          };
+        } else if (actualRate > 0 && lbsToGo > 0) {
+          advisory = {
+            type: 'ontrack',
+            msg: `On track — losing ~${actualRate.toFixed(1)} lbs/week. ${weeksLeft} weeks left, ${lbsToGo} lbs to go. Current deficit adjusted to match your progress.`,
+          };
+        }
+      } else if (!advisory) {
+        advisory = {
+          type: 'ontrack',
+          msg: `${lbsToGo} lbs to go in ${weeksLeft} weeks — targeting ${(lbsToGo / weeksLeft).toFixed(1)} lbs/week. Log weight weekly for best accuracy.`,
+        };
+      }
+
+      // Protein: scales with deficit aggressiveness to preserve muscle
+      const deficitMag = Math.abs(calAdj);
+      const proteinMultiplier = deficitMag >= 600 ? 1.2 : deficitMag >= 400 ? 1.1 : 1.0;
+      protein = Math.round(target * proteinMultiplier);
+    }
+
+  } else if (profile.goal === 'muscle') {
+    const lbsToGain = +(target - cw).toFixed(1);
+    if (lbsToGain <= 0) {
+      calAdj = 100; protein = Math.round(cw * 1.0);
+      advisory = { type: 'success', msg: `Goal weight reached! Small lean bulk surplus maintained. Update your target when ready.` };
+    } else {
+      const rateNeeded = lbsToGain / weeksLeft;
+      if (rateNeeded > SAFE_MAX_GAIN_PER_WEEK) {
+        const extraWeeks = Math.ceil(lbsToGain / SAFE_MAX_GAIN_PER_WEEK) - weeksLeft;
+        calAdj = Math.round((SAFE_MAX_GAIN_PER_WEEK * 3500) / 7);
+        advisory = {
+          type: 'extend',
+          msg: `${lbsToGain} lbs in ${weeksLeft} weeks needs ${rateNeeded.toFixed(2)} lbs/week — above natural max of ${SAFE_MAX_GAIN_PER_WEEK}. Extra weight would be fat, not muscle. Recommend extending by ${extraWeeks} weeks.`,
+          extraWeeks,
+          suggestWeeks: Math.ceil(lbsToGain / SAFE_MAX_GAIN_PER_WEEK),
+        };
+      } else {
+        const dailySurplus = (rateNeeded * 3500) / 7;
+        calAdj = Math.round(Math.max(100, Math.min(SAFE_MAX_SURPLUS, dailySurplus)));
+        if (recentTrend !== null && recentTrend > SAFE_MAX_GAIN_PER_WEEK + 0.2) {
+          calAdj = Math.max(100, calAdj - 100);
+          advisory = { type: 'ease', msg: `Gaining ${recentTrend.toFixed(1)} lbs/week — slightly above ideal. Reduced surplus by 100 cal to minimize fat gain.` };
+        } else {
+          advisory = { type: 'ontrack', msg: `${lbsToGain} lbs to gain in ${weeksLeft} weeks at ~${rateNeeded.toFixed(2)} lbs/week. ${calAdj}cal surplus. Prioritize progressive overload.` };
+        }
+      }
+      protein = Math.round(cw * 1.0);
+    }
+
+  } else if (profile.goal === 'recomp') {
+    calAdj = 0;
+    protein = Math.round(cw * 1.1);
+    advisory = { type: 'info', msg: `Recomp: eating at maintenance. Body fat drops and muscle grows simultaneously at a slower pace. Track body measurements, not just weight.` };
+
+  } else if (profile.goal === 'performance') {
+    calAdj = Math.round(tdee * 0.05);
+    protein = Math.round(cw * 1.1);
+    advisory = { type: 'info', msg: `Performance fueling: ~5% above TDEE to support training adaptations. Adjust if body weight changes faster than 0.5 lbs/week.` };
+
+  } else {
+    calAdj = 0; protein = Math.round(cw);
+  }
+
+  const calories = Math.max(ABSOLUTE_MIN_CALORIES, tdee + calAdj);
   const fat = Math.round((calories * 0.25) / 9);
   const carbsCal = calories - protein * 4 - fat * 9;
   const carbs = Math.max(0, Math.round(carbsCal / 4));
-  return { calories, protein, carbs, fat, bmr: Math.round(bmr), tdee: Math.round(tdee) };
+  const weeklyRate = +((calAdj * 7) / 3500).toFixed(2);
+
+  return {
+    calories, protein, carbs, fat,
+    bmr: Math.round(bmr), tdee,
+    calAdj, weeksLeft, weeksElapsed,
+    weeklyRate,
+    lbsToGo,
+    recentTrend,
+    advisory,
+    suggestWeeks,
+  };
 };
 
 // Brzycki 1RM
@@ -3665,6 +4127,45 @@ const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx, 
     if (result) return result;
   }
 
+  // PHUL — Power Hypertrophy Upper Lower (Nick Nilsson)
+  if (style === 'phul') {
+    const data = PHUL_EXERCISES[t];
+    if (data) {
+      return {
+        exercises: progress(data.exercises),
+        finisher: data.finisher,
+        programNote: t.startsWith('POWER') ? 'POWER DAY — 3-5 rep strength focus. Log every weight.' : 'HYPERTROPHY DAY — 8-15 reps, feel the muscle, chase the pump.',
+      };
+    }
+    if (t === 'CARDIO' || t === 'REST') return null;
+  }
+
+  // PHAT — Power Hypertrophy Adaptive Training (Dr. Layne Norton)
+  if (style === 'phat') {
+    const data = PHAT_EXERCISES[t];
+    if (data) {
+      return {
+        exercises: progress(data.exercises),
+        finisher: data.finisher,
+        programNote: t.startsWith('POWER') ? 'PHAT POWER DAY — Think strength. Heavy compounds. Every set is your best set.' : 'PHAT HYPERTROPHY DAY — Volume is the stimulus. Feel every rep.',
+      };
+    }
+    if (t === 'CARDIO' || t === 'REST') return null;
+  }
+
+  // GZCLP — Zac Cain Linear Progression
+  if (style === 'gzclp') {
+    const data = GZCLP_EXERCISES[t];
+    if (data) {
+      return {
+        exercises: progress(data.exercises),
+        finisher: data.finisher,
+        programNote: 'GZCLP — Add weight every session. T1 moves up 5-10 lbs. If you miss, run the prescribed failure protocol.',
+      };
+    }
+    if (t === 'CARDIO' || t === 'REST') return null;
+  }
+
   // Generic fallback for other styles — A/B variation by occurrence
   if (AB_EXERCISES[t]) {
     const block = blockFor(week);
@@ -4413,7 +4914,9 @@ const SetupScreen = ({ onComplete }) => {
               <div style={{ marginTop: 14, padding: 10, background: CARD2, borderRadius: 6, border: `1px solid ${BORDER}` }}>
                 <div style={{ fontSize: 10, color: ACCENT, letterSpacing: 1, fontFamily: 'Impact, Arial Black, sans-serif', marginBottom: 4 }}>YOUR DAILY TARGETS</div>
                 <div style={{ fontSize: 12, color: '#fff' }}>{macros.calories} kcal · {macros.protein}p · {macros.carbs}c · {macros.fat}f</div>
-                <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 2 }}>BMR {macros.bmr} · TDEE {macros.tdee}</div>
+                <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 2 }}>BMR {macros.bmr} · TDEE {macros.tdee}
+                  {macros.calAdj !== 0 && <span style={{ color: macros.calAdj < 0 ? RED : GREEN }}> · {macros.calAdj > 0 ? '+' : ''}{macros.calAdj} adj</span>}
+                </div>
               </div>
             )}
           </>
@@ -4616,7 +5119,7 @@ const RaceCountdown = ({ profile }) => {
 const Dashboard = ({ state, onTab, onCoachPrompt }) => {
   const { profile, wlog, food, week, sessions } = state;
   const currentWeight = wlog.length ? wlog[wlog.length - 1].weight : profile.weight;
-  const macros = calcMacros(profile, currentWeight);
+  const macros = calcMacros(profile, currentWeight, wlog);
   const todaysFood = food[todayISO()] || [];
   const totals = todaysFood.reduce(
     (acc, f) => ({
@@ -5334,8 +5837,82 @@ const Workouts = ({ state, setState }) => {
                 {exData.fbbPhase.intent.toUpperCase()}
               </div>
             )}
+            {exData?.programNote && (
+              <div style={{ fontSize: 10, color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5, marginTop: 2 }}>
+                {exData.programNote}
+              </div>
+            )}
           </div>
-          {!session?.skipped && !session?.done && dayType !== 'REST' && (
+          {/* Apple Watch calorie burn target */}
+          {dayType !== 'REST' && dayType !== 'ACTIVE_RECOVERY' && (() => {
+            const cw = wlog.length ? [...wlog].sort((a,b) => a.date < b.date ? 1 : -1)[0].weight : profile.weight;
+            const macros = calcMacros(profile, cw, wlog);
+            // MET-based calorie burn estimate per day type
+            // Active calories only (what Apple Watch shows) — not total expenditure
+            const MET_BURN = {
+              PUSH: { met: 5.0, dur: 55, label: 'Strength' },
+              PULL: { met: 5.0, dur: 55, label: 'Strength' },
+              LEGS: { met: 6.0, dur: 60, label: 'Legs heavy' },
+              UPPER: { met: 5.0, dur: 55, label: 'Strength' },
+              LOWER: { met: 6.0, dur: 60, label: 'Legs' },
+              FULL: { met: 5.5, dur: 65, label: 'Full body' },
+              PUSH_LOWER: { met: 5.5, dur: 60, label: 'Compound' },
+              PULL_UPPER: { met: 5.0, dur: 55, label: 'Compound' },
+              CARDIO: { met: 7.0, dur: 40, label: 'Cardio' },
+              STRENGTH: { met: 5.0, dur: 55, label: 'Strength' },
+              WOD: { met: 8.5, dur: 50, label: 'CrossFit' },
+              HIIT: { met: 9.0, dur: 35, label: 'HIIT' },
+              SPEED: { met: 9.5, dur: 45, label: 'Speed' },
+              POWER: { met: 7.0, dur: 50, label: 'Power' },
+              CONDITIONING: { met: 8.0, dur: 45, label: 'Conditioning' },
+              RUN_INTERVALS: { met: 10.0, dur: 50, label: 'Run intervals' },
+            };
+            const ref = MET_BURN[dayType] || { met: 5.5, dur: 55, label: 'Training' };
+            const weightKg = cw * 0.453592;
+            // Active calories = (MET - 1) × weightKg × hours  (subtracts resting)
+            const activeCal = Math.round((ref.met - 1) * weightKg * (ref.dur / 60));
+
+            // Adjust target based on goal
+            let targetMin = Math.round(activeCal * 0.85);
+            let targetMax = Math.round(activeCal * 1.15);
+            let color = ACCENT;
+            let goalNote = '';
+            if (profile.goal === 'fatloss') {
+              // For fat loss: aim slightly higher — workout calories contribute to deficit
+              targetMin = Math.round(activeCal * 0.9);
+              targetMax = Math.round(activeCal * 1.2);
+              color = ORANGE;
+              goalNote = 'deficit';
+            } else if (profile.goal === 'muscle') {
+              // For muscle: don't burn too many — preserve surplus
+              targetMin = Math.round(activeCal * 0.75);
+              targetMax = Math.round(activeCal * 1.0);
+              color = BLUE;
+              goalNote = 'preserve';
+            }
+
+            return (
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: 8, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 2 }}>
+                  🍎 ACTIVE CAL TARGET
+                </div>
+                <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 18, color, lineHeight: 1 }}>
+                  {targetMin}–{targetMax}
+                </div>
+                <div style={{ fontSize: 8, color: TEXT_MUTED, marginTop: 1 }}>
+                  {ref.dur} min · {ref.label}
+                </div>
+                {goalNote && (
+                  <div style={{ fontSize: 8, color, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5, marginTop: 1 }}>
+                    {goalNote === 'deficit' ? '↑ support deficit' : '↓ preserve surplus'}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+        {/* Move/skip/undo buttons below the header row */}
+        {!session?.skipped && !session?.done && dayType !== 'REST' && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               <Btn size="sm" variant="ghost"
                 onClick={() => setShowMoveMenu(showMoveMenu === 'move' ? null : 'move')}
@@ -5365,7 +5942,6 @@ const Workouts = ({ state, setState }) => {
               )}
             </div>
           )}
-        </div>
 
         {/* Move menu */}
         {showMoveMenu === 'move' && (() => {
@@ -5496,6 +6072,70 @@ const Workouts = ({ state, setState }) => {
       )}
 
       {/* Rest day */}
+      {/* Weekly Cardio Prescription */}
+      {(() => {
+        const cw = wlog.length ? [...wlog].sort((a,b) => a.date < b.date ? 1 : -1)[0].weight : profile.weight;
+        const macros = calcMacros(profile, cw, wlog);
+        const cardioSessions = prescribeCardio(profile, cw, macros);
+        if (!cardioSessions.length || dayType === 'REST') return null;
+        // Count how many cardio sessions done this week
+        const weekStart = getWeekStartISO(viewISO);
+        const cardioDoneThisWeek = Array.from({length:7},(_,i)=>{
+          const d=isoToDate(weekStart); d.setDate(d.getDate()+i); return dateToISO(d);
+        }).filter(iso => sessions[sessionKey(iso)]?.cardioDone).length;
+        return (
+          <Card style={{ marginBottom: 10, borderLeft: `3px solid ${BLUE}`, background: `${BLUE}08` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <H size={12} color={BLUE} mb={0}>🏃 CARDIO THIS WEEK</H>
+              <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                {cardioDoneThisWeek}/3 DONE
+              </div>
+            </div>
+            {cardioSessions.map((s, i) => (
+              <div key={i} style={{
+                padding: '8px 10px', marginBottom: 5, borderRadius: 6,
+                background: sessions[sessKey]?.[`cardio_${i}`] ? `${GREEN}20` : CARD2,
+                border: `1px solid ${sessions[sessKey]?.[`cardio_${i}`] ? GREEN : BORDER}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <span style={{ fontSize: 12, color: '#fff' }}>{s.type === 'run' ? '🏃' : '🚶'} {s.label}</span>
+                      <span style={{ fontSize: 9, color: BLUE, fontFamily: 'Impact, Arial Black, sans-serif', background: `${BLUE}20`, padding: '1px 5px', borderRadius: 8 }}>{s.timing.toUpperCase()}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      {[
+                        { l: '⏱', v: `${s.dur} min` },
+                        { l: '📍', v: `${s.dist} mi` },
+                        { l: '👟', v: `${s.steps.toLocaleString()} steps` },
+                        { l: '🍎', v: `~${s.cal} cal` },
+                        { l: '❤️', v: `Zone ${s.zone}` },
+                      ].map(m => (
+                        <div key={m.l} style={{ fontSize: 10, color: TEXT_DIM }}>{m.l} {m.v}</div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 3, fontStyle: 'italic' }}>{s.note}</div>
+                  </div>
+                  <button onClick={() => {
+                    setState(prev => {
+                      const sk2 = sessKey;
+                      const cur = prev.sessions[sk2] || { iso: viewISO, dayType };
+                      const key = `cardio_${i}`;
+                      return { ...prev, sessions: { ...prev.sessions, [sk2]: { ...cur, [key]: !cur[key] } } };
+                    });
+                  }} style={{
+                    background: sessions[sessKey]?.[`cardio_${i}`] ? GREEN : 'transparent',
+                    border: `2px solid ${sessions[sessKey]?.[`cardio_${i}`] ? GREEN : BORDER}`,
+                    color: sessions[sessKey]?.[`cardio_${i}`] ? '#000' : TEXT_MUTED,
+                    borderRadius: 6, width: 32, height: 32, cursor: 'pointer', fontSize: 14, flexShrink: 0,
+                  }}>✓</button>
+                </div>
+              </div>
+            ))}
+          </Card>
+        );
+      })()}
+
       {dayType === 'REST' && (
         <Card>
           <H size={18} color={TEXT_DIM}>REST DAY</H>
@@ -5738,6 +6378,60 @@ const Workouts = ({ state, setState }) => {
             </div>
             <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>Add any exercise from the full library to this session</div>
           </Card>
+
+          {/* Coach Feedback */}
+          {session && (() => {
+            const setLogs = session.setLogs || {};
+            const exercises = getSessionExercises();
+            // Count completed vs total sets
+            let totalSets = 0, doneSets = 0, loggedWeights = 0;
+            exercises.forEach(ex => {
+              const setCount = parseInt(ex.sets) || 3;
+              totalSets += setCount;
+              for (let i = 0; i < setCount; i++) {
+                const k = `${ex.name}__${i}`;
+                const s = setLogs[k];
+                if (s?.done) doneSets++;
+                if (s?.weight) loggedWeights++;
+              }
+            });
+            const pctComplete = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
+            const loggedPct = totalSets > 0 ? Math.round((loggedWeights / totalSets) * 100) : 0;
+
+            const messages = [];
+            if (pctComplete === 100) messages.push({ color: GREEN, icon: '✅', msg: `All ${doneSets} sets completed. Solid session.` });
+            else if (pctComplete >= 75) messages.push({ color: YELLOW, icon: '⚠', msg: `${pctComplete}% of sets done (${doneSets}/${totalSets}). Finish what you started — the last sets are where growth happens.` });
+            else if (pctComplete > 0) messages.push({ color: RED, icon: '❌', msg: `Only ${pctComplete}% complete (${doneSets}/${totalSets} sets). That\'s not enough stimulus for progress. Push through or come back to finish.` });
+
+            if (loggedPct < 50 && doneSets > 0) messages.push({ color: ORANGE, icon: '📝', msg: `${100 - loggedPct}% of your sets have no weight logged. Your coach can\'t track progression without data. Log every set.` });
+
+            // Check food data for today
+            const todayFood = state.food?.[viewISO] || [];
+            const todayCal = todayFood.reduce((a, f) => a + (+f.cal||0)*(f.qty||1), 0);
+            const cw = wlog.length ? [...wlog].sort((a,b) => a.date < b.date ? 1 : -1)[0].weight : profile.weight;
+            const todayMacros = calcMacros(profile, cw, wlog);
+            if (todayCal > 0 && todayCal < todayMacros.calories * 0.7) {
+              messages.push({ color: RED, icon: '🍽️', msg: `Only ${Math.round(todayCal)} of ${todayMacros.calories} cal logged today. Undereating kills performance and muscle retention. Eat your target.` });
+            } else if (todayCal > todayMacros.calories * 1.25) {
+              messages.push({ color: ORANGE, icon: '⚠️', msg: `${Math.round(todayCal)} cal logged — ${Math.round(todayCal - todayMacros.calories)} over target. One day won't ruin progress but consistency matters.` });
+            }
+
+            if (!messages.length) return null;
+            return (
+              <div style={{ marginBottom: 12 }}>
+                <Label style={{ color: ACCENT }}>💬 COACH</Label>
+                {messages.map((m, i) => (
+                  <div key={i} style={{
+                    padding: '8px 10px', marginBottom: 5, borderRadius: 6,
+                    background: `${m.color}15`, borderLeft: `3px solid ${m.color}`,
+                    fontSize: 11, color: '#ddd', lineHeight: 1.5,
+                  }}>
+                    <span style={{ marginRight: 6 }}>{m.icon}</span>{m.msg}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Session notes + complete */}
           <Card style={{ marginTop: 10 }}>
@@ -6673,7 +7367,7 @@ const Metrics = ({ state, setState }) => {
   // Starting weight is always the profile setup weight — never replaced by logged entries
   const startW = profile.weight;
   const targetW = profile.target || profile.weight;
-  const macros = calcMacros(profile, currentWeight);
+  const macros = calcMacros(profile, currentWeight, wlog);
 
   const wDelta = +(currentWeight - startW).toFixed(1);
   const lbsToGo = +(currentWeight - targetW).toFixed(1);
@@ -6705,7 +7399,77 @@ const Metrics = ({ state, setState }) => {
 
   return (
     <div>
-      {/* Goal Progress */}
+      {/* Macro Coach Advisory */}
+      {macros.advisory && profile.goal !== 'maintain' && (
+        <Card style={{
+          marginBottom: 12,
+          borderLeft: `4px solid ${
+            macros.advisory.type === 'success' ? GREEN :
+            macros.advisory.type === 'extend'  ? ORANGE :
+            macros.advisory.type === 'ease'    ? YELLOW :
+            macros.advisory.type === 'tighten' ? RED :
+            macros.advisory.type === 'ontrack' ? GREEN :
+            BLUE
+          }`,
+          background: macros.advisory.type === 'extend' ? `${ORANGE}10` :
+                       macros.advisory.type === 'success' ? `${GREEN}10` : CARD,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <span style={{ fontSize: 14 }}>
+              {macros.advisory.type === 'success' ? '🎯' :
+               macros.advisory.type === 'extend'  ? '⚠️' :
+               macros.advisory.type === 'ease'    ? '↑' :
+               macros.advisory.type === 'tighten' ? '↓' :
+               macros.advisory.type === 'ontrack' ? '✅' : 'ℹ️'}
+            </span>
+            <H size={12} mb={0} color={
+              macros.advisory.type === 'extend' ? ORANGE :
+              macros.advisory.type === 'success' ? GREEN :
+              macros.advisory.type === 'ontrack' ? GREEN : ACCENT
+            }>MACRO COACH</H>
+          </div>
+          <div style={{ fontSize: 12, color: '#ddd', lineHeight: 1.5 }}>{macros.advisory.msg}</div>
+
+          {/* Extend program option */}
+          {macros.advisory.type === 'extend' && macros.advisory.extraWeeks && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 10, color: TEXT_DIM, marginBottom: 6 }}>
+                Suggested new program length: <span style={{ color: ORANGE }}>{(profile.weeks || 12) + macros.advisory.extraWeeks} weeks</span>
+              </div>
+              <Btn
+                onClick={() => {
+                  const newWeeks = (profile.weeks || 12) + macros.advisory.extraWeeks;
+                  setState(p => ({
+                    ...p,
+                    profile: { ...p.profile, weeks: newWeeks },
+                  }));
+                }}
+                style={{ background: ORANGE, color: '#000', border: 'none', width: '100%' }}
+              >
+                EXTEND TO {(profile.weeks || 12) + macros.advisory.extraWeeks} WEEKS
+              </Btn>
+            </div>
+          )}
+
+          {/* Rate display */}
+          {macros.weeklyRate !== 0 && (
+            <div style={{ marginTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {[
+                { l: 'DEFICIT', v: `${Math.abs(macros.calAdj)} cal/day`, show: macros.calAdj !== 0, color: macros.calAdj < 0 ? RED : GREEN },
+                { l: 'RATE', v: `${Math.abs(macros.weeklyRate)} lb/wk`, show: true, color: TEXT_DIM },
+                { l: 'WEEKS LEFT', v: macros.weeksLeft, show: true, color: TEXT_DIM },
+                { l: 'LBS TO GO', v: Math.abs(macros.lbsToGo), show: macros.lbsToGo !== 0, color: TEXT_DIM },
+                { l: 'RECENT', v: macros.recentTrend != null ? `${macros.recentTrend > 0 ? '+' : ''}${macros.recentTrend} lb/wk` : 'need 3+ logs', show: true, color: macros.recentTrend != null && macros.recentTrend < 0 ? GREEN : TEXT_MUTED },
+              ].filter(s => s.show).map(s => (
+                <div key={s.l}>
+                  <div style={{ fontSize: 8, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>{s.l}</div>
+                  <div style={{ fontSize: 11, color: s.color, fontFamily: 'Impact, Arial Black, sans-serif' }}>{s.v}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
       <Card style={{ marginBottom: 12 }}>
         <Label>GOAL PROGRESS</Label>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 8 }}>
@@ -7995,7 +8759,7 @@ const Food = ({ state, setState, onCoachPrompt }) => {
   const [copyMode, setCopyMode] = useState('append'); // 'append' | 'replace'
 
   const currentWeight = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
-  const macros = calcMacros(profile, currentWeight);
+  const macros = calcMacros(profile, currentWeight, wlog);
   const todaysFood = food[viewISO] || [];
   const sections = getMealSections(fmeal, viewISO);
 
@@ -8299,6 +9063,22 @@ const Food = ({ state, setState, onCoachPrompt }) => {
               <ProgressBar value={m.cur} max={m.max} color={m.color} height={2} />
             </div>
           ))}
+        </div>
+        {/* Adaptive macro context */}
+        <div style={{ marginTop: 8, paddingTop: 6, borderTop: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+          <div style={{ fontSize: 9, color: TEXT_MUTED }}>
+            TDEE {macros.tdee} kcal
+            {macros.calAdj !== 0 && (
+              <span style={{ color: macros.calAdj < 0 ? RED : GREEN, marginLeft: 4 }}>
+                {macros.calAdj > 0 ? '+' : ''}{macros.calAdj} {macros.calAdj < 0 ? 'deficit' : 'surplus'}
+              </span>
+            )}
+          </div>
+          {macros.weeklyRate !== 0 && macros.lbsToGo !== 0 && (
+            <div style={{ fontSize: 9, color: TEXT_MUTED, textAlign: 'right' }}>
+              ~{Math.abs(macros.weeklyRate)} lb/wk · {macros.weeksLeft}wk left
+            </div>
+          )}
         </div>
       </Card>
 
@@ -9425,7 +10205,7 @@ const handleToolCall = (name, input, state, setState, setActiveTab) => {
 
       // Compute current macros for the date (use state profile)
       const cw = (state.wlog.length ? [...state.wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : state.profile.weight);
-      const m = calcMacros(state.profile, cw);
+      const m = calcMacros(state.profile, cw, state.wlog);
 
       // Check caps — hard refuse if ANY macro would go over by more than 5% tolerance
       const tol = 0.05;
@@ -9547,7 +10327,7 @@ const handleToolCall = (name, input, state, setState, setActiveTab) => {
 const buildSystemPrompt = (state) => {
   const { profile, week, wlog, food, jlog, sessions, runs, slog } = state;
   const currentWeight = wlog.length ? [...wlog].sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
-  const macros = calcMacros(profile, currentWeight);
+  const macros = calcMacros(profile, currentWeight, wlog);
 
   // Phase / week info per style
   let phaseLine = '';
@@ -10051,7 +10831,7 @@ const RecompApp = () => {
     if (state.profile.setupComplete && (!state.conv || state.conv.length === 0)) {
       welcomeFiredRef.current = true;
       try {
-        const macros = calcMacros(state.profile, state.profile.weight);
+        const macros = calcMacros(state.profile, state.profile.weight, state.wlog);
         const styleName = WORKOUT_STYLES.find((s) => s.id === state.profile.workoutStyle)?.name || state.profile.workoutStyle;
         const goalName = GOAL_OPTIONS.find((g) => g.id === state.profile.goal)?.name || state.profile.goal;
         const welcomeText = `🔥 **Let's go, ${state.profile.name || 'athlete'}!** Locked in for **${state.profile.weeks} weeks** of **${styleName}** — focus: **${goalName}**.\n\n**Daily targets:** ${macros.calories} cal · ${macros.protein}p · ${macros.carbs}c · ${macros.fat}f\n\nI've built your program around your schedule. Hit your sessions, log honestly, and I'll adapt your weights week-to-week. Ask me anything — workout questions, food swaps, pace targets, recovery. **Let's build.**`;
