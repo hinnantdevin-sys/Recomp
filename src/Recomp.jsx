@@ -1645,94 +1645,260 @@ const GOAL_OPTIONS = [
 
 const PROGRAM_LENGTHS = [4, 8, 10, 12, 16];
 
-// ── CARDIO PRESCRIPTION ENGINE ──────────────────────────────
-// Prescribes 3x/week walking/running based on goal + current progress
-// Returns sessions the user should do this week
+// ── WEEKLY CALORIE BURN GOAL ─────────────────────────────────
+// Returns the target active calories to burn per week via exercise
+// Based on goal, TDEE, and program week (progresses over time)
+const weeklyBurnGoal = (profile, currentWeight, macros, programWeek) => {
+  const goal = profile.goal || 'recomp';
+  const cw = currentWeight || profile.weight;
+  const weightKg = cw * 0.453592;
+  const week = programWeek || 1;
+  const totalWeeks = profile.weeks || 12;
 
-const prescribeCardio = (profile, currentWeight, macros) => {
+  // Base: 3 cardio sessions per week at moderate intensity
+  const walkBase = Math.round(3.5 * weightKg * 3.5 / 200 * 35); // 35 min walk × 3
+  const runBase  = Math.round(8.0 * weightKg * 3.5 / 200 * 25); // 25 min run × 3
+
+  // Progress multiplier — ramps up through the program
+  const pct = week / totalWeeks;
+  const rampMult = 1 + (pct * 0.4); // starts at 1.0, reaches 1.4 by final week
+
+  let base = 0;
+  if (goal === 'fatloss') {
+    // Fat loss: meaningful cardio burn — 900→1400 cal/week over program
+    base = Math.round((walkBase * 1.5 + runBase * 1.5) * rampMult);
+    base = Math.max(800, Math.min(1500, base));
+  } else if (goal === 'muscle') {
+    // Muscle: minimal cardio — 300→500 cal/week (health only, preserve surplus)
+    base = Math.round(walkBase * 0.8 * rampMult);
+    base = Math.max(250, Math.min(500, base));
+  } else if (goal === 'recomp') {
+    // Recomp: moderate — 600→900 cal/week
+    base = Math.round((walkBase + runBase * 0.5) * rampMult);
+    base = Math.max(500, Math.min(1000, base));
+  } else if (goal === 'performance') {
+    // Performance: highest — 900→1400 cal/week
+    base = Math.round((runBase * 2 + walkBase) * rampMult);
+    base = Math.max(800, Math.min(1500, base));
+  } else {
+    base = Math.round(walkBase * rampMult);
+    base = Math.max(400, Math.min(800, base));
+  }
+
+  return base;
+};
+
+// Calculate how many active calories were logged this week (workouts + cardio)
+const getWeeklyBurnActual = (sessions, weekStartISO) => {
+  let total = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStartISO + 'T00:00:00');
+    d.setDate(d.getDate() + i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const s = sessions[`s_${iso}`];
+    if (!s) continue;
+    if (s.watchCal)  total += (+s.watchCal  || 0); // workout watch calories
+    if (s.cardioCal) total += (+s.cardioCal || 0); // cardio session calories
+    // Also sum individual cardio entries
+    for (let j = 0; j < 3; j++) {
+      if (s[`cardio_${j}_cal`]) total += (+s[`cardio_${j}_cal`] || 0);
+    }
+  }
+  return total;
+};
+
+// ── CARDIO PRESCRIPTION ENGINE ──────────────────────────────
+// Progressively harder through the program.
+// Adapts when behind on weekly calorie burn goal.
+
+const prescribeCardio = (profile, currentWeight, macros, programWeek, weeklyBurnActual, weeklyBurnTarget) => {
   const goal = profile.goal || 'recomp';
   const cw = currentWeight || profile.weight;
   const target = profile.target || cw;
   const lbsToGo = cw - target;
   const weeksLeft = macros?.weeksLeft || 8;
-  const recentTrend = macros?.recentTrend; // lbs/week, negative = losing
+  const recentTrend = macros?.recentTrend;
   const weightKg = cw * 0.453592;
+  const week = programWeek || 1;
+  const totalWeeks = profile.weeks || 12;
 
-  // Base cardio calories burned per session (active only) — used for Apple Watch ring target
-  const walkCalPerMin   = (3.5 * weightKg * 3.5) / 200; // MET 3.5 walking
-  const easyRunCalPerMin = (8.0 * weightKg * 3.5) / 200; // MET 8.0 easy run
-  const tempoCalPerMin  = (10.0 * weightKg * 3.5) / 200; // MET 10 tempo
+  // How far through the program are we? 0→1
+  const pct = Math.min(1, week / totalWeeks);
 
-  // Steps at typical cadences
-  const stepsPerMile = 2100; // average
+  // Are we behind on this week's burn goal?
+  const burnDeficit = Math.max(0, (weeklyBurnTarget || 0) - (weeklyBurnActual || 0));
+  const burnDeficitSessions = burnDeficit > 0 ? Math.ceil(burnDeficit / 200) : 0; // extra sessions needed
 
-  const sessions = [];
+  // MET-based per-minute active calorie calculators
+  const kcal = (met, min) => Math.round((met - 1) * weightKg * (min / 60));
+  const stepsPerMile = 2100;
+  const dist = (mph, min) => +(mph * min / 60).toFixed(1);
 
+  // Progressive duration/intensity — increases through program
+  const walkDur  = Math.round(25 + pct * 20); // 25min wk1 → 45min final
+  const runDur   = Math.round(15 + pct * 20); // 15min wk1 → 35min final
+  const tempoDur = Math.round(12 + pct * 18); // 12min wk1 → 30min final
+
+  // Walk speeds & run paces progress too
+  const walkMph  = 3.0 + pct * 0.5;  // 3.0 → 3.5 mph
+  const runMph   = 4.5 + pct * 1.0;  // 4.5 → 5.5 mph easy run
+  const tempoMph = 5.5 + pct * 1.5;  // 5.5 → 7.0 mph tempo
+
+  const s = []; // sessions to prescribe
+
+  // ── FAT LOSS ─────────────────────────────────────────────
   if (goal === 'fatloss') {
-    // Determine aggressiveness based on progress
-    const onTrack = recentTrend !== null && (-recentTrend) >= 0.5; // losing ≥0.5/week
-    const behindSchedule = lbsToGo > 5 && weeksLeft <= 6;
     const atGoal = lbsToGo <= 0;
+    const behindSchedule = lbsToGo > 5 && weeksLeft <= 6;
+    const onTrack = recentTrend !== null && (-recentTrend) >= 0.4;
 
     if (atGoal) {
-      // Maintenance cardio — keep the habit
-      sessions.push(
-        { label: 'Morning Walk', timing: 'morning', type: 'walk', dur: 30, dist: 1.5, steps: Math.round(1.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 30), zone: '1-2', note: 'You\'ve hit your goal. Keep the habit. Easy pace, breathe through your nose.' },
-        { label: 'Zone 2 Walk/Run', timing: 'evening', type: 'walk', dur: 30, dist: 1.8, steps: Math.round(1.8 * stepsPerMile), cal: Math.round(walkCalPerMin * 30), zone: '2', note: 'Conversational pace. This is maintenance — not exercise, it\'s lifestyle.' },
-        { label: 'Long Walk', timing: 'morning', type: 'walk', dur: 45, dist: 2.5, steps: Math.round(2.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 45), zone: '1-2', note: 'Get outside. 45 min easy. No phone. Mental recovery.' },
+      s.push(
+        { label: 'Morning Walk', timing: 'morning', type: 'walk',
+          dur: walkDur, dist: dist(walkMph, walkDur), steps: Math.round(dist(walkMph, walkDur) * stepsPerMile),
+          cal: kcal(3.5, walkDur), zone: '2',
+          note: `Week ${week}: Goal reached! Maintenance cardio. ${walkDur} min easy walk. Keep the habit.` },
+        { label: 'Zone 2 Run/Walk', timing: 'evening', type: 'walk',
+          dur: walkDur, dist: dist(walkMph, walkDur), steps: Math.round(dist(walkMph, walkDur) * stepsPerMile),
+          cal: kcal(4.0, walkDur), zone: '2',
+          note: 'Conversational pace. Heart rate under 130. This is lifestyle cardio.' },
+        { label: 'Long Weekend Walk', timing: 'morning', type: 'walk',
+          dur: Math.round(walkDur * 1.3), dist: dist(walkMph, Math.round(walkDur * 1.3)),
+          steps: Math.round(dist(walkMph, Math.round(walkDur * 1.3)) * stepsPerMile),
+          cal: kcal(3.5, Math.round(walkDur * 1.3)), zone: '1-2',
+          note: 'Longest session of the week. Get outside. Mental recovery as much as physical.' },
       );
     } else if (behindSchedule) {
-      // Behind — ramp up cardio to assist deficit
-      sessions.push(
-        { label: 'Fasted Morning Walk', timing: 'fasted morning', type: 'walk', dur: 45, dist: 2.5, steps: Math.round(2.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 45), zone: '2', note: 'Before breakfast. Fasted cardio taps into fat stores. Keep it Zone 2 or it burns muscle.' },
-        { label: 'Post-Workout Incline Walk', timing: 'post-workout', type: 'walk', dur: 30, dist: 1.5, steps: Math.round(1.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 30), zone: '2', note: 'Treadmill at 10-12% incline, 3.0 mph. Best fat-burn finisher after lifting. No impact on recovery.' },
-        { label: 'Easy Evening Run', timing: 'evening', type: 'run', dur: 25, dist: 2.0, steps: Math.round(2.0 * stepsPerMile), cal: Math.round(easyRunCalPerMin * 25), zone: '2-3', note: 'Conversational pace. You should be able to say full sentences. If not, slow down.' },
+      // Urgent: ramp up to max safe cardio
+      s.push(
+        { label: 'Fasted Morning Walk', timing: 'fasted morning', type: 'walk',
+          dur: 45, dist: dist(3.2, 45), steps: Math.round(dist(3.2, 45) * stepsPerMile),
+          cal: kcal(3.8, 45), zone: '2',
+          note: `URGENT Week ${week}: ${Math.round(lbsToGo)} lbs left, ${weeksLeft} weeks. Fasted Zone 2 burns fat directly. Before first meal.` },
+        { label: 'Post-Workout Incline Walk', timing: 'post-workout', type: 'walk',
+          dur: 30, dist: dist(3.0, 30), steps: Math.round(dist(3.0, 30) * stepsPerMile),
+          cal: kcal(5.0, 30), zone: '2-3',
+          note: 'Treadmill 10-12% incline, 3.0 mph. Best fat-burning accessory to lifting. Does not impact recovery.' },
+        { label: 'Easy Evening Run', timing: 'evening', type: 'run',
+          dur: runDur, dist: dist(runMph, runDur), steps: Math.round(dist(runMph, runDur) * stepsPerMile),
+          cal: kcal(8.0, runDur), zone: '2-3',
+          note: `Week ${week} progression: ${runDur} min easy run. Conversational pace — full sentences the whole time.` },
       );
     } else if (!onTrack) {
-      // Not losing fast enough — moderate increase
-      sessions.push(
-        { label: 'Fasted Morning Walk', timing: 'fasted morning', type: 'walk', dur: 40, dist: 2.2, steps: Math.round(2.2 * stepsPerMile), cal: Math.round(walkCalPerMin * 40), zone: '2', note: 'Zone 2 before eating. 40 min steady. This is where fat loss cardio lives — not sprinting.' },
-        { label: 'Incline Walk', timing: 'post-workout', type: 'walk', dur: 25, dist: 1.2, steps: Math.round(1.2 * stepsPerMile), cal: Math.round(walkCalPerMin * 25), zone: '2', note: 'Post-lifting incline walk burns ~200 cal without taxing recovery. 10% incline, 3.0-3.5 mph.' },
-        { label: 'Easy Run', timing: 'morning', type: 'run', dur: 20, dist: 1.8, steps: Math.round(1.8 * stepsPerMile), cal: Math.round(easyRunCalPerMin * 20), zone: '2', note: 'Slow and easy. This is not a race. Heart rate under 140 bpm. Builds aerobic base.' },
+      s.push(
+        { label: 'Fasted Morning Walk', timing: 'fasted morning', type: 'walk',
+          dur: walkDur + 5, dist: dist(walkMph, walkDur + 5), steps: Math.round(dist(walkMph, walkDur + 5) * stepsPerMile),
+          cal: kcal(3.8, walkDur + 5), zone: '2',
+          note: `Week ${week}: Not losing fast enough. Adding 5 min to this week's walk. Zone 2, before eating.` },
+        { label: 'Incline Treadmill Walk', timing: 'post-workout', type: 'walk',
+          dur: walkDur, dist: dist(3.0, walkDur), steps: Math.round(dist(3.0, walkDur) * stepsPerMile),
+          cal: kcal(4.5, walkDur), zone: '2',
+          note: `10% incline, 3.0 mph, ${walkDur} min. Better calorie burn than flat walk with less joint stress.` },
+        { label: 'Easy Run', timing: 'morning', type: 'run',
+          dur: runDur, dist: dist(runMph, runDur), steps: Math.round(dist(runMph, runDur) * stepsPerMile),
+          cal: kcal(8.0, runDur), zone: '2',
+          note: `Week ${week} run: ${runDur} min at easy pace. Heart rate 120-140. Builds base for later weeks.` },
       );
     } else {
-      // On track — maintain current cardio, don't overdo it
-      sessions.push(
-        { label: 'Morning Walk', timing: 'morning', type: 'walk', dur: 35, dist: 2.0, steps: Math.round(2.0 * stepsPerMile), cal: Math.round(walkCalPerMin * 35), zone: '2', note: 'On track! Keep cardio moderate. Too much and you\'ll spike cortisol and slow muscle retention.' },
-        { label: 'Post-Workout Walk', timing: 'post-workout', type: 'walk', dur: 20, dist: 1.0, steps: Math.round(1.0 * stepsPerMile), cal: Math.round(walkCalPerMin * 20), zone: '1-2', note: 'Cooldown + fat burn. Low-intensity after lifting is optimal for fat mobilization.' },
-        { label: 'Zone 2 Run or Walk', timing: 'evening', type: 'run', dur: 25, dist: 2.0, steps: Math.round(2.0 * stepsPerMile), cal: Math.round(easyRunCalPerMin * 25), zone: '2', note: 'Run if you feel good, walk if legs are sore. Zone 2 is the goal either way.' },
+      s.push(
+        { label: 'Morning Walk', timing: 'morning', type: 'walk',
+          dur: walkDur, dist: dist(walkMph, walkDur), steps: Math.round(dist(walkMph, walkDur) * stepsPerMile),
+          cal: kcal(3.5, walkDur), zone: '2',
+          note: `Week ${week}: On track. ${walkDur} min walk at ${walkMph.toFixed(1)} mph. Increasing pace by 0.1 mph every 2 weeks.` },
+        { label: 'Post-Workout Walk', timing: 'post-workout', type: 'walk',
+          dur: 20, dist: dist(3.2, 20), steps: Math.round(dist(3.2, 20) * stepsPerMile),
+          cal: kcal(3.5, 20), zone: '1-2',
+          note: 'Easy cooldown walk after lifting. Promotes fat mobilization and recovery.' },
+        { label: 'Zone 2 Run', timing: 'morning', type: 'run',
+          dur: runDur, dist: dist(runMph, runDur), steps: Math.round(dist(runMph, runDur) * stepsPerMile),
+          cal: kcal(8.0, runDur), zone: '2',
+          note: `Week ${week} run: ${runDur} min. Adding ${Math.round(pct * 20 / totalWeeks * 7)} min since last week.` },
       );
     }
+
+    // If behind on weekly burn goal — add a makeup session
+    if (burnDeficit > 150 && s.length === 3) {
+      const makeupDur = Math.min(45, Math.round(burnDeficit / kcal(7.0, 1)));
+      s.push({
+        label: '🔥 Make-Up Run', timing: 'evening', type: 'run',
+        dur: makeupDur, dist: dist(6.0, makeupDur), steps: Math.round(dist(6.0, makeupDur) * stepsPerMile),
+        cal: kcal(7.0, makeupDur), zone: '3',
+        note: `MAKE-UP SESSION: You're ${burnDeficit} cal behind your weekly goal. This ${makeupDur}-min run closes the gap.`,
+        isMakeup: true,
+      });
+    }
+
+  // ── MUSCLE ────────────────────────────────────────────────
   } else if (goal === 'muscle') {
-    // Minimal cardio — just enough for heart health + keep insulin sensitivity
-    sessions.push(
-      { label: 'Easy Walk', timing: 'morning', type: 'walk', dur: 25, dist: 1.3, steps: Math.round(1.3 * stepsPerMile), cal: Math.round(walkCalPerMin * 25), zone: '1-2', note: 'Muscle building: cardio is just for heart health. Keep it easy or you\'ll eat into your surplus.' },
-      { label: 'Post-Workout Walk', timing: 'post-workout', type: 'walk', dur: 15, dist: 0.8, steps: Math.round(0.8 * stepsPerMile), cal: Math.round(walkCalPerMin * 15), zone: '1', note: 'Just a 15-min walk for blood flow and recovery. Do NOT run — keep the calories.' },
-      { label: 'Rest Day Walk', timing: 'morning', type: 'walk', dur: 30, dist: 1.5, steps: Math.round(1.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 30), zone: '1-2', note: 'On a rest day. Active recovery. Promotes nutrient delivery to recovering muscles.' },
+    s.push(
+      { label: 'Easy Walk (Rest Day)', timing: 'morning', type: 'walk',
+        dur: Math.min(25, walkDur), dist: dist(3.0, Math.min(25, walkDur)),
+        steps: Math.round(dist(3.0, Math.min(25, walkDur)) * stepsPerMile),
+        cal: kcal(3.5, Math.min(25, walkDur)), zone: '1-2',
+        note: `Week ${week}: Muscle building. Cap cardio at 25 min. More than this burns your caloric surplus.` },
+      { label: 'Post-Workout Walk', timing: 'post-workout', type: 'walk',
+        dur: 15, dist: dist(3.0, 15), steps: Math.round(dist(3.0, 15) * stepsPerMile),
+        cal: kcal(3.5, 15), zone: '1',
+        note: 'Blood flow walk. 15 min only. This is recovery, not cardio — keeps joints moving.' },
+      { label: 'Zone 2 Walk', timing: 'morning', type: 'walk',
+        dur: 20, dist: dist(3.2, 20), steps: Math.round(dist(3.2, 20) * stepsPerMile),
+        cal: kcal(3.8, 20), zone: '2',
+        note: 'Insulin sensitivity and heart health. 20 min maximum — do not be tempted to run on bulk days.' },
     );
+
+  // ── RECOMP ────────────────────────────────────────────────
   } else if (goal === 'recomp') {
-    sessions.push(
-      { label: 'Zone 2 Walk', timing: 'morning', type: 'walk', dur: 35, dist: 2.0, steps: Math.round(2.0 * stepsPerMile), cal: Math.round(walkCalPerMin * 35), zone: '2', note: 'Zone 2 cardio builds mitochondrial density — key for recomp. 35 min before or after eating.' },
-      { label: 'Easy Run', timing: 'morning', type: 'run', dur: 20, dist: 1.8, steps: Math.round(1.8 * stepsPerMile), cal: Math.round(easyRunCalPerMin * 20), zone: '2', note: 'Light jog. Improves insulin sensitivity which directly helps recomp.' },
-      { label: 'Post-Workout Walk', timing: 'post-workout', type: 'walk', dur: 20, dist: 1.0, steps: Math.round(1.0 * stepsPerMile), cal: Math.round(walkCalPerMin * 20), zone: '1-2', note: 'After lifting. Blood flow promotes recovery and muscle protein synthesis.' },
+    s.push(
+      { label: 'Zone 2 Walk', timing: 'morning', type: 'walk',
+        dur: walkDur, dist: dist(walkMph, walkDur), steps: Math.round(dist(walkMph, walkDur) * stepsPerMile),
+        cal: kcal(3.8, walkDur), zone: '2',
+        note: `Week ${week}: Zone 2 is the recomp cardio zone. ${walkDur} min at conversational pace.` },
+      { label: 'Easy Run', timing: 'morning', type: 'run',
+        dur: runDur, dist: dist(runMph, runDur), steps: Math.round(dist(runMph, runDur) * stepsPerMile),
+        cal: kcal(8.0, runDur), zone: '2',
+        note: `Week ${week} run: ${runDur} min. Improves insulin sensitivity — directly supports recomp.` },
+      { label: 'Post-Workout Walk', timing: 'post-workout', type: 'walk',
+        dur: 20, dist: dist(3.2, 20), steps: Math.round(dist(3.2, 20) * stepsPerMile),
+        cal: kcal(3.5, 20), zone: '1-2',
+        note: 'After lifting. Promotes recovery and nutrient delivery to working muscles.' },
     );
+
+  // ── PERFORMANCE ───────────────────────────────────────────
   } else if (goal === 'performance') {
-    // 2 easy + 1 tempo
-    sessions.push(
-      { label: 'Easy Aerobic Run', timing: 'morning', type: 'run', dur: 30, dist: 2.8, steps: Math.round(2.8 * stepsPerMile), cal: Math.round(easyRunCalPerMin * 30), zone: '2', note: 'Base building. Conversational pace. Performance athletes need an aerobic base — this is it.' },
-      { label: 'Tempo Run', timing: 'morning', type: 'run', dur: 20, dist: 2.2, steps: Math.round(2.2 * stepsPerMile), cal: Math.round(tempoCalPerMin * 20), zone: '3-4', note: 'Comfortably hard. You can say a few words but not full sentences. 80% effort. Builds lactate threshold.' },
-      { label: 'Recovery Walk', timing: 'evening', type: 'walk', dur: 25, dist: 1.3, steps: Math.round(1.3 * stepsPerMile), cal: Math.round(walkCalPerMin * 25), zone: '1', note: 'Flush soreness. Easy walk. This is recovery, not training.' },
+    s.push(
+      { label: 'Aerobic Base Run', timing: 'morning', type: 'run',
+        dur: runDur + 5, dist: dist(runMph * 0.9, runDur + 5), steps: Math.round(dist(runMph * 0.9, runDur + 5) * stepsPerMile),
+        cal: kcal(8.0, runDur + 5), zone: '2',
+        note: `Week ${week}: ${runDur + 5} min easy. Performance base building. Conversational pace builds aerobic engine.` },
+      { label: 'Tempo Run', timing: 'morning', type: 'run',
+        dur: tempoDur, dist: dist(tempoMph, tempoDur), steps: Math.round(dist(tempoMph, tempoDur) * stepsPerMile),
+        cal: kcal(10.0, tempoDur), zone: '3-4',
+        note: `Week ${week} tempo: ${tempoDur} min at ${tempoMph.toFixed(1)} mph. Hard but controlled. Lactate threshold work.` },
+      { label: 'Recovery Walk', timing: 'evening', type: 'walk',
+        dur: 25, dist: dist(3.0, 25), steps: Math.round(dist(3.0, 25) * stepsPerMile),
+        cal: kcal(3.5, 25), zone: '1',
+        note: 'Active recovery. Flush lactate. Zone 1 only — this is not training, it\'s recovery.' },
     );
+
   } else {
     // maintain
-    sessions.push(
-      { label: 'Walk', timing: 'morning', type: 'walk', dur: 30, dist: 1.5, steps: Math.round(1.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 30), zone: '2', note: 'Maintenance cardio. Good for heart, joints, sleep, and stress.' },
-      { label: 'Walk', timing: 'evening', type: 'walk', dur: 30, dist: 1.5, steps: Math.round(1.5 * stepsPerMile), cal: Math.round(walkCalPerMin * 30), zone: '2', note: 'Evening walk is one of the best things you can do for blood sugar and sleep quality.' },
-      { label: 'Easy Run', timing: 'morning', type: 'run', dur: 20, dist: 1.8, steps: Math.round(1.8 * stepsPerMile), cal: Math.round(easyRunCalPerMin * 20), zone: '2', note: 'Light jog. Keep it easy. Consistency beats intensity for maintenance.' },
+    s.push(
+      { label: 'Walk', timing: 'morning', type: 'walk',
+        dur: walkDur, dist: dist(walkMph, walkDur), steps: Math.round(dist(walkMph, walkDur) * stepsPerMile),
+        cal: kcal(3.5, walkDur), zone: '2',
+        note: `Week ${week}: ${walkDur} min walk. One of the best things you can do for metabolic health.` },
+      { label: 'Walk', timing: 'evening', type: 'walk',
+        dur: walkDur, dist: dist(walkMph, walkDur), steps: Math.round(dist(walkMph, walkDur) * stepsPerMile),
+        cal: kcal(3.5, walkDur), zone: '2',
+        note: 'Evening walk lowers blood sugar and improves sleep quality.' },
+      { label: 'Easy Run', timing: 'morning', type: 'run',
+        dur: runDur, dist: dist(runMph, runDur), steps: Math.round(dist(runMph, runDur) * stepsPerMile),
+        cal: kcal(8.0, runDur), zone: '2',
+        note: `${runDur} min easy run. Progress to longer distances over time.` },
     );
   }
 
-  return sessions;
+  return s;
 };
 
 const TABS = [
@@ -5386,6 +5552,14 @@ const Workouts = ({ state, setState }) => {
   };
   // Library modal state: null = closed, { mode: 'swap', exIdx, muscle } or { mode: 'add' }
   const [libraryModal, setLibraryModal] = useState(null);
+  const [showWorkoutEntry, setShowWorkoutEntry] = useState(false);
+  const [workoutEntryType, setWorkoutEntryType] = useState('lifting');
+  const [workoutEntryName, setWorkoutEntryName] = useState('');
+  const [workoutEntryDur, setWorkoutEntryDur] = useState('');
+  const [workoutEntryCal, setWorkoutEntryCal] = useState('');
+  const [workoutEntryDist, setWorkoutEntryDist] = useState('');
+  const [workoutEntryZone, setWorkoutEntryZone] = useState('');
+  const [workoutEntryNote, setWorkoutEntryNote] = useState('');
 
   const currentWeight = wlog.length ? wlog[wlog.length - 1].weight : profile.weight;
 
@@ -5796,6 +5970,161 @@ const Workouts = ({ state, setState }) => {
         })}
       </div>
 
+      {/* Top-level Add Workout Entry button */}
+      <button onClick={() => { setShowWorkoutEntry(true); setWorkoutEntryType('lifting'); }}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          width: '100%', marginBottom: 10, padding: '11px',
+          background: `${ACCENT}15`, border: `1px solid ${ACCENT}66`,
+          borderRadius: 8, color: ACCENT, cursor: 'pointer',
+          fontSize: 12, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1,
+        }}>
+        + ADD WORKOUT ENTRY
+      </button>
+
+      {/* Workout entry modal */}
+      {showWorkoutEntry && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 300,
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        }} onClick={e => e.target === e.currentTarget && setShowWorkoutEntry(false)}>
+          <div style={{ background: CARD, borderRadius: '12px 12px 0 0', padding: '20px 16px 32px', width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <H size={15} mb={0}>LOG WORKOUT ENTRY</H>
+              <button onClick={() => setShowWorkoutEntry(false)} style={{ background: 'transparent', border: 'none', color: TEXT_MUTED, fontSize: 22, cursor: 'pointer' }}>×</button>
+            </div>
+
+            {/* Type selector — 3 options */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+              {[
+                { id: 'lifting', label: '🏋️ Lifting', color: ACCENT },
+                { id: 'cardio',  label: '🏃 Cardio',  color: BLUE },
+                { id: 'class',   label: '🧘 Class',   color: PURPLE },
+              ].map(t => (
+                <button key={t.id} onClick={() => setWorkoutEntryType(t.id)} style={{
+                  flex: 1, padding: '9px 0', borderRadius: 8, cursor: 'pointer',
+                  background: workoutEntryType === t.id ? `${t.color}30` : CARD2,
+                  border: `1px solid ${workoutEntryType === t.id ? t.color : BORDER}`,
+                  color: workoutEntryType === t.id ? t.color : TEXT_DIM,
+                  fontSize: 11, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5,
+                }}>{t.label}</button>
+              ))}
+            </div>
+
+            {/* Class name for class type */}
+            {workoutEntryType === 'class' && (
+              <div style={{ marginBottom: 8 }}>
+                <Label>CLASS NAME</Label>
+                <Input
+                  autoFocus
+                  placeholder="e.g. Barry's Bootcamp, Spin, Yoga, Pilates, CrossFit, Orange Theory"
+                  value={workoutEntryName}
+                  onChange={e => setWorkoutEntryName(e.target.value)}
+                />
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gap: 8 }}>
+              {workoutEntryType !== 'class' && (
+                <div>
+                  <Label>ACTIVITY NAME</Label>
+                  <Input
+                    placeholder={workoutEntryType === 'cardio' ? 'e.g. Treadmill Run, Outdoor Walk, Cycling' : 'e.g. Upper Body, Chest Day, Full Body'}
+                    value={workoutEntryName}
+                    onChange={e => setWorkoutEntryName(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <Label>DURATION (min)</Label>
+                  <Input type="number" placeholder="e.g. 45" value={workoutEntryDur} onChange={e => setWorkoutEntryDur(e.target.value)} />
+                </div>
+                <div>
+                  <Label>🍎 ACTIVE CAL (Watch)</Label>
+                  <Input type="number" placeholder="From Apple Watch" value={workoutEntryCal} onChange={e => setWorkoutEntryCal(e.target.value)} />
+                </div>
+              </div>
+
+              {workoutEntryType === 'cardio' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <Label>DISTANCE (mi)</Label>
+                    <Input type="number" step="0.1" placeholder="e.g. 2.5" value={workoutEntryDist} onChange={e => setWorkoutEntryDist(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>HR ZONE</Label>
+                    <Select value={workoutEntryZone} onChange={e => setWorkoutEntryZone(e.target.value)}>
+                      <option value="">Select</option>
+                      <option value="1">Zone 1 — Easy</option>
+                      <option value="2">Zone 2 — Fat Burn</option>
+                      <option value="3">Zone 3 — Aerobic</option>
+                      <option value="4">Zone 4 — Threshold</option>
+                      <option value="5">Zone 5 — Max</option>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <Label>NOTES — optional</Label>
+                <Input placeholder="How it felt, instructor, PR, intensity..." value={workoutEntryNote} onChange={e => setWorkoutEntryNote(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Weekly goal impact */}
+            {+workoutEntryCal > 0 && (() => {
+              const cw2 = wlog.length ? [...wlog].sort((a,b) => a.date < b.date ? 1 : -1)[0].weight : profile.weight;
+              const macros2 = calcMacros(profile, cw2, wlog);
+              const weekStart2 = getWeekStartISO(viewISO);
+              const burnAct2 = getWeeklyBurnActual(sessions, weekStart2);
+              const burnTgt2 = weeklyBurnGoal(profile, cw2, macros2, dayProgramWeek);
+              const newTotal = burnAct2 + (+workoutEntryCal);
+              const newPct = Math.min(100, Math.round((newTotal / burnTgt2) * 100));
+              const typeColor = workoutEntryType === 'lifting' ? ACCENT : workoutEntryType === 'cardio' ? BLUE : PURPLE;
+              return (
+                <div style={{ padding: '8px 10px', background: `${GREEN}10`, border: `1px solid ${GREEN}30`, borderRadius: 6, marginTop: 8 }}>
+                  <div style={{ fontSize: 10, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5 }}>
+                    + {workoutEntryCal} CAL → WEEKLY TOTAL: {newTotal.toLocaleString()} / {burnTgt2.toLocaleString()} ({newPct}%)
+                  </div>
+                  <div style={{ background: CARD2, borderRadius: 3, height: 4, marginTop: 4, overflow: 'hidden' }}>
+                    <div style={{ background: newPct >= 100 ? GREEN : typeColor, height: '100%', width: `${newPct}%` }} />
+                  </div>
+                </div>
+              );
+            })()}
+
+            <Btn onClick={() => {
+              const name = workoutEntryName.trim() || (workoutEntryType === 'cardio' ? 'Cardio' : workoutEntryType === 'class' ? 'Class' : 'Lifting');
+              const entry = {
+                type: workoutEntryType,
+                name,
+                dur: +workoutEntryDur || 0,
+                cal: +workoutEntryCal || 0,
+                dist: +workoutEntryDist || 0,
+                zone: workoutEntryZone,
+                note: workoutEntryNote,
+                loggedAt: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+              };
+              setState(prev => {
+                const cur = prev.sessions[sessKey] || { iso: viewISO, dayType, setLogs: {}, feedback: {} };
+                const entries = [...(cur.workoutEntries || []), entry];
+                const calAmt = entry.cal || 0;
+                const watchCalNew = workoutEntryType !== 'cardio' ? (+cur.watchCal || 0) + calAmt : +cur.watchCal || 0;
+                const cardioCalNew = workoutEntryType === 'cardio' ? (+cur.cardioCal || 0) + calAmt : +cur.cardioCal || 0;
+                return { ...prev, sessions: { ...prev.sessions, [sessKey]: { ...cur, workoutEntries: entries, watchCal: watchCalNew || undefined, cardioCal: cardioCalNew || undefined } } };
+              });
+              setWorkoutEntryName(''); setWorkoutEntryDur(''); setWorkoutEntryCal('');
+              setWorkoutEntryDist(''); setWorkoutEntryZone(''); setWorkoutEntryNote('');
+              setShowWorkoutEntry(false);
+            }} style={{ width: '100%', marginTop: 12 }}>
+              SAVE ENTRY
+            </Btn>
+          </div>
+        </div>
+      )}
+
       {/* Missed banner */}
       {missedDays.length > 0 && viewISO === todayISO() && (
         <Card style={{ background: `${YELLOW}15`, border: `1px solid ${YELLOW}88`, marginBottom: 10 }}>
@@ -6072,66 +6401,145 @@ const Workouts = ({ state, setState }) => {
       )}
 
       {/* Rest day */}
-      {/* Weekly Cardio Prescription */}
-      {(() => {
+      {/* Weekly Calorie Burn Tracker + Cardio Prescription */}
+      {dayType !== 'REST' && (() => {
         const cw = wlog.length ? [...wlog].sort((a,b) => a.date < b.date ? 1 : -1)[0].weight : profile.weight;
         const macros = calcMacros(profile, cw, wlog);
-        const cardioSessions = prescribeCardio(profile, cw, macros);
-        if (!cardioSessions.length || dayType === 'REST') return null;
-        // Count how many cardio sessions done this week
         const weekStart = getWeekStartISO(viewISO);
-        const cardioDoneThisWeek = Array.from({length:7},(_,i)=>{
-          const d=isoToDate(weekStart); d.setDate(d.getDate()+i); return dateToISO(d);
-        }).filter(iso => sessions[sessionKey(iso)]?.cardioDone).length;
+        const burnActual = getWeeklyBurnActual(sessions, weekStart);
+        const burnTarget = weeklyBurnGoal(profile, cw, macros, dayProgramWeek);
+        const cardioSessions = prescribeCardio(profile, cw, macros, dayProgramWeek, burnActual, burnTarget);
+        const burnPct = Math.min(100, burnTarget > 0 ? Math.round((burnActual / burnTarget) * 100) : 0);
+        const burnLeft = Math.max(0, burnTarget - burnActual);
+        const burnColor = burnPct >= 100 ? GREEN : burnPct >= 60 ? YELLOW : RED;
+
         return (
-          <Card style={{ marginBottom: 10, borderLeft: `3px solid ${BLUE}`, background: `${BLUE}08` }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <H size={12} color={BLUE} mb={0}>🏃 CARDIO THIS WEEK</H>
-              <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif' }}>
-                {cardioDoneThisWeek}/3 DONE
-              </div>
-            </div>
-            {cardioSessions.map((s, i) => (
-              <div key={i} style={{
-                padding: '8px 10px', marginBottom: 5, borderRadius: 6,
-                background: sessions[sessKey]?.[`cardio_${i}`] ? `${GREEN}20` : CARD2,
-                border: `1px solid ${sessions[sessKey]?.[`cardio_${i}`] ? GREEN : BORDER}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                      <span style={{ fontSize: 12, color: '#fff' }}>{s.type === 'run' ? '🏃' : '🚶'} {s.label}</span>
-                      <span style={{ fontSize: 9, color: BLUE, fontFamily: 'Impact, Arial Black, sans-serif', background: `${BLUE}20`, padding: '1px 5px', borderRadius: 8 }}>{s.timing.toUpperCase()}</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                      {[
-                        { l: '⏱', v: `${s.dur} min` },
-                        { l: '📍', v: `${s.dist} mi` },
-                        { l: '👟', v: `${s.steps.toLocaleString()} steps` },
-                        { l: '🍎', v: `~${s.cal} cal` },
-                        { l: '❤️', v: `Zone ${s.zone}` },
-                      ].map(m => (
-                        <div key={m.l} style={{ fontSize: 10, color: TEXT_DIM }}>{m.l} {m.v}</div>
-                      ))}
-                    </div>
-                    <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 3, fontStyle: 'italic' }}>{s.note}</div>
-                  </div>
-                  <button onClick={() => {
-                    setState(prev => {
-                      const sk2 = sessKey;
-                      const cur = prev.sessions[sk2] || { iso: viewISO, dayType };
-                      const key = `cardio_${i}`;
-                      return { ...prev, sessions: { ...prev.sessions, [sk2]: { ...cur, [key]: !cur[key] } } };
-                    });
-                  }} style={{
-                    background: sessions[sessKey]?.[`cardio_${i}`] ? GREEN : 'transparent',
-                    border: `2px solid ${sessions[sessKey]?.[`cardio_${i}`] ? GREEN : BORDER}`,
-                    color: sessions[sessKey]?.[`cardio_${i}`] ? '#000' : TEXT_MUTED,
-                    borderRadius: 6, width: 32, height: 32, cursor: 'pointer', fontSize: 14, flexShrink: 0,
-                  }}>✓</button>
+          <Card style={{ marginBottom: 10, borderLeft: `3px solid ${BLUE}` }}>
+            {/* Weekly burn goal header */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                <Label style={{ margin: 0 }}>🍎 WEEKLY BURN GOAL</Label>
+                <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: burnColor }}>
+                  {burnActual.toLocaleString()} / {burnTarget.toLocaleString()} cal
                 </div>
               </div>
-            ))}
+              <div style={{ background: CARD2, borderRadius: 4, height: 6, overflow: 'hidden', marginBottom: 4 }}>
+                <div style={{ background: burnColor, height: '100%', width: `${burnPct}%`, transition: 'width 0.3s' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5 }}>
+                <span>WK {dayProgramWeek} OF {profile.weeks}</span>
+                <span style={{ color: burnLeft > 0 ? burnColor : GREEN }}>
+                  {burnLeft > 0 ? `${burnLeft.toLocaleString()} TO GO` : '✓ GOAL MET'}
+                </span>
+              </div>
+            </div>
+
+            {/* Workout calorie entry */}
+            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 8, marginBottom: 10 }}>
+              <div style={{ fontSize: 10, color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, marginBottom: 4 }}>
+                ⌚ LOG WORKOUT CALORIES (Apple Watch)
+              </div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <Input
+                  type="number"
+                  placeholder="Active cal burned"
+                  value={session?.watchCal || ''}
+                  onChange={e => updateSession({ watchCal: e.target.value })}
+                  style={{ flex: 1, fontSize: 13 }}
+                />
+                <div style={{ fontSize: 10, color: TEXT_MUTED }}>cal</div>
+                {session?.watchCal && (
+                  <div style={{ fontSize: 10, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif' }}>✓ SAVED</div>
+                )}
+              </div>
+            </div>
+
+            {/* Cardio sessions */}
+            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <div style={{ fontSize: 10, color: BLUE, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
+                  🏃 CARDIO THIS WEEK
+                </div>
+                <div style={{ fontSize: 9, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                  {cardioSessions.filter((_,i) => session?.[`cardio_${i}`]).length}/{cardioSessions.length}
+                </div>
+              </div>
+
+              {cardioSessions.map((cs, i) => {
+                const isDone = !!session?.[`cardio_${i}`];
+                const loggedCal = session?.[`cardio_${i}_cal`] || '';
+                return (
+                  <div key={i} style={{
+                    padding: '8px 10px', marginBottom: 6, borderRadius: 6,
+                    background: isDone ? `${GREEN}15` : cs.isMakeup ? `${ORANGE}15` : CARD2,
+                    border: `1px solid ${isDone ? GREEN : cs.isMakeup ? ORANGE : BORDER}`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 12, color: cs.isMakeup ? ORANGE : '#fff' }}>
+                            {cs.type === 'run' ? '🏃' : '🚶'} {cs.label}
+                          </span>
+                          <span style={{ fontSize: 8, color: BLUE, fontFamily: 'Impact, Arial Black, sans-serif', background: `${BLUE}20`, padding: '1px 5px', borderRadius: 8 }}>
+                            {cs.timing.toUpperCase()}
+                          </span>
+                          {cs.isMakeup && (
+                            <span style={{ fontSize: 8, color: ORANGE, fontFamily: 'Impact, Arial Black, sans-serif', background: `${ORANGE}20`, padding: '1px 5px', borderRadius: 8 }}>
+                              MAKE-UP
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
+                          {[
+                            { l: '⏱', v: `${cs.dur} min` },
+                            { l: '📍', v: `${cs.dist} mi` },
+                            { l: '👟', v: `${cs.steps.toLocaleString()}` },
+                            { l: '🍎', v: `~${cs.cal} cal` },
+                            { l: '❤️', v: `Z${cs.zone}` },
+                          ].map(m => (
+                            <span key={m.l} style={{ fontSize: 10, color: TEXT_DIM }}>{m.l} {m.v}</span>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: 10, color: TEXT_MUTED, fontStyle: 'italic', marginBottom: isDone ? 6 : 0 }}>{cs.note}</div>
+                        {/* Calorie entry when done */}
+                        {isDone && (
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
+                            <span style={{ fontSize: 9, color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif' }}>⌚ ACTUAL CAL:</span>
+                            <Input
+                              type="number"
+                              placeholder="e.g. 280"
+                              value={loggedCal}
+                              onChange={e => setState(prev => {
+                                const sk2 = sessKey;
+                                const cur = prev.sessions[sk2] || { iso: viewISO, dayType };
+                                return { ...prev, sessions: { ...prev.sessions, [sk2]: { ...cur, [`cardio_${i}_cal`]: e.target.value } } };
+                              })}
+                              style={{ width: 80, fontSize: 12, padding: '3px 6px' }}
+                            />
+                            <span style={{ fontSize: 9, color: TEXT_MUTED }}>cal</span>
+                            {loggedCal && <span style={{ fontSize: 9, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif' }}>+{loggedCal} to weekly</span>}
+                          </div>
+                        )}
+                      </div>
+                      {/* Done toggle */}
+                      <button onClick={() => {
+                        setState(prev => {
+                          const sk2 = sessKey;
+                          const cur = prev.sessions[sk2] || { iso: viewISO, dayType };
+                          return { ...prev, sessions: { ...prev.sessions, [sk2]: { ...cur, [`cardio_${i}`]: !cur[`cardio_${i}`] } } };
+                        });
+                      }} style={{
+                        background: isDone ? GREEN : 'transparent',
+                        border: `2px solid ${isDone ? GREEN : BORDER}`,
+                        color: isDone ? '#000' : TEXT_MUTED,
+                        borderRadius: 6, width: 32, height: 32, cursor: 'pointer',
+                        fontSize: 14, flexShrink: 0, marginTop: 2,
+                      }}>✓</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </Card>
         );
       })()}
@@ -6378,6 +6786,47 @@ const Workouts = ({ state, setState }) => {
             </div>
             <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>Add any exercise from the full library to this session</div>
           </Card>
+
+          {/* Logged workout entries for today */}
+          {(session?.workoutEntries?.length > 0) && (
+            <Card style={{ marginTop: 8 }}>
+              <Label>TODAY'S LOGGED ENTRIES</Label>
+              {session.workoutEntries.map((e, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: i < session.workoutEntries.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+                  <span style={{ fontSize: 14 }}>{e.type === 'cardio' ? '🏃' : '🏋️'}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, color: '#fff' }}>{e.name}</div>
+                    <div style={{ fontSize: 10, color: TEXT_MUTED }}>
+                      {e.dur > 0 && `${e.dur} min`}
+                      {e.dist > 0 && ` · ${e.dist} mi`}
+                      {e.zone && ` · Zone ${e.zone}`}
+                      {e.loggedAt && ` · ${e.loggedAt}`}
+                    </div>
+                  </div>
+                  {e.cal > 0 && (
+                    <div style={{ fontSize: 12, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                      +{e.cal} 🍎
+                    </div>
+                  )}
+                  <button onClick={() => setState(prev => {
+                    const cur = prev.sessions[sessKey];
+                    if (!cur) return prev;
+                    const entries = cur.workoutEntries.filter((_, j) => j !== i);
+                    const removedCal = e.cal || 0;
+                    const watchCalNew = e.type === 'lifting' ? Math.max(0, (+cur.watchCal||0) - removedCal) : cur.watchCal;
+                    const cardioCalNew = e.type === 'cardio' ? Math.max(0, (+cur.cardioCal||0) - removedCal) : cur.cardioCal;
+                    return { ...prev, sessions: { ...prev.sessions, [sessKey]: { ...cur, workoutEntries: entries, watchCal: watchCalNew, cardioCal: cardioCalNew } } };
+                  })} style={{ background: 'transparent', border: 'none', color: TEXT_MUTED, cursor: 'pointer', fontSize: 14 }}>×</button>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 6, borderTop: `1px solid ${BORDER}` }}>
+                <div style={{ fontSize: 10, color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 0.5 }}>TOTAL BURNED TODAY</div>
+                <div style={{ fontSize: 13, color: GREEN, fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                  {session.workoutEntries.reduce((a, e) => a + (e.cal || 0), 0)} 🍎 CAL
+                </div>
+              </div>
+            </Card>
+          )}
 
           {/* Coach Feedback */}
           {session && (() => {
