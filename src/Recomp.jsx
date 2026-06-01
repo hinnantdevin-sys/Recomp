@@ -9161,7 +9161,17 @@ const Backup = ({ state, setState, onShowSummary }) => {
   };
 
   const setWeek = () => {
-    setState((p) => ({ ...p, week: Math.max(1, Math.min(p.profile.weeks, +setWeekVal || 1)) }));
+    const targetWeek = Math.max(1, Math.min(profile.weeks, +setWeekVal || 1));
+    // Adjust startDate so that today falls on targetWeek, day 1
+    // startDate = today - (targetWeek - 1) * 7 days
+    const today = isoToDate(todayISO());
+    const newStart = new Date(today);
+    newStart.setDate(today.getDate() - (targetWeek - 1) * 7);
+    setState((p) => ({
+      ...p,
+      week: targetWeek,
+      profile: { ...p.profile, startDate: dateToISO(newStart) },
+    }));
   };
 
   const resetAll = async () => {
@@ -9280,13 +9290,30 @@ const Backup = ({ state, setState, onShowSummary }) => {
         <Btn variant="ghost" onClick={() => fileInputRef.current?.click()} style={{ width: '100%' }}>UPLOAD .JSON</Btn>
       </Card>
 
-      {/* Set Week */}
-      <Card style={{ marginBottom: 10 }}>
-        <H size={13}>SET WEEK</H>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Input type="number" min="1" max={profile.weeks} value={setWeekVal} onChange={(e) => setSetWeekVal(e.target.value)} />
-          <Btn onClick={setWeek}>JUMP</Btn>
+      {/* Set current week */}
+      <Card style={{ marginBottom: 10, borderColor: BLUE }}>
+        <H size={13} color={BLUE}>SET CURRENT WEEK</H>
+        <div style={{ fontSize: 11, color: TEXT_DIM, marginBottom: 10 }}>
+          Currently on <span style={{ color: ACCENT, fontFamily: 'Impact, Arial Black, sans-serif' }}>Week {getProgramWeek(todayISO(), profile.startDate || todayISO(), profile.weeks || 12)}</span> of {profile.weeks || 12}.
+          Adjusts your start date so today lands on the week you choose.
         </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ fontSize: 11, color: TEXT_DIM, fontFamily: 'Impact, Arial Black, sans-serif', flexShrink: 0 }}>WEEK</div>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {Array.from({ length: profile.weeks }, (_, i) => i + 1).map(w => (
+              <button key={w} onClick={() => setSetWeekVal(String(w))} style={{
+                background: String(setWeekVal) === String(w) ? BLUE : CARD2,
+                color: String(setWeekVal) === String(w) ? '#fff' : TEXT_DIM,
+                border: `1px solid ${String(setWeekVal) === String(w) ? BLUE : BORDER}`,
+                borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+                fontSize: 12, fontFamily: 'Impact, Arial Black, sans-serif',
+              }}>{w}</button>
+            ))}
+          </div>
+        </div>
+        <Btn onClick={setWeek} style={{ width: '100%', marginTop: 10 }}>
+          SET TO WEEK {setWeekVal}
+        </Btn>
       </Card>
 
       {/* Reset to Week 1 */}
@@ -9993,9 +10020,10 @@ const RecompApp = () => {
     if (!state || !loaded) return;
     if (state.profile.summaryAcknowledged || summaryDismissed) return;
     const { profile, sessions, week } = state;
+    if (!profile.startDate) return; // no start date yet
     if (week >= profile.weeks) {
-      // Check all non-rest sessions of final week are done/skipped
       const weekStartDate = new Date(profile.startDate);
+      if (isNaN(weekStartDate.getTime())) return; // invalid date guard
       weekStartDate.setDate(weekStartDate.getDate() + (week - 1) * 7);
       let allDone = true;
       for (let i = 0; i < 7; i++) {
