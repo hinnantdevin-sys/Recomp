@@ -4826,8 +4826,8 @@ const Btn = ({ children, onClick, variant = 'primary', size = 'md', disabled, st
   );
 };
 
-const Card = ({ children, style = {} }) => (
-  <div style={{
+const Card = ({ children, style = {}, onClick }) => (
+  <div onClick={onClick} style={{
     background: CARD,
     border: `1px solid ${BORDER}`,
     borderRadius: 8,
