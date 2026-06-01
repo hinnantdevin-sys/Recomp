@@ -6262,18 +6262,24 @@ const Workouts = ({ state, setState }) => {
         </Card>
       )}
 
-      {/* Date label + day type */}
-      <Card style={{ marginBottom: 10, borderTop: `3px solid ${headerColor}` }}>
+      {/* Date label + day type — tappable to collapse/expand workout */}
+      <Card style={{ marginBottom: 10, borderTop: `3px solid ${headerColor}`, cursor: dayType !== 'REST' ? 'pointer' : 'default' }}
+        onClick={() => { if (dayType !== 'REST' && dayType !== 'ACTIVE_RECOVERY') setShowWorkout(v => !v); }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 11, color: TEXT_MUTED, fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1 }}>
               {viewISO === todayISO() ? 'TODAY' : viewISO === dateOffsetISO(-1) ? 'YESTERDAY' : formatDate(viewISO).toUpperCase()}
             </div>
-            <H size={20} color={headerColor} mb={2} style={{ marginTop: 4 }}>
-              {dayType.replace(/_/g, ' ')}
-              {variant && <span style={{ color: TEXT_DIM, fontSize: 14, marginLeft: 6 }}>({variant})</span>}
-              {dayInfo.overridden && <span style={{ color: YELLOW, fontSize: 12, marginLeft: 6 }}>↔</span>}
-            </H>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <H size={20} color={headerColor} mb={2} style={{ marginTop: 4 }}>
+                {dayType.replace(/_/g, ' ')}
+                {variant && <span style={{ color: TEXT_DIM, fontSize: 14, marginLeft: 6 }}>({variant})</span>}
+                {dayInfo.overridden && <span style={{ color: YELLOW, fontSize: 12, marginLeft: 6 }}>↔</span>}
+              </H>
+              {dayType !== 'REST' && dayType !== 'ACTIVE_RECOVERY' && (
+                <span style={{ fontSize: 14, color: TEXT_MUTED, marginBottom: -2 }}>{showWorkout ? '▾' : '▸'}</span>
+              )}
+            </div>
             <div style={{ fontSize: 10, color: TEXT_MUTED, fontFamily: 'Helvetica, Arial, sans-serif' }}>
               {WORKOUT_STYLES.find((s) => s.id === profile.workoutStyle)?.name}
               {exData?.fbbPhase && (
@@ -6366,7 +6372,7 @@ const Workouts = ({ state, setState }) => {
         </div>
         {/* Move/skip/undo buttons below the header row */}
         {!session?.skipped && !session?.done && dayType !== 'REST' && (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
               <Btn size="sm" variant="ghost"
                 onClick={() => setShowMoveMenu(showMoveMenu === 'move' ? null : 'move')}
                 style={showMoveMenu === 'move' ? { color: ACCENT, border: `1px solid ${ACCENT}` } : {}}>
@@ -6499,31 +6505,6 @@ const Workouts = ({ state, setState }) => {
       )}
 
       {/* Block transition banner */}
-      {isBlockTransition && dayType !== 'REST' && !session?.skipped && (
-        <Card style={{ marginBottom: 10, background: `${ORANGE}15`, border: `2px solid ${ORANGE}`, borderRadius: 8 }}>
-          <H size={14} color={ORANGE} mb={4}>🔄 NEW EXERCISE BLOCK</H>
-          <div style={{ fontSize: 12, color: '#fff' }}>
-            You've entered Block {currentBlock} — fresh exercise selection for the next 4 weeks. Different angles, new movement patterns. <strong style={{ color: ACCENT }}>Weights carry over</strong> for any exercises returning from earlier blocks.
-          </div>
-        </Card>
-      )}
-
-      {/* Week note (weeks 2+, non-transition) */}
-      {showWeekNote && !isBlockTransition && !session?.skipped && dayType !== 'REST' && (
-        <Card style={{ marginBottom: 10, background: CARD2, borderLeft: `3px solid ${ACCENT}` }}>
-          <Label>THIS WEEK'S CHANGE</Label>
-          <div style={{ fontSize: 12, color: '#fff' }}>{phaseInfo.note}</div>
-        </Card>
-      )}
-
-      {/* Warm-up */}
-      {dayType !== 'REST' && exData?.exercises?.length > 0 && !session?.skipped && (
-        <Card style={{ marginBottom: 10 }}>
-          <Label>WARM-UP</Label>
-          <div style={{ fontSize: 12, color: TEXT_DIM }}>{warmupForDayType(dayType)}</div>
-        </Card>
-      )}
-
       {/* Rest day */}
       {/* Weekly Calorie Burn Tracker + Cardio Prescription */}
       {dayType !== 'REST' && (() => {
@@ -6834,44 +6815,7 @@ const Workouts = ({ state, setState }) => {
         </Card>
       )}
 
-      {/* Race sim — race time input */}
-      {/* Collapsible workout section */}
-      {dayType !== 'REST' && dayType !== 'ACTIVE_RECOVERY' && !session?.skipped && exData?.exercises?.length > 0 && (() => {
-        const setLogs = session?.setLogs || {};
-        const totalSets = exData.exercises.reduce((a, ex) => a + (parseInt(ex.sets) || 3), 0);
-        const doneSets = Object.values(setLogs).filter(s => s?.done).length;
-        const pct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
-        const statusColor = pct === 100 ? GREEN : pct > 0 ? YELLOW : TEXT_DIM;
-        return (
-          <button onClick={() => setShowWorkout(v => !v)} style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            width: '100%', background: CARD, border: `1px solid ${BORDER}`,
-            borderRadius: 8, padding: '10px 12px', cursor: 'pointer', marginBottom: 8,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 16 }}>{pct === 100 ? '✅' : '🏋️'}</span>
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 13, color: '#fff', letterSpacing: 0.5 }}>
-                  TODAY'S WORKOUT
-                </div>
-                <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 1 }}>
-                  {exData.exercises.length} exercises · {totalSets} sets
-                  {doneSets > 0 && <span style={{ color: statusColor, marginLeft: 6 }}>{doneSets}/{totalSets} done</span>}
-                </div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {doneSets > 0 && (
-                <div style={{ width: 40, height: 5, background: CARD2, borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ background: statusColor, height: '100%', width: `${pct}%` }} />
-                </div>
-              )}
-              <span style={{ color: TEXT_MUTED, fontSize: 14 }}>{showWorkout ? '▾' : '▸'}</span>
-            </div>
-          </button>
-        );
-      })()}
-
+      {/* Workout content — shown/hidden by tapping the day-type card above */}
       <div style={{ display: showWorkout ? 'block' : 'none' }}>
 
       {exData?.isRaceSim && !session?.skipped && (
@@ -7010,6 +6954,32 @@ const Workouts = ({ state, setState }) => {
             </div>
             <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>Add any exercise from the full library to this session</div>
           </Card>
+
+          {/* Warm-up — shown below workout */}
+          {dayType !== 'REST' && exData?.exercises?.length > 0 && !session?.skipped && (
+            <Card style={{ marginTop: 10 }}>
+              <Label>WARM-UP</Label>
+              <div style={{ fontSize: 12, color: TEXT_DIM }}>{warmupForDayType(dayType)}</div>
+            </Card>
+          )}
+
+          {/* Block transition note */}
+          {isBlockTransition && dayType !== 'REST' && !session?.skipped && (
+            <Card style={{ marginTop: 10, background: `${ORANGE}15`, border: `2px solid ${ORANGE}` }}>
+              <H size={13} color={ORANGE} mb={4}>🔄 NEW EXERCISE BLOCK</H>
+              <div style={{ fontSize: 12, color: '#fff' }}>
+                You've entered Block {currentBlock} — fresh exercise selection for the next 4 weeks. Different angles, new movement patterns. <strong style={{ color: ACCENT }}>Weights carry over</strong> for any exercises returning from earlier blocks.
+              </div>
+            </Card>
+          )}
+
+          {/* This week's change */}
+          {showWeekNote && !isBlockTransition && !session?.skipped && dayType !== 'REST' && (
+            <Card style={{ marginTop: 10, background: CARD2, borderLeft: `3px solid ${ACCENT}` }}>
+              <Label>THIS WEEK'S CHANGE</Label>
+              <div style={{ fontSize: 12, color: '#fff' }}>{phaseInfo.note}</div>
+            </Card>
+          )}
 
           {/* Logged workout entries for today */}
           {(session?.workoutEntries?.length > 0) && (
