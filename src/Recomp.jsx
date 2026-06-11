@@ -2293,6 +2293,22 @@ const hyroxWeekParams = (phase, week, totalWeeks, raceDate) => {
     // Weeks 14+ out: build aerobic base, technique, foundation strength
     // Progressive: strength reps drop (heavier), run volume grows
     const w = Math.min(phaseWeek, 8); // cap at 8 weeks of BASE
+
+    // Beginner-friendly Z2 run progression — starts at 7 min, builds to 60 min
+    // Run/walk format early on, then transitions to continuous running
+    // 10% weekly volume increase rule — safe, evidence-based
+    const z2Progression = [
+      '7 min — run/walk: 1 min run, 1 min walk × 3-4 rounds. If it feels hard, slow down more. You should be able to hold a full conversation.',
+      '12 min — run/walk: 2 min run, 1 min walk × 4 rounds. Keep HR under 150. If it goes above, walk until it drops.',
+      '18 min — run/walk: 3 min run, 1 min walk × 4-5 rounds. You are building the aerobic engine. Patience pays off.',
+      '25 min — run/walk: 5 min run, 1 min walk × 4 rounds. Last round try 5 min continuous if HR stays under 150.',
+      '32 min — continuous easy run if possible, or 7 min run / 1 min walk × 4 rounds. HR 130-150 the whole time.',
+      '40 min — continuous easy run. HR 130-150. Conversational pace. If HR spikes above 150, slow to a walk until it drops.',
+      '50 min — continuous easy run. You\'re building real aerobic base now. Same pace, same HR. Do not push.',
+      '60 min — continuous easy run. Full Z2 hour. HR 130-150. This is the fitness that carries you through 8km on race day.',
+    ];
+    const z2Dur = z2Progression[Math.min(w - 1, 7)];
+
     return {
       squatSets: 3 + (w > 3 ? 1 : 0),          // 3→4 sets
       squatReps: w <= 2 ? '8-10' : w <= 5 ? '6-8' : '5-7',
@@ -2318,7 +2334,7 @@ const hyroxWeekParams = (phase, week, totalWeeks, raceDate) => {
       ergIntervals: `${3 + Math.min(w, 3)} × 500m row/ski`,
       ergPace: '1:55-2:00/500m',
       intervalRest: '90s',
-      z2Dur: `${35 + w * 3} min`,              // 38→62 min progressive
+      z2Dur,
       raceSim: `${2 + Math.min(w, 2)} stations + ${500 + w * 100}m run repeats × 2`,
       coachNote: `BASE week ${w}: aerobic foundation. Focus on technique, not pace.`,
     };
@@ -4777,7 +4793,7 @@ const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx, 
           { name: '📋 TODAY: EASY DAY (LOW — 80%)', sets: '1', reps: 'Zone 2 only. Do not push.', tempo: '-',
             note: 'HIGH/LOW: This is your 80% easy day. If it feels too easy, that is correct. HR stays under 150. Full sentences the whole run.' },
           { name: '🏃 Z2 Long Run', sets: '1', reps: p.z2Dur, tempo: '-',
-            note: `HR 130-150. Fully conversational.${phase.name === 'TAPER' ? ' Taper: short and easy only.' : ' Nose-breathing is a useful HR limiter. If HR drifts above 150, walk.'}` },
+            note: `HR 130-150. Fully conversational — full sentences the whole time. ${phase.name === 'BASE' ? 'Run/walk is perfectly fine. The goal is time on feet at low HR, not continuous running.' : phase.name === 'TAPER' ? 'Taper: short and easy only.' : 'Nose-breathing is a useful HR limiter. If HR drifts above 150, walk.'}` },
           { name: 'KB Turkish Get-Up', sets: '3', reps: phase.name === 'TAPER' ? '2/side' : '3/side', tempo: '-', note: 'After run. Shoulder stability. Slow and deliberate.' },
           { name: '🏀 Wall Ball Technique', sets: phase.name === 'TAPER' ? '2' : '3', reps: p.wallBallReps, tempo: '-',
             note: phase.name === 'RACE PREP' ? 'Race weight. Technique only — not race pace.' : 'Light. Form focus. Squat depth, ball above line every rep.' },
