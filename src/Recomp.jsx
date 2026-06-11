@@ -8060,7 +8060,23 @@ const ExerciseBlock = ({ ex, session, sessions, currentISO, goal, onSetUpdate, r
             {ex.name}
           </H>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
-            <Pill color={TEXT_DIM} bg={CARD2}>{ex.sets}×{ex.reps}</Pill>
+            {(() => {
+              // If tempo is '-' the exercise is a station/distance/time/run — reps string is self-contained
+              // Only show sets×reps format for lifting exercises with real tempo
+              const isStation = !ex.tempo || ex.tempo === '-';
+              const repsStr = String(ex.reps || '');
+              // Reps already contains × or set info (e.g. "3 × 500m", "4 sets × 5/side")
+              const repsHasSets = /\d+\s*[×x]\s*\d/.test(repsStr) || /sets/.test(repsStr);
+              // Single set station — just show the reps
+              const showSetsReps = !isStation && !repsHasSets && ex.sets && ex.sets !== '1';
+              const pill = showSetsReps
+                ? `${ex.sets}×${repsStr}`
+                : repsHasSets ? repsStr
+                : isStation ? repsStr
+                : ex.sets === '1' ? repsStr
+                : `${ex.sets}×${repsStr}`;
+              return <Pill color={TEXT_DIM} bg={CARD2}>{pill}</Pill>;
+            })()}
             {ex.tempo && ex.tempo !== '-' && <Pill color={PURPLE}>{ex.tempo}</Pill>}
             {isKB && <Pill color={'#fbbf24'}>KB</Pill>}
           </div>
