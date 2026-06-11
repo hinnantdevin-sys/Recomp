@@ -67,6 +67,11 @@ const SPLIT_PRESETS = {
   hyrox_hybrid: [
     { name: 'Standard 5-Day', days: ['STRENGTH_LOWER', 'KB_RUN', 'Z2_RUN', 'STRENGTH_UPPER', 'RACE_SIM', 'REST', 'REST'] },
     { name: '6-Day Hybrid', days: ['STRENGTH_LOWER', 'KB_RUN', 'Z2_RUN', 'STRENGTH_UPPER', 'RACE_SIM', 'CARDIO', 'REST'] },
+    {
+      name: 'CrossFit Integration (5-Day)',
+      days: ['REST', 'STRENGTH_UPPER', 'Z2_RUN', 'KB_RUN', 'REST', 'STRENGTH_LOWER', 'RACE_SIM'],
+      note: 'Mon/Fri = CrossFit (add manually). Wed morning = Z2 Run (CrossFit class in evening). Tue = Upper. Thu = KB+Run. Sat = Legs. Sun = Race Sim.',
+    },
   ],
   powerlifting: [
     { name: '4-Day SBD+Acc', days: ['SQUAT', 'BENCH', 'REST', 'DEADLIFT', 'ACCESSORY', 'REST', 'REST'] },
@@ -2245,12 +2250,176 @@ const raceColor = (days) => {
 };
 
 // HYROX phase by week (BASE 40% → BUILD 40% → PEAK 20%, last week TAPER)
-const hyroxPhase = (week, totalWeeks) => {
-  if (week >= totalWeeks) return { name: 'TAPER', color: PURPLE, emoji: '⚡' };
+// HYROX phase derived from weeks-to-race (if raceDate set) or program week %.
+// Periodizes backwards from race day — the correct way coaches program HYROX.
+const hyroxPhase = (week, totalWeeks, raceDate) => {
+  // If race date is set, derive phase from weeks until race
+  let weeksToRace = null;
+  if (raceDate) {
+    const today = new Date();
+    const race = new Date(raceDate + 'T00:00:00');
+    const ms = race - today;
+    weeksToRace = Math.max(0, Math.ceil(ms / (7 * 86400000)));
+  }
+
+  // Phase thresholds (weeks to race)
+  if (weeksToRace !== null) {
+    if (weeksToRace <= 1)  return { name: 'TAPER',     color: PURPLE,    emoji: '⚡', weeksToRace };
+    if (weeksToRace <= 4)  return { name: 'RACE PREP', color: ORANGE,    emoji: '🔥', weeksToRace };
+    if (weeksToRace <= 10) return { name: 'BUILD',     color: '#fbbf24', emoji: '🔥', weeksToRace };
+    return                        { name: 'BASE',      color: BLUE,      emoji: '🏗️', weeksToRace };
+  }
+
+  // Fallback: % of program weeks
+  if (week >= totalWeeks)   return { name: 'TAPER',     color: PURPLE,    emoji: '⚡', weeksToRace: 0 };
   const pct = week / totalWeeks;
-  if (pct <= 0.4) return { name: 'BASE', color: BLUE, emoji: '🏗️' };
-  if (pct <= 0.8) return { name: 'BUILD', color: '#fbbf24', emoji: '🔥' };
-  return { name: 'RACE PREP', color: ORANGE, emoji: '🔥' };
+  if (pct <= 0.4)           return { name: 'BASE',      color: BLUE,      emoji: '🏗️', weeksToRace: null };
+  if (pct <= 0.8)           return { name: 'BUILD',     color: '#fbbf24', emoji: '🔥', weeksToRace: null };
+  return                           { name: 'RACE PREP', color: ORANGE,    emoji: '🔥', weeksToRace: null };
+};
+
+// Progressive weekly parameters for HYROX — gets harder each week within each phase
+// Returns sets, reps, station volume, run distance, and coaching note for the current week
+const hyroxWeekParams = (phase, week, totalWeeks, raceDate) => {
+  const wtr = phase.weeksToRace; // weeks to race (null if no race date)
+
+  // Weeks elapsed within this phase (for progressive overload)
+  // If no race date, use program week
+  const phaseWeek = wtr !== null
+    ? { BASE: Math.max(1, wtr - 14), BUILD: Math.max(1, wtr - 4), 'RACE PREP': Math.max(1, 5 - wtr), TAPER: 1 }[phase.name] || week
+    : week;
+
+  if (phase.name === 'BASE') {
+    // Weeks 14+ out: build aerobic base, technique, foundation strength
+    // Progressive: strength reps drop (heavier), run volume grows
+    const w = Math.min(phaseWeek, 8); // cap at 8 weeks of BASE
+    return {
+      squatSets: 3 + (w > 3 ? 1 : 0),          // 3→4 sets
+      squatReps: w <= 2 ? '8-10' : w <= 5 ? '6-8' : '5-7',
+      rdlSets: 3,
+      rdlReps: w <= 3 ? '10-12' : '8-10',
+      lungeSets: 3,
+      lungeReps: '10/leg',
+      sledSets: 3 + (w > 4 ? 1 : 0),           // 3→4 sets
+      sledLoad: 'sub-race weight',
+      farmSets: 2 + (w > 4 ? 1 : 0),
+      farmNote: 'Build grip. Not race weight yet.',
+      pullSets: 3 + (w > 2 ? 1 : 0),
+      pullReps: w <= 3 ? '8-10' : '6-8',
+      pressSets: 3,
+      pressReps: w <= 3 ? '8-10' : '6-8',
+      skiSets: 2 + (w > 3 ? 1 : 0),
+      skiDist: '750m',
+      wallBallSets: 2 + (w > 3 ? 1 : 0),
+      wallBallReps: '15-20',
+      burpeeSets: 2,
+      burpeeReps: '10',
+      runIntervals: `${4 + Math.min(w, 4)} × 400m at 5K pace`,
+      ergIntervals: `${3 + Math.min(w, 3)} × 500m row/ski`,
+      ergPace: '1:55-2:00/500m',
+      intervalRest: '90s',
+      z2Dur: `${35 + w * 3} min`,              // 38→62 min progressive
+      raceSim: `${2 + Math.min(w, 2)} stations + ${500 + w * 100}m run repeats × 2`,
+      coachNote: `BASE week ${w}: aerobic foundation. Focus on technique, not pace.`,
+    };
+  }
+
+  if (phase.name === 'BUILD') {
+    // 4-10 weeks out: race-specific volume, heavier stations, longer intervals
+    const w = wtr !== null ? Math.max(1, 11 - wtr) : Math.min(phaseWeek, 6);
+    return {
+      squatSets: 4,
+      squatReps: w <= 2 ? '5-7' : w <= 4 ? '4-6' : '3-5',  // getting heavier
+      rdlSets: 3 + (w > 3 ? 1 : 0),
+      rdlReps: '6-8',
+      lungeSets: 3,
+      lungeReps: '12/leg',
+      sledSets: 4,
+      sledLoad: 'race weight',
+      farmSets: 3,
+      farmNote: 'Race weight. No drops if possible.',
+      pullSets: 4,
+      pullReps: '5-7',
+      pressSets: 4,
+      pressReps: '5-7',
+      skiSets: 3,
+      skiDist: '1000m',
+      wallBallSets: 3,
+      wallBallReps: '20-25',
+      burpeeSets: 3,
+      burpeeReps: '15',
+      runIntervals: `${3 + Math.min(w, 2)} × ${600 + w * 100}m at 10K pace`, // 700-900m builds
+      ergIntervals: `${3 + (w > 3 ? 1 : 0)} × 750m row/ski at race pace`,
+      ergPace: '1:50-1:55/500m',
+      intervalRest: '2:00',
+      z2Dur: `${50 + w * 2} min`,
+      raceSim: w <= 3
+        ? '4 stations + 1km run × 4 (half race volume)'
+        : '6 stations + 1km run × 6 (sub-race simulation)',
+      coachNote: `BUILD week ${w}: race-specific intensity. Pace every station. Log split times.`,
+    };
+  }
+
+  if (phase.name === 'RACE PREP') {
+    // 1-4 weeks out: peak specificity, full race loads, sharpening
+    const w = wtr !== null ? Math.max(1, 5 - wtr) : Math.min(phaseWeek, 4);
+    return {
+      squatSets: 4,
+      squatReps: w >= 3 ? '3-4' : '4-5',        // peak strength, low reps
+      rdlSets: 3,
+      rdlReps: '5-6',
+      lungeSets: 2,                               // reduce volume, maintain quality
+      lungeReps: '10/leg',
+      sledSets: 4,
+      sledLoad: 'race weight — race effort',
+      farmSets: 3,
+      farmNote: 'Race weight. Practice no-drop strategy.',
+      pullSets: 4,
+      pullReps: '4-6',
+      pressSets: 3,
+      pressReps: '4-6',
+      skiSets: 3,
+      skiDist: '1000m',
+      wallBallSets: 3,
+      wallBallReps: '25-30',
+      burpeeSets: 3,
+      burpeeReps: '20',
+      runIntervals: `4 × 1km at goal race pace`,
+      ergIntervals: `3 × 1000m at race pace`,
+      ergPace: 'race goal pace',
+      intervalRest: '2:30',
+      z2Dur: '40 min',                            // reduce z2 volume in peak
+      raceSim: w >= 3
+        ? 'Full HYROX: all 8 stations + 1km runs — timed, race conditions'
+        : '6 stations + 1km runs — focus on transitions',
+      coachNote: wtr !== null
+        ? `RACE PREP: ${wtr} weeks to race. Every session is race rehearsal. Log every split.`
+        : 'RACE PREP: Peak specificity. Full race loads.',
+    };
+  }
+
+  // TAPER
+  return {
+    squatSets: 2, squatReps: '5-6',
+    rdlSets: 2, rdlReps: '8',
+    lungeSets: 2, lungeReps: '8/leg',
+    sledSets: 2, sledLoad: 'race weight — 50% volume',
+    farmSets: 1, farmNote: 'Stay loose. 1 pass only.',
+    pullSets: 2, pullReps: '6-8',
+    pressSets: 2, pressReps: '6-8',
+    skiSets: 2, skiDist: '500m',
+    wallBallSets: 2, wallBallReps: '15',
+    burpeeSets: 1, burpeeReps: '10',
+    runIntervals: '3 × 400m easy — feel fast, not tired',
+    ergIntervals: '2 × 500m moderate',
+    ergPace: 'feel good, not max effort',
+    intervalRest: 'Full',
+    z2Dur: '25 min',
+    raceSim: '2 stations + 500m run × 2 — legs are loaded, stay fresh',
+    coachNote: wtr !== null
+      ? `TAPER: ${wtr} week${wtr === 1 ? '' : 's'} to race. Trust your training. Volume drops 40%. Stay sharp, not tired.`
+      : 'TAPER: Volume drops 40%. Sharpen, don\'t build.',
+  };
 };
 
 const HYROX_INTERVALS_BY_PHASE = {
@@ -3965,7 +4134,7 @@ const variantFor = (schedule, dayIdx, dayType, week) => {
   return occ % 2 === 0 ? 'A' : 'B';
 };
 
-const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx, goal = 'recomp') => {
+const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx, goal = 'recomp', raceDate = null) => {
   const t = String(dayType).toUpperCase();
   // Rest day
   if (t === 'REST') return null;
@@ -4035,162 +4204,182 @@ const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx, 
 
   // HYROX
   if (style === 'hyrox') {
-    const phase = hyroxPhase(week, totalWeeks);
-    const intervals = HYROX_INTERVALS_BY_PHASE[phase.name] || HYROX_INTERVALS_BY_PHASE.BASE;
+    const phase = hyroxPhase(week, totalWeeks, raceDate);
+    const p = hyroxWeekParams(phase, week, totalWeeks, raceDate);
+    const wtrLabel = phase.weeksToRace !== null ? ` · ${phase.weeksToRace}wk to race` : '';
+
     if (t === 'STRENGTH_LOWER') {
       const compounds = progress([
-        { name: 'Back Squat', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
-        { name: 'Romanian Deadlift', sets: '3', reps: '8-10', tempo: '31X0', note: 'Hamstring strength' },
-        { name: 'Walking Lunge', sets: '3', reps: '10/leg', tempo: '20X1', note: 'Race transfer' },
+        { name: 'Back Squat', sets: p.squatSets.toString(), reps: p.squatReps, tempo: '20X1', note: `${p.coachNote} Drive through the floor.` },
+        { name: 'Romanian Deadlift', sets: p.rdlSets.toString(), reps: p.rdlReps, tempo: '31X0', note: 'Hamstring loading. Slow eccentric.' },
+        { name: 'Walking Lunge', sets: p.lungeSets.toString(), reps: p.lungeReps, tempo: '20X1', note: 'Race transfer. Knee to ground.' },
       ]);
       return {
         exercises: [
           ...compounds,
-          { name: 'Sled Push (50m)', sets: '4', reps: 'race weight', tempo: '-', note: HYROX_STATIONS[1].note },
-          { name: 'Farmer Carry (200m)', sets: '3', reps: '24kg/16kg KB ea', tempo: '-', note: HYROX_STATIONS[5].note },
+          { name: 'Sled Push (50m)', sets: p.sledSets.toString(), reps: p.sledLoad, tempo: '-', note: `${HYROX_STATIONS[1].note}${wtrLabel}` },
+          { name: 'Farmer Carry (200m)', sets: p.farmSets.toString(), reps: '24kg/16kg KB ea', tempo: '-', note: p.farmNote },
         ],
-        finisher: '1km run for time',
+        finisher: phase.name === 'TAPER' ? '500m easy jog — stay loose' : '1km run for time — log your split',
         phase,
+        programNote: p.coachNote,
       };
     }
     if (t === 'STRENGTH_UPPER') {
       const compounds = progress([
-        { name: 'Pull-Up', sets: '4', reps: '6-10', tempo: '20X1', note: 'Strict' },
-        { name: 'Overhead Press', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
-        { name: 'Pendlay Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Explosive' },
+        { name: 'Pull-Up', sets: p.pullSets.toString(), reps: p.pullReps, tempo: '20X1', note: 'Full ROM. Critical for SkiErg pulling power.' },
+        { name: 'Overhead Press', sets: p.pressSets.toString(), reps: p.pressReps, tempo: '20X1', note: 'Strict press. Wall ball power transfers here.' },
+        { name: 'Pendlay Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Explosive horizontal pull.' },
       ]);
       return {
         exercises: [
           ...compounds,
-          { name: 'SkiErg (1000m)', sets: '3', reps: 'race effort', tempo: '-', note: HYROX_STATIONS[0].note },
-          { name: 'Wall Balls', sets: '3', reps: '20-25', tempo: '-', note: HYROX_STATIONS[7].note },
-          { name: 'Burpee Broad Jumps', sets: '3', reps: '15', tempo: '-', note: HYROX_STATIONS[3].note },
+          { name: 'SkiErg', sets: p.skiSets.toString(), reps: p.skiDist, tempo: '-', note: `${HYROX_STATIONS[0].note}${wtrLabel}` },
+          { name: 'Wall Balls', sets: p.wallBallSets.toString(), reps: p.wallBallReps, tempo: '-', note: `${HYROX_STATIONS[7].note}` },
+          { name: 'Burpee Broad Jumps', sets: p.burpeeSets.toString(), reps: p.burpeeReps, tempo: '-', note: HYROX_STATIONS[3].note },
         ],
-        finisher: '500m row for time',
+        finisher: phase.name === 'TAPER' ? '250m easy row' : '500m row for time — log your split',
         phase,
+        programNote: p.coachNote,
       };
     }
     if (t === 'RUN_INTERVALS') {
       return {
         exercises: [
-          { name: 'Run Intervals', sets: '1', reps: intervals.run, tempo: '-', note: intervals.rest },
-          { name: 'Erg Intervals', sets: '1', reps: intervals.erg, tempo: '-', note: intervals.rest },
+          { name: 'Warm-Up Run', sets: '1', reps: '10 min easy', tempo: '-', note: 'HR under 130. Dynamic stretching after.' },
+          { name: 'Run Intervals', sets: '1', reps: p.runIntervals, tempo: '-', note: `Rest ${p.intervalRest} between efforts. Log each split.` },
+          { name: 'Erg Intervals', sets: '1', reps: p.ergIntervals, tempo: '-', note: `Target ${p.ergPace}. Rest ${p.intervalRest}.` },
+          { name: 'Cool-Down', sets: '1', reps: '10 min walk/jog', tempo: '-', note: 'HR under 120 before leaving.' },
         ],
         finisher: null,
         phase,
+        programNote: p.coachNote,
       };
     }
     if (t === 'Z2_RUN') {
       return {
         exercises: [
-          { name: 'Z2 Long Run', sets: '1', reps: '45-60 min', tempo: '-', note: 'HR 130-150, conversational pace' },
+          { name: 'Z2 Long Run', sets: '1', reps: p.z2Dur, tempo: '-', note: `HR 130-150. Conversational pace. ${phase.name === 'TAPER' ? 'Keep it short and easy this week.' : 'If HR drifts above 150, walk.'}` },
+          ...(phase.name !== 'TAPER' ? [{ name: 'Post-Run Row', sets: '1', reps: '5 min easy', tempo: '-', note: 'Practice erg form with pre-fatigued legs — race-specific.' }] : []),
         ],
         finisher: null,
         phase,
+        programNote: p.coachNote,
       };
     }
     if (t === 'RACE_SIM') {
-      const simMap = {
-        BASE: '4 rounds: 500m run + 2 stations',
-        BUILD: 'Half HYROX: 4 stations with 500m runs',
-        'RACE PREP': 'Full 8-station race simulation, timed',
-        TAPER: 'Light: 2 stations + 500m run only',
-      };
       return {
         exercises: [
-          { name: 'Race Simulation', sets: '1', reps: simMap[phase.name] || simMap.BASE, tempo: '-', note: 'Log race time below' },
+          { name: 'Race Simulation', sets: '1', reps: p.raceSim, tempo: '-', note: `${wtrLabel ? wtrLabel.slice(3) + ' — ' : ''}Log total time and each station split. Compare to last simulation.` },
+          ...(phase.name !== 'TAPER' ? HYROX_STATIONS.slice(0, phase.name === 'BASE' ? 3 : phase.name === 'BUILD' ? 6 : 8).map(s => ({
+            name: s.name,
+            sets: '1',
+            reps: `${s.dist} ${s.m ? `(${s.m})` : ''}`.trim(),
+            tempo: '-',
+            note: s.note,
+          })) : [{ name: 'Easy Technique Drills', sets: '1', reps: '2 stations only', tempo: '-', note: 'Taper week — movement quality, not volume.' }]),
         ],
         finisher: null,
         phase,
         isRaceSim: true,
+        programNote: p.coachNote,
       };
     }
     if (t === 'CARDIO') {
-      const c = cardioProtocol('performance', week, totalWeeks);
-      return { exercises: [{ name: c.name, sets: '1', reps: c.desc, tempo: '-', note: 'Recovery quality' }], finisher: null, phase };
+      return { exercises: [{ name: 'Active Recovery', sets: '1', reps: '30-40 min easy', tempo: '-', note: 'Bike, swim, or walk. HR under 120. Flush fatigue.' }], finisher: null, phase };
     }
   }
 
   // HYROX Hybrid
   if (style === 'hyrox_hybrid') {
-    const phase = hyroxPhase(week, totalWeeks);
+    const phase = hyroxPhase(week, totalWeeks, raceDate);
+    const p = hyroxWeekParams(phase, week, totalWeeks, raceDate);
+    const wtrLabel = phase.weeksToRace !== null ? ` · ${phase.weeksToRace}wk to race` : '';
+
     if (t === 'STRENGTH_LOWER') {
       const compounds = progress([
-        { name: 'Back Squat', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
-        { name: 'Trap Bar Deadlift', sets: '3', reps: '5-8', tempo: '20X1', note: 'Hips down, chest up' },
-        { name: 'Bulgarian Split Squat', sets: '3', reps: '8/leg', tempo: '20X1', note: 'Quad focus' },
-        { name: 'Single-Leg RDL', sets: '3', reps: '8/leg', tempo: '21X1', note: 'Balance + posterior' },
+        { name: 'Back Squat', sets: p.squatSets.toString(), reps: p.squatReps, tempo: '20X1', note: `Saturday — legs are fresh. ${p.coachNote}` },
+        { name: 'Trap Bar Deadlift', sets: p.rdlSets.toString(), reps: p.rdlReps, tempo: '20X1', note: 'Hips down, chest up. Hinge power for race carries.' },
+        { name: 'Bulgarian Split Squat', sets: p.lungeSets.toString(), reps: '8/leg', tempo: '20X1', note: 'Unilateral quad — race lunge transfer.' },
+        { name: 'Single-Leg RDL', sets: '3', reps: '8/leg', tempo: '21X1', note: 'Balance + posterior chain.' },
       ]);
       return {
         exercises: [
           ...compounds,
           { name: 'KB Goblet Squat', sets: '3', reps: '10', tempo: '20X1', note: `${KB_SIZING.standard.m}/${KB_SIZING.standard.w}` },
-          { name: 'Sled Push (50m)', sets: '3', reps: 'race weight', tempo: '-', note: 'Race transfer' },
-          { name: 'Heavy Farmer Carry (200m)', sets: '2', reps: 'heavy', tempo: '-', note: 'Grip + core' },
+          { name: 'Sled Push (50m)', sets: p.sledSets.toString(), reps: p.sledLoad, tempo: '-', note: `${HYROX_STATIONS[1].note}${wtrLabel}` },
+          { name: 'Heavy Farmer Carry (200m)', sets: p.farmSets.toString(), reps: 'heavy', tempo: '-', note: p.farmNote },
         ],
-        finisher: 'EMOM 8: 12 KB swings (heavy)',
+        finisher: phase.name === 'TAPER' ? 'EMOM 5: 8 KB swings — stay loose' : 'EMOM 8: 12 KB swings (heavy)',
         phase,
+        programNote: `SATURDAY LEGS${wtrLabel} — ${p.coachNote}`,
       };
     }
     if (t === 'KB_RUN') {
+      const kbReps = phase.name === 'BASE' ? '5/side' : phase.name === 'BUILD' ? '6/side' : phase.name === 'RACE PREP' ? '5/side' : '4/side';
+      const kbSets = phase.name === 'BASE' ? '4' : phase.name === 'BUILD' ? '5' : phase.name === 'RACE PREP' ? '4' : '2';
       return {
         exercises: [
-          { name: 'KB Complex (Clean+Press+Squat)', sets: '4', reps: '5/side', tempo: '20X1', note: `${KB_SIZING.standard.m}/${KB_SIZING.standard.w} per round` },
-          { name: 'KB Snatch Test', sets: '1', reps: '5 min max reps', tempo: '-', note: '10/min target pace' },
-          { name: 'Turkish Get-Up', sets: '3', reps: '3/side', tempo: '-', note: 'Slow, controlled' },
-          { name: 'Run Intervals', sets: '1', reps: '5 × 400m at 5K pace', tempo: '-', note: '90s rest' },
+          { name: 'KB Complex (Clean+Press+Squat)', sets: kbSets, reps: kbReps, tempo: '20X1', note: `${KB_SIZING.standard.m}/${KB_SIZING.standard.w}. ${p.coachNote}` },
+          { name: 'KB Snatch Test', sets: '1', reps: phase.name === 'TAPER' ? '3 min easy' : '5 min max reps', tempo: '-', note: '10/min target pace' },
+          { name: 'Turkish Get-Up', sets: '3', reps: phase.name === 'TAPER' ? '2/side' : '3/side', tempo: '-', note: 'Slow, controlled' },
+          { name: 'Run Intervals', sets: '1', reps: p.runIntervals, tempo: '-', note: `Rest ${p.intervalRest}. Log splits.` },
         ],
-        finisher: `EMOM 8: heavy KB swings (${KB_SIZING.heavy.m}/${KB_SIZING.heavy.w}) + burpees`,
+        finisher: phase.name === 'TAPER' ? 'None — taper week' : `EMOM 8: heavy KB swings (${KB_SIZING.heavy.m}/${KB_SIZING.heavy.w}) + burpees`,
         phase,
+        programNote: p.coachNote,
       };
     }
     if (t === 'STRENGTH_UPPER') {
       const compounds = progress([
-        { name: 'Weighted Pull-Up', sets: '4', reps: '5-8', tempo: '20X1', note: 'Add weight, full ROM' },
-        { name: 'Overhead Press', sets: '4', reps: '5-8', tempo: '20X1', note: 'Heavy primary' },
-        { name: 'Pendlay Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Explosive pull' },
+        { name: 'Barbell Bench Press', sets: p.pullSets.toString(), reps: p.pressReps, tempo: '20X1', note: `Primary press. ${p.coachNote}` },
+        { name: 'Weighted Pull-Up', sets: p.pullSets.toString(), reps: p.pullReps, tempo: '20X1', note: 'Add weight, full ROM. SkiErg pull power.' },
+        { name: 'Overhead Press', sets: p.pressSets.toString(), reps: p.pressReps, tempo: '20X1', note: 'Strict press. Critical for SkiErg and wall balls.' },
+        { name: 'Pendlay Row', sets: '3', reps: '6-8', tempo: '20X1', note: 'Explosive horizontal pull.' },
       ]);
       return {
         exercises: [
           ...compounds,
-          { name: 'KB Push Press', sets: '3', reps: '8/side', tempo: '20X1', note: `Use leg drive` },
-          { name: 'Renegade Row', sets: '3', reps: '8/side', tempo: '-', note: 'Plank stable' },
-          { name: 'Wall Balls', sets: '3', reps: '20-25', tempo: '-', note: 'Race standards' },
-          { name: 'Burpee Broad Jumps', sets: '3', reps: '15', tempo: '-', note: 'Pace yourself' },
-          { name: 'Sandbag Front-Rack Lunge', sets: '3', reps: '20m', tempo: '-', note: 'Race standard weight' },
+          { name: 'KB Push Press', sets: '3', reps: '8/side', tempo: '20X1', note: 'Leg drive practice.' },
+          { name: 'Renegade Row', sets: '3', reps: '8/side', tempo: '-', note: 'Core stability.' },
+          { name: 'Wall Balls', sets: p.wallBallSets.toString(), reps: p.wallBallReps, tempo: '-', note: `${HYROX_STATIONS[7].note}${wtrLabel}` },
+          { name: 'Burpee Broad Jumps', sets: p.burpeeSets.toString(), reps: p.burpeeReps, tempo: '-', note: HYROX_STATIONS[3].note },
+          { name: 'Sandbag Front-Rack Lunge', sets: '3', reps: '20m', tempo: '-', note: 'Race weight. Knee touches ground.' },
         ],
-        finisher: '500m SkiErg for time',
+        finisher: phase.name === 'TAPER' ? '250m SkiErg easy' : '500m SkiErg for time — beat last week',
         phase,
+        programNote: `TUESDAY UPPER${wtrLabel} — ${p.coachNote}`,
       };
     }
     if (t === 'Z2_RUN') {
       return {
         exercises: [
-          { name: 'Z2 Long Run', sets: '1', reps: '45-60 min', tempo: '-', note: 'HR 130-150' },
-          { name: 'KB Get-Ups', sets: '3', reps: '3/side', tempo: '-', note: 'After run' },
-          { name: 'Wall Ball Technique', sets: '3', reps: '20', tempo: '-', note: 'Form work, light' },
+          { name: 'Z2 Long Run', sets: '1', reps: p.z2Dur, tempo: '-', note: `HR 130-150.${phase.name === 'TAPER' ? ' Short and easy — trust the taper.' : ''}` },
+          { name: 'KB Get-Ups', sets: '3', reps: phase.name === 'TAPER' ? '2/side' : '3/side', tempo: '-', note: 'After run. Shoulder stability.' },
+          { name: 'Wall Ball Technique', sets: phase.name === 'TAPER' ? '2' : '3', reps: '15-20', tempo: '-', note: `Form work. ${phase.name === 'RACE PREP' ? 'Race weight — own this movement.' : 'Light, focused.'}` },
         ],
         finisher: null,
         phase,
+        programNote: p.coachNote,
       };
     }
     if (t === 'RACE_SIM') {
       const simMap = {
-        BASE: '4-round circuit (KB-flavored)',
-        BUILD: 'Half HYROX with KB substitutions',
-        'RACE PREP': 'Full HYROX race simulation',
-        TAPER: 'Light technique work',
+        BASE: p.raceSim,
+        BUILD: p.raceSim,
+        'RACE PREP': p.raceSim,
+        TAPER: p.raceSim,
       };
       return {
-        exercises: [{ name: 'Race Simulation', sets: '1', reps: simMap[phase.name] || simMap.BASE, tempo: '-', note: 'Log race time below' }],
+        exercises: [{ name: 'Race Simulation', sets: '1', reps: simMap[phase.name], tempo: '-', note: `Log total time and every station split${wtrLabel ? ' — ' + wtrLabel.slice(3) : ''}.` }],
         finisher: null,
         phase,
         isRaceSim: true,
+        programNote: p.coachNote,
       };
     }
     if (t === 'CARDIO') {
-      const c = cardioProtocol('performance', week, totalWeeks);
-      return { exercises: [{ name: c.name, sets: '1', reps: c.desc, tempo: '-', note: '' }], finisher: null, phase };
+      return { exercises: [{ name: 'Active Recovery', sets: '1', reps: '30-40 min easy', tempo: '-', note: 'Bike, swim, or walk. HR under 120.' }], finisher: null, phase };
     }
   }
 
@@ -5706,7 +5895,8 @@ const Workouts = ({ state, setState }) => {
     profile.weeks,
     effectiveSchedule,
     viewDayIdx,
-    profile.goal
+    profile.goal,
+    profile.raceDate || null
   );
 
   // Detect missed workouts in current week
@@ -9023,11 +9213,13 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
   })();
 
   // Final scaled macros
+  // When override is on: manCal etc are PER-SERVING values — multiply by multiplier (not just qty)
+  // This ensures unit changes (oz, g, cup...) are respected even in override mode
   const scaled = overrideMacros ? {
-    cal: Math.round(Math.abs(+manCal || 0) * qtyNum),
-    p:   Math.round(Math.abs(+manP   || 0) * qtyNum * 10) / 10,
-    c:   Math.round(Math.abs(+manC   || 0) * qtyNum * 10) / 10,
-    f:   Math.round(Math.abs(+manF   || 0) * qtyNum * 10) / 10,
+    cal: Math.round(Math.abs(+manCal || 0) * multiplier),
+    p:   Math.round(Math.abs(+manP   || 0) * multiplier * 10) / 10,
+    c:   Math.round(Math.abs(+manC   || 0) * multiplier * 10) / 10,
+    f:   Math.round(Math.abs(+manF   || 0) * multiplier * 10) / 10,
   } : {
     cal: Math.round(base.cal * multiplier),
     p:   Math.round(base.p   * multiplier * 10) / 10,
@@ -9153,7 +9345,8 @@ const FoodDetailModal = ({ item, onAdd, onClose, editMode = false, onSave }) => 
               onClick={() => {
                 setOverrideMacros(!overrideMacros);
                 if (!overrideMacros) {
-                  setManCal(String(Math.round(base.cal * multiplier / qtyNum) || base.cal));
+                  // Pre-fill with per-serving base values — scaled handles the multiplier
+                  setManCal(String(base.cal));
                   setManP(String(base.p));
                   setManC(String(base.c));
                   setManF(String(base.f));
@@ -10425,10 +10618,11 @@ const ScheduleEditor = ({ profile, onSave }) => {
       {presets.length > 0 && (
         <div style={{ marginBottom: 10 }}>
           <Label>PRESETS</Label>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
             {presets.map((p) => (
               <button key={p.name} onClick={() => apply(p)} style={{
-                background: 'transparent', color: ACCENT, border: `1px solid ${ACCENT}`,
+                background: JSON.stringify(draft) === JSON.stringify(p.days) ? `${ACCENT}25` : 'transparent',
+                color: ACCENT, border: `1px solid ${ACCENT}`,
                 padding: '4px 8px', borderRadius: 12, fontSize: 9,
                 fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, cursor: 'pointer',
               }}>{p.name.toUpperCase()}</button>
@@ -10439,6 +10633,10 @@ const ScheduleEditor = ({ profile, onSave }) => {
               fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: 1, cursor: 'pointer',
             }}>RESET TO DEFAULT</button>
           </div>
+          {/* Show note for currently active preset */}
+          {presets.map(p => JSON.stringify(draft) === JSON.stringify(p.days) && p.note ? (
+            <div key={p.name} style={{ fontSize: 10, color: TEXT_MUTED, fontStyle: 'italic', marginBottom: 6 }}>{p.note}</div>
+          ) : null)}
         </div>
       )}
       <div style={{ display: 'grid', gap: 6 }}>
