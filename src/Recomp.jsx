@@ -2434,115 +2434,178 @@ const HYROX_INTERVALS_BY_PHASE = {
 // This gives variety in lifts while maintaining rep progression within the block
 
 const HYROX_LOWER_BLOCKS = {
-  1: { // Foundation — build baseline strength
-    primary:   { name: 'Back Squat',             tempo: '20X1', note: 'Baseline squat. Own the pattern before loading.' },
-    hinge:     { name: 'Romanian Deadlift',       tempo: '31X0', note: 'Slow eccentric. Feel the hamstring load.' },
-    unilateral:{ name: 'Walking Lunge',           tempo: '20X1', note: 'Race transfer. Knee grazes floor each rep.' },
-    station1:  { name: 'Sled Push (50m)',         note: HYROX_STATIONS[1].note },
-    station2:  { name: 'Farmer Carry (200m)',     note: 'Build grip endurance. No drops.' },
-    finisher:  '1km run for time — log your split',
+  1: { // Foundation — quad + posterior chain + accessories
+    primary:    { name: 'Back Squat',              tempo: '20X1', note: 'Baseline squat. Own the pattern before loading.' },
+    hinge:      { name: 'Romanian Deadlift',        tempo: '31X0', note: 'Slow eccentric. Feel the hamstring load.' },
+    unilateral: { name: 'Walking Lunge',            tempo: '20X1', note: 'Race transfer. Knee grazes floor each rep.' },
+    accessory1: { name: 'Leg Press',               tempo: '21X1', note: 'Quad volume. Feet shoulder-width. Full ROM — don\'t cut depth.' },
+    accessory2: { name: 'Lying Leg Curl',           tempo: '21X0', note: 'Hamstring isolation. 1s hold at contraction.' },
+    accessory3: { name: 'Calf Raise',              tempo: '20X1', note: 'Full stretch at bottom. Race calves take a beating.' },
+    station1:   { name: 'Sled Push (50m)',          note: HYROX_STATIONS[1].note },
+    station2:   { name: 'Farmer Carry (200m)',      note: 'Build grip endurance. No drops.' },
+    finisher:   '1km run for time — log your split',
   },
-  2: { // Power — develop explosive force
-    primary:   { name: 'Front Squat',             tempo: '20X1', note: 'Upright torso. Race posture. More quad than back squat.' },
-    hinge:     { name: 'Trap Bar Deadlift',        tempo: '10X1', note: 'Explosive concentric. Fast off the floor.' },
-    unilateral:{ name: 'Bulgarian Split Squat',   tempo: '20X1', note: 'Deep lunge. Quad dominant. 8/leg strict.' },
-    station1:  { name: 'Sled Push (50m)',         note: 'Drive through toes. Arms locked. Increase weight vs Block 1.' },
-    station2:  { name: 'Sandbag Lunges (50m)',    note: HYROX_STATIONS[6].note },
-    finisher:  '400m sled push sprint (half race weight) — full effort',
+  2: { // Power + hypertrophy accessories
+    primary:    { name: 'Front Squat',              tempo: '20X1', note: 'Upright torso. Race posture. More quad than back squat.' },
+    hinge:      { name: 'Trap Bar Deadlift',         tempo: '10X1', note: 'Explosive concentric. Fast off the floor.' },
+    unilateral: { name: 'Bulgarian Split Squat',    tempo: '20X1', note: 'Deep lunge. Quad dominant. 8/leg strict.' },
+    accessory1: { name: 'Hack Squat',              tempo: '21X1', note: 'Machine quad isolation. Heels forward for more VMO.' },
+    accessory2: { name: 'Seated Leg Curl',          tempo: '21X0', note: 'Seated keeps constant tension through full ROM.' },
+    accessory3: { name: 'Hip Thrust',              tempo: '11X1', note: 'Glute isolation. 1s hold at top. Race carry power.' },
+    station1:   { name: 'Sled Push (50m)',          note: 'Drive through toes. Arms locked. More weight than Block 1.' },
+    station2:   { name: 'Sandbag Lunges (50m)',     note: HYROX_STATIONS[6].note },
+    finisher:   '400m sled push sprint (half race weight) — full effort',
   },
-  3: { // Volume — accumulate race-specific work
-    primary:   { name: 'Pause Squat',             tempo: '22X1', note: '2s pause at bottom. Builds strength out of the hole. Race-specific hip position.' },
-    hinge:     { name: 'Single-Leg Romanian Deadlift', tempo: '31X0', note: 'Unilateral. Balance + posterior chain. Both race transfer.' },
-    unilateral:{ name: 'Step-Up with KB',         tempo: '20X1', note: '24"/20" box. 10/leg. Farmer carry variation.' },
-    station1:  { name: 'Sled Push (50m)',         note: 'Race weight now. No exceptions. Time each 50m.' },
-    station2:  { name: 'Farmer Carry (200m)',     note: 'Race weight. Practice no-drop strategy from start.' },
-    finisher:  '800m run + 50m sled pull — back to back, timed',
+  3: { // Volume + isolation variety
+    primary:    { name: 'Pause Squat',              tempo: '22X1', note: '2s pause at bottom. Builds strength out of the hole.' },
+    hinge:      { name: 'Single-Leg Romanian Deadlift', tempo: '31X0', note: 'Unilateral. Balance + hamstring stretch.' },
+    unilateral: { name: 'Step-Up with KB',          tempo: '20X1', note: '24"/20" box. 10/leg. Glute + quad.' },
+    accessory1: { name: 'Leg Extension',           tempo: '21X0', note: '1s hold at top. Full quad isolation. Light and controlled.' },
+    accessory2: { name: 'Nordic Hamstring Curl',    tempo: '31X0', note: 'Slow eccentric. Hamstring strength for sprinting and race runs.' },
+    accessory3: { name: 'Seated Calf Raise',       tempo: '20X1', note: 'Soleus focus. Full stretch at bottom — most skipped muscle in HYROX.' },
+    station1:   { name: 'Sled Push (50m)',          note: 'Race weight. Time each rep. No excuses.' },
+    station2:   { name: 'Farmer Carry (200m)',      note: 'Race weight. No drops. Grip and grit.' },
+    finisher:   '800m run + 50m sled pull — back to back, timed',
   },
-  4: { // Specificity — race conditions
-    primary:   { name: 'Heavy Back Squat',        tempo: '10X1', note: 'Max strength effort. 3-5 reps. Explosive up from the hole.' },
-    hinge:     { name: 'Deadlift',                tempo: '10X1', note: 'Conventional. Heaviest hinge of the program. Setup is everything.' },
-    unilateral:{ name: 'Reverse Lunge with Load', tempo: '20X1', note: 'Front rack or suitcase. 10/leg. Mimics sandbag lunge mechanics.' },
-    station1:  { name: 'Sled Push (50m)',         note: 'Race weight + 10%. Builds reserve for race day.' },
-    station2:  { name: 'Sandbag Lunges (100m)',   note: 'Full race distance. Pace it. Knee must touch floor.' },
-    finisher:  '1km run at race pace immediately after last station — race simulation',
+  4: { // Specificity — peak strength + accessory
+    primary:    { name: 'Heavy Back Squat',         tempo: '10X1', note: 'Max effort. 3-5 reps. Explosive up from the hole.' },
+    hinge:      { name: 'Deadlift',                 tempo: '10X1', note: 'Conventional. Heaviest hinge of the program.' },
+    unilateral: { name: 'Reverse Lunge with Load',  tempo: '20X1', note: 'Front rack or suitcase. 10/leg. Mimics sandbag lunge.' },
+    accessory1: { name: 'Leg Press',               tempo: '20X1', note: 'Heavy. Above race-fatigue volume. Quad strength reserve.' },
+    accessory2: { name: 'Hamstring Curl',           tempo: '21X0', note: 'Superset with leg press. Full ROM.' },
+    accessory3: { name: 'Standing Calf Raise',     tempo: '20X1', note: 'Heavy. 8-10 reps. HYROX calves need strength, not just endurance.' },
+    station1:   { name: 'Sled Push (50m)',          note: 'Race weight + 10%. Builds reserve for race day.' },
+    station2:   { name: 'Sandbag Lunges (100m)',    note: 'Full race distance. Pace it. Knee must touch floor.' },
+    finisher:   '1km run at race pace immediately after last station',
   },
 };
 
 const HYROX_UPPER_BLOCKS = {
-  1: { // Foundation — vertical emphasis
-    press1:    { name: 'Overhead Press',          sets: '4', tempo: '20X1', note: 'Strict. No leg drive. Foundation for SkiErg power.' },
-    pull1:     { name: 'Pull-Up',                 sets: '4', tempo: '20X1', note: 'Full ROM. Critical lat activation for SkiErg.' },
-    pull2:     { name: 'Pendlay Row',             sets: '3', tempo: '20X1', note: 'Dead-stop. Explosive horizontal pull.' },
-    station1:  { name: 'SkiErg',                 reps: '750m', note: HYROX_STATIONS[0].note },
-    station2:  { name: 'Wall Balls',              reps: '15-20', note: 'Build volume. Sub-race rep count.' },
-    station3:  { name: 'Burpee Broad Jumps',      reps: '10', note: 'Learn the pattern. Consistent pace.' },
-    finisher:  '500m row for time',
+  // Race stations (SkiErg, Wall Balls, Burpees) REMOVED from strength days.
+  // They belong on KB_RUN / conditioning day.
+  // Upper day = pure strength + accessory isolation. One race-relevant finisher only.
+  1: { // Foundation — vertical push + bench variation + arm accessories
+    press1:    { name: 'Overhead Press',            sets: '4', tempo: '20X1', note: 'Strict. No leg drive. Foundation for SkiErg power.' },
+    press2:    { name: 'Incline DB Press',          sets: '3', tempo: '21X1', note: 'Upper chest. 30°. Controlled descent. Bench variation for Block 1.' },
+    pull1:     { name: 'Pull-Up',                   sets: '4', tempo: '20X1', note: 'Full ROM. Critical lat activation for SkiErg pulling.' },
+    pull2:     { name: 'Seated Cable Row',           sets: '3', tempo: '21X1', note: 'Mid-back thickness. 1s hold at contraction.' },
+    accessory1:{ name: 'Lateral Raise',             sets: '3', tempo: '20X1', note: 'Side delt. 15-20 reps. Light and controlled.' },
+    accessory2:{ name: 'EZ-Bar Curl',               sets: '3', tempo: '20X1', note: 'Bicep strength. Full ROM. No swing.' },
+    accessory3:{ name: 'Tricep Rope Pushdown',      sets: '3', tempo: '20X1', note: 'Spread rope at bottom. Tricep lockout for pressing.' },
+    finisher:  '500m row for time — log your split',
   },
-  2: { // Horizontal push added (bench press block)
-    press1:    { name: 'Barbell Bench Press',     sets: '4', tempo: '20X1', note: 'Horizontal pressing power. Direct transfer to SkiErg pull-through.' },
-    press2:    { name: 'Overhead Press',          sets: '3', tempo: '20X1', note: 'Strict vertical press superset.' },
-    pull1:     { name: 'Weighted Pull-Up',        sets: '4', tempo: '20X1', note: 'Add load. Full ROM. No kipping.' },
-    pull2:     { name: 'Chest-Supported DB Row',  sets: '3', tempo: '21X1', note: 'Horizontal pull. 1s hold at top.' },
-    station1:  { name: 'SkiErg',                 reps: '1000m', note: 'Build to race distance. Aim for sub-4min.' },
-    station2:  { name: 'Wall Balls',              reps: '20-25', note: 'Race rep range. Keep squat depth.' },
-    station3:  { name: 'Burpee Broad Jumps',      reps: '15', note: 'Pace evenly. This station kills most races.' },
+  2: { // Horizontal push + back width + accessories
+    press1:    { name: 'Barbell Bench Press',       sets: '4', tempo: '20X1', note: 'Horizontal press. Retract scapula. Drive heels.' },
+    press2:    { name: 'Overhead Press',            sets: '3', tempo: '20X1', note: 'Vertical press. Strict — builds SkiErg power overhead.' },
+    pull1:     { name: 'Weighted Pull-Up',          sets: '4', tempo: '20X1', note: 'Add load. Full ROM.' },
+    pull2:     { name: 'Chest-Supported DB Row',    sets: '3', tempo: '21X1', note: 'No lower back. Pure mid-back.' },
+    accessory1:{ name: 'Face Pull',                 sets: '3', tempo: '20X1', note: 'Rear delt + external rotation. Shoulder health.' },
+    accessory2:{ name: 'Incline DB Curl',           sets: '3', tempo: '31X0', note: 'Long head stretch. Bicep volume.' },
+    accessory3:{ name: 'Overhead Tricep Extension', sets: '3', tempo: '31X0', note: 'Long head. Full stretch.' },
     finisher:  '500m SkiErg for time — compare to Block 1',
   },
-  3: { // Volume block — KB integration
-    press1:    { name: 'Push Press',              sets: '4', tempo: '10X1', note: 'Leg drive into lockout. Explosive overhead. Wall ball transfer.' },
-    press2:    { name: 'Barbell Bench Press',     sets: '3', tempo: '21X0', note: 'Controlled eccentric. Explosive press.' },
-    pull1:     { name: 'Weighted Pull-Up',        sets: '4', tempo: '20X1', note: 'Heavier than Block 2.' },
-    pull2:     { name: 'KB Single-Arm Row',       sets: '3', tempo: '20X1', note: '10/side. Full stretch. Grip endurance.' },
-    kb:        { name: 'KB Push Press',           sets: '3', tempo: '10X1', note: '8/side. Race-specific overhead.' },
-    station1:  { name: 'SkiErg',                 reps: '1000m', note: 'Race pace effort. Log each 500m split.' },
-    station2:  { name: 'Wall Balls',              reps: '25-30', note: 'Above race volume. Builds capacity reserve.' },
-    station3:  { name: 'Burpee Broad Jumps',      reps: '20', note: 'Maintain pace from rep 1 to 20.' },
-    finisher:  '750m row + 500m ski — back to back, timed',
+  3: { // Volume + KB integration + accessories
+    press1:    { name: 'Push Press',                sets: '4', tempo: '10X1', note: 'Leg drive into lockout. Explosive overhead.' },
+    press2:    { name: 'Barbell Bench Press',       sets: '3', tempo: '21X0', note: 'Controlled eccentric. Explosive press.' },
+    pull1:     { name: 'Weighted Pull-Up',          sets: '4', tempo: '20X1', note: 'Heavier than Block 2.' },
+    pull2:     { name: 'KB Single-Arm Row',         sets: '3', tempo: '20X1', note: '10/side. Full stretch. Grip endurance.' },
+    kb:        { name: 'KB Push Press',             sets: '3', tempo: '10X1', note: '8/side. Race-specific overhead.' },
+    accessory1:{ name: 'Band Pull-Apart',           sets: '3', tempo: '20X1', note: '20 reps. Rear delt health. End every push session with this.' },
+    accessory2:{ name: 'Hammer Curl',               sets: '3', tempo: '20X1', note: 'Brachialis + forearm. Grip strength for farmer carry.' },
+    accessory3:{ name: 'Close-Grip Bench Press',    sets: '3', tempo: '21X0', note: 'Tricep strength. Pressing endurance.' },
+    finisher:  '750m row for time — beat your Block 2 500m pace',
   },
-  4: { // Specificity — race station emphasis
-    press1:    { name: 'Push Press',              sets: '4', tempo: '10X1', note: 'Heaviest push press. Explosive. Full lockout.' },
-    press2:    { name: 'Barbell Bench Press',     sets: '4', tempo: '20X0', note: 'Peak strength bench. Controlled down, fast up.' },
-    pull1:     { name: 'Weighted Pull-Up',        sets: '5', tempo: '20X1', note: 'Peak volume. Add maximum comfortable weight.' },
-    pull2:     { name: 'Barbell Row',             sets: '3', tempo: '20X1', note: 'Heavy. Race power for carries and SkiErg.' },
-    station1:  { name: 'SkiErg',                 reps: '1000m', note: 'Race effort. Under 3:45 target for Open Men.' },
-    station2:  { name: 'Row (1000m)',             reps: '1000m', note: HYROX_STATIONS[4].note + ' Race target: sub 3:50.' },
-    station3:  { name: 'Wall Balls',              reps: '75 total', note: 'Full race volume. Break as needed but track total time.' },
-    finisher:  'Full station medley: 1000m ski + 1000m row — timed, race effort',
+  4: { // Specificity — peak strength + shoulder health
+    press1:    { name: 'Push Press',                sets: '4', tempo: '10X1', note: 'Heaviest push press. Full lockout.' },
+    press2:    { name: 'Barbell Bench Press',       sets: '4', tempo: '20X0', note: 'Peak bench. Controlled down, explosive up.' },
+    pull1:     { name: 'Weighted Pull-Up',          sets: '5', tempo: '20X1', note: 'Peak volume. Maximum comfortable load.' },
+    pull2:     { name: 'Barbell Row',               sets: '3', tempo: '20X1', note: 'Heavy horizontal pull. Back power for carries and SkiErg.' },
+    accessory1:{ name: 'Cable Lateral Raise',       sets: '4', tempo: '20X1', note: 'Constant tension side delt. Race posture shoulder strength.' },
+    accessory2:{ name: 'Barbell Curl',              sets: '3', tempo: '20X1', note: 'Heavy bilateral bicep. Peak grip + elbow strength.' },
+    accessory3:{ name: 'Skull Crusher',             sets: '3', tempo: '31X0', note: 'Slow eccentric. Peak tricep strength.' },
+    finisher:  '1000m row for time — race target sub-3:50',
   },
 };
 
 const HYROX_KB_RUN_BLOCKS = {
+  // Each block has a STATION FOCUS — extra volume on one specific station
+  // B=brick run included after conditioning (compromised workout — improvement B)
+  // Running follows 80/20 polarized model (improvement C)
+  // Wall balls always programmed LAST in conditioning to simulate race-end fatigue (improvement D)
   1: {
+    stationFocus: 'SkiErg',
+    stationFocusNote: 'Block 1 focus: SkiErg. Drive with hips, not just arms. Target consistent 500m splits.',
     complex: '4 sets × 5/side: KB Clean + Press + Squat',
     complexNote: `${KB_SIZING.standard.m}/${KB_SIZING.standard.w}. Learn the pattern before loading.`,
     test: 'KB Snatch: 5 min, target 50 total',
     getups: '3×3/side — slow and deliberate',
-    run: '5 × 400m at 5K pace, 90s rest',
+    // 80/20: intervals this block (hard 20%)
+    run: '5 × 400m at 5K pace, 90s full rest — HARD. These are your 20% intensity sessions.',
+    // Brick run after conditioning (improvement B)
+    brick: '1km race-pace run IMMEDIATELY after last station — no rest. This is what race day feels like.',
     emom: `EMOM 8: 12 swings (${KB_SIZING.standard.m}/${KB_SIZING.standard.w})`,
+    // Conditioning order: stations first, wall balls last (improvement D)
+    conditioning: [
+      { name: '⛷️ SkiErg (FOCUS)', reps: '3 × 500m', note: 'Block 1 focus. 30s rest between. Log each split. Hip drive + lat pull.' },
+      { name: '🛷 Sled Push (50m)', reps: '3 × 50m', note: 'Sub-race weight. Learn the pattern. Low hips, drive through legs.' },
+      { name: '🏀 Wall Balls (LAST — race fatigue)', reps: '3 × 20', note: 'Always last. This is where your race ends. Keep squat depth even when tired.' },
+    ],
   },
   2: {
+    stationFocus: 'Sled Push + Sled Pull',
+    stationFocusNote: 'Block 2 focus: Sleds. Most athletes lose time here. Race weight, proper technique.',
     complex: '4 sets × 6/side: KB Swing + Clean + Squat Press',
     complexNote: `${KB_SIZING.standard.m}/${KB_SIZING.standard.w}. Link movements, no rest between.`,
     test: 'KB Snatch: 6 min, target 60 total',
     getups: '3×4/side — smooth transitions',
-    run: '5 × 500m at 5K pace, 90s rest',
-    emom: `EMOM 10: 10 swings heavy (${KB_SIZING.heavy.m}/${KB_SIZING.heavy.w}) + 5 burpees`,
+    // 80/20: tempo this block (hard 20% at threshold)
+    run: '2 × 10 min at tempo pace (comfortably hard — you can say a few words). 3 min easy between. Lactate threshold work.',
+    brick: '1km at race pace IMMEDIATELY after last station. Legs will feel like concrete — that is the point.',
+    emom: `EMOM 10: 10 heavy swings (${KB_SIZING.heavy.m}/${KB_SIZING.heavy.w}) + 5 burpees`,
+    conditioning: [
+      { name: '🛷 Sled Push (FOCUS)', reps: '4 × 50m', note: 'Race weight. Time every rep. Improve vs Block 1.' },
+      { name: '🪢 Sled Pull (FOCUS)', reps: '3 × 50m', note: 'Stand at front, heave weight toward you stepping back. Wide stance.' },
+      { name: '🐸 Burpee Broad Jumps', reps: '2 × 20', note: 'Consistent pace. Rep 1 = rep 20 pace. This is where races are lost.' },
+      { name: '🏀 Wall Balls (LAST — race fatigue)', reps: '3 × 20', note: 'Pre-fatigued from sleds. This is your race-end training.' },
+    ],
   },
   3: {
+    stationFocus: 'Row + Farmer Carry',
+    stationFocusNote: 'Block 3 focus: Row and Farmer Carry. Row efficiency + grip endurance under fatigue.',
     complex: '5 sets × 5/side: KB Deadlift + Clean + Press + Squat',
-    complexNote: `${KB_SIZING.standard.m}/${KB_SIZING.standard.w}. Full complex — 4 movements per rep.`,
-    test: 'KB Snatch: 8 min, target 80 total (HYROX-adjacent test)',
-    getups: '4×3/side — add weight vs block 2',
-    run: '3 × 800m at 10K pace, 2:00 rest',
+    complexNote: `${KB_SIZING.standard.m}/${KB_SIZING.standard.w}. Full complex — 4 movements.`,
+    test: 'KB Snatch: 8 min, target 80 total',
+    getups: '4×3/side — heavier than block 2',
+    // 80/20: 4×4 min intervals (VO2max stimulus — science-backed for HYROX)
+    run: '4 × 4 min at hard effort (8/10 RPE), 3 min easy jog between. 4×4 protocol — best VO2max stimulus.',
+    brick: '1km at race pace after last station. You will be gassed. Good.',
     emom: `EMOM 12: 10 swings (${KB_SIZING.heavy.m}/${KB_SIZING.heavy.w}) + 10 wall balls`,
+    conditioning: [
+      { name: '🚣 Row (FOCUS)', reps: '3 × 500m', note: 'Race pace effort. 28-30 spm. Drive legs first, then lean back, then pull.' },
+      { name: '🪣 Farmer Carry (FOCUS)', reps: '3 × 200m', note: 'Race weight. No drops target. Grip is the limiter — build it here.' },
+      { name: '🛷 Sled Push', reps: '2 × 50m', note: 'Race weight. Maintain technique even fatigued.' },
+      { name: '🏀 Wall Balls (LAST — race fatigue)', reps: '3 × 25', note: 'Pre-fatigued from row and carry. Race conditions. Keep depth on every rep.' },
+    ],
   },
   4: {
+    stationFocus: 'All Stations — Full Rehearsal',
+    stationFocusNote: 'Block 4: No weak stations. Every movement at race weight. This is specificity block.',
     complex: '5 sets × 6/side: KB Power Complex (Swing + Snatch + Clean + Press)',
     complexNote: `${KB_SIZING.standard.m}/${KB_SIZING.standard.w}. Maximum output per rep.`,
     test: 'KB Snatch: 10 min, target 100 total',
     getups: '3×3/side — race-week maintenance',
-    run: '4 × 600m at race pace, 2:00 rest',
+    // 80/20: race-pace intervals
+    run: '5 × 1km at goal race pace, 2:30 rest. Race pace rehearsal. Log every split.',
+    brick: '1km at race pace after last station. Week 4 = full dress rehearsal.',
     emom: `EMOM 10: 8 heavy swings (${KB_SIZING.heavy.m}/${KB_SIZING.heavy.w}) + 15 wall balls`,
+    conditioning: [
+      { name: '⛷️ SkiErg', reps: '2 × 750m', note: 'Race effort. Log splits. Compare to Block 1.' },
+      { name: '🛷 Sled Push', reps: '3 × 50m', note: 'Race weight. No stopping.' },
+      { name: '🚣 Row', reps: '1 × 1000m', note: 'Race distance. Race effort. Time it.' },
+      { name: '🪣 Farmer Carry', reps: '2 × 200m', note: 'Race weight. Practice no-drop start to finish.' },
+      { name: '🎒 Sandbag Lunges', reps: '1 × 50m', note: 'Race weight. Knee touches ground every rep.' },
+      { name: '🏀 Wall Balls (LAST — race fatigue)', reps: '3 × 25', note: 'Always last. You are pre-fatigued. Own this station.' },
+    ],
   },
 };
 
@@ -3890,6 +3953,95 @@ FBB_POST_WORKOUT.STRENGTH = FBB_POST_WORKOUT.FULL;
 FBB_POST_WORKOUT.POWER    = FBB_POST_WORKOUT.FULL;
 FBB_POST_WORKOUT.CARDIO   = FBB_POST_WORKOUT.LOWER;
 
+// ── HYROX FLEXIBILITY ────────────────────────────────────────
+// Pre and post stretches tailored to HYROX day types
+const HYROX_PRE = {
+  STRENGTH_LOWER: [
+    { name: 'Hip Circle (standing)', sets: '2', reps: '10/direction', note: 'Hip joint lubrication. Non-negotiable before heavy squats and deadlifts.' },
+    { name: 'Leg Swing (front/back)', sets: '2', reps: '15/side', note: 'Hamstring and hip flexor prep. Progressive range each rep.' },
+    { name: 'Leg Swing (lateral)', sets: '2', reps: '15/side', note: 'Groin and hip abductor prep. Prevents knee cave under load.' },
+    { name: 'Bodyweight Squat + Hold', sets: '2', reps: '10 + 30s hold', note: 'Find your depth before the bar goes on. Hips below knees.' },
+    { name: 'Glute Bridge + Hold', sets: '2', reps: '15 reps + 5s hold', note: 'Glute activation — without this your lower back compensates on sled push and carries.' },
+  ],
+  STRENGTH_UPPER: [
+    { name: 'Arm Circles', sets: '2', reps: '30s each direction', note: 'Full shoulder warm-up for pressing and pulling.' },
+    { name: 'Band Pull-Apart', sets: '2', reps: '15 reps', note: 'Scapular retraction. Primes posterior shoulder for rows and bench stability.' },
+    { name: 'Scapular Wall Slides', sets: '2', reps: '10 reps', note: 'Back to wall, slide arms overhead. Opens thoracic for overhead stability.' },
+    { name: 'Shoulder Pass-Through', sets: '2', reps: '10 reps slow', note: 'PVC or band, wide grip. Identify shoulder restrictions before loading.' },
+    { name: 'Lat Hang', sets: '1', reps: '30s', note: 'Dead hang. Decompress spine, lengthen lats before pulling work.' },
+  ],
+  KB_RUN: [
+    { name: 'World\'s Greatest Stretch', sets: '2', reps: '5/side', note: 'Lunge + rotate + overhead reach. Covers hip, thoracic, and shoulder — all needed for KB complex and running.' },
+    { name: 'Hip Circle (standing)', sets: '2', reps: '10/direction', note: 'Hip prep for KB squat and clean patterns.' },
+    { name: 'Arm Circles', sets: '2', reps: '20s each direction', note: 'Shoulder prep for KB press and snatch.' },
+    { name: 'Ankle Circles', sets: '2', reps: '10/direction each', note: 'Ankle mobility before running intervals. Prevents shin splints.' },
+  ],
+  Z2_RUN: [
+    { name: 'Ankle Circles', sets: '2', reps: '10/direction each', note: 'Ankle prep before running. Reduces shin splint risk.' },
+    { name: 'Leg Swing (front/back)', sets: '2', reps: '10/side', note: 'Hip flexor and hamstring prep for running gait.' },
+    { name: 'Hip Circle (standing)', sets: '1', reps: '10/direction', note: 'Hip joint lubrication before long run.' },
+    { name: 'Walking Lunge', sets: '1', reps: '10 steps', note: 'Dynamic warm-up. Prep the full lower body before sustained effort.' },
+  ],
+  RACE_SIM: [
+    { name: 'World\'s Greatest Stretch', sets: '2', reps: '5/side', note: 'Full-body prime. Race simulation requires every joint ready.' },
+    { name: 'Hip Circle (standing)', sets: '2', reps: '10/direction', note: 'Hip prep for runs, lunges, and sled.' },
+    { name: 'Arm Circles', sets: '2', reps: '20s each direction', note: 'Shoulder prep for SkiErg and carries.' },
+    { name: 'Leg Swing (front/back)', sets: '2', reps: '10/side', note: 'Hamstring and hip flexor prep for run portions.' },
+    { name: 'Shoulder Pass-Through', sets: '1', reps: '8 reps slow', note: 'SkiErg requires full overhead shoulder mobility.' },
+  ],
+};
+
+const HYROX_POST = {
+  STRENGTH_LOWER: [
+    { name: 'Standing Quad Stretch', hold: '60s/side', note: 'Rectus femoris crosses both hip and knee. Critical after squats and sled push.' },
+    { name: 'Hip Flexor Lunge Stretch', hold: '90s/side', note: 'Most important lower body stretch. Hip flexors shorten significantly under load. Don\'t rush this one.' },
+    { name: 'Pigeon Pose', hold: '90s/side', note: 'Deep glute and piriformis release. Tight glutes limit squat depth and hip power for sled.' },
+    { name: 'Lying Hamstring Stretch', hold: '60s/side', note: 'Full posterior chain. Dorsiflex foot for maximum pull.' },
+    { name: 'Calf Stretch (wall)', hold: '45s/side', note: 'Straight leg then bent knee — both heads. Running and sled push hammer the calves.' },
+    { name: 'Adductor Stretch (wide-stance)', hold: '60s', note: 'Inner thigh — heavily loaded in squats and lateral stability on carries.' },
+  ],
+  STRENGTH_UPPER: [
+    { name: 'Chest Doorway Stretch', hold: '60s/side', note: 'Pec release after pressing. Best stretched while still pumped.' },
+    { name: 'Overhead Tricep Stretch', hold: '45s/side', note: 'Long head release — takes the most stress from pressing and push press.' },
+    { name: 'Lat Stretch (kneeling)', hold: '60s', note: 'Full lat lengthening after pull-ups and rows. Lats shorten significantly under load.' },
+    { name: 'Cross-Body Shoulder Stretch', hold: '45s/side', note: 'Posterior capsule. Prevents shoulder impingement from accumulated pressing.' },
+    { name: 'Bicep Wall Stretch', hold: '45s/side', note: 'Bicep and elbow flexor release after curls and rowing.' },
+    { name: 'Neck Side Stretch', hold: '30s/side', note: 'Upper trap release. Always finish upper days with this.' },
+  ],
+  KB_RUN: [
+    { name: 'Hip Flexor Lunge Stretch', hold: '90s/side', note: 'Run intervals and KB squat patterns shorten the hip flexors hard. This is mandatory.' },
+    { name: 'Lying Hamstring Stretch', hold: '60s/side', note: 'Running + KB deadlift patterns both load the hamstrings. Give them proper attention.' },
+    { name: 'Shoulder Cross-Body Stretch', hold: '45s/side', note: 'KB snatch and press load the shoulder in extreme positions. Decompress it after.' },
+    { name: 'Lat Stretch (kneeling)', hold: '60s', note: 'KB rows and presses load the lats heavily. Release the tension now.' },
+    { name: 'Calf Stretch (wall)', hold: '45s/side', note: 'Run intervals hammer calves. Both straight and bent knee.' },
+  ],
+  Z2_RUN: [
+    { name: 'Hip Flexor Lunge Stretch', hold: '90s/side', note: 'Running shortens hip flexors with every stride. This is the most important post-run stretch.' },
+    { name: 'Calf Stretch (wall)', hold: '60s/side', note: 'Gastrocnemius first (straight leg), then soleus (bent knee). Both heads get loaded running.' },
+    { name: 'IT Band Stretch (standing cross)', hold: '45s/side', note: 'Cross one leg behind, lean away. IT band tightness is the #1 overuse injury in runners.' },
+    { name: 'Lying Hamstring Stretch', hold: '60s/side', note: 'Full posterior chain. Foot dorsiflexed.' },
+    { name: 'Pigeon Pose', hold: '60s/side', note: 'Glute and piriformis. Running creates asymmetrical hip loading — address it here.' },
+  ],
+  RACE_SIM: [
+    { name: 'Hip Flexor Lunge Stretch', hold: '90s/side', note: 'You just ran multiple km. These are the tightest muscles in your body right now.' },
+    { name: 'Standing Quad Stretch', hold: '60s/side', note: 'Sled push and lunges compound the quad load from running. Release it.' },
+    { name: 'Chest Doorway Stretch', hold: '60s/side', note: 'SkiErg and carries load the pecs and anterior shoulder. Decompress.' },
+    { name: 'Lat Stretch (kneeling)', hold: '60s', note: 'SkiErg hammers the lats. Full kneeling stretch.' },
+    { name: 'Calf Stretch (wall)', hold: '60s/side', note: '8 runs worth of calf loading. Both heads.' },
+    { name: 'World\'s Greatest Stretch', hold: '5/side slow', note: 'Full-body reset to finish. You just did a race simulation — honour the effort.' },
+  ],
+};
+HYROX_PRE.RUN_INTERVALS  = HYROX_PRE.Z2_RUN;
+HYROX_POST.RUN_INTERVALS = HYROX_POST.Z2_RUN;
+
+const getHyroxStretches = (dayType) => {
+  const t = String(dayType).toUpperCase();
+  return {
+    preStretches:  HYROX_PRE[t]  || HYROX_PRE.STRENGTH_UPPER,
+    postStretches: HYROX_POST[t] || HYROX_POST.STRENGTH_UPPER,
+  };
+};
+
 // ── ACTIVE RECOVERY DAY ─────────────────────────────────────
 // Full-body stretch sequence + light cardio options
 // Goal: increase blood flow, flush soreness, restore mobility
@@ -4434,7 +4586,7 @@ const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx, 
     if (t === 'STRENGTH_LOWER') {
       return {
         exercises: progress([
-          { name: lB.primary.name,     sets: blockReps.squat.split('×')[0], reps: blockReps.squat.split('×')[1], tempo: lB.primary.tempo || blockTempo,    note: `${lB.primary.note} ${blockNote}` },
+          { name: lB.primary.name,     sets: blockReps.squat.split('×')[0], reps: blockReps.squat.split('×')[1], tempo: lB.primary.tempo || blockTempo,    note: `HIGH DAY. ${lB.primary.note} ${blockNote}` },
           { name: lB.hinge.name,       sets: blockReps.hinge.split('×')[0], reps: blockReps.hinge.split('×')[1], tempo: lB.hinge.tempo || '31X0',           note: lB.hinge.note },
           { name: lB.unilateral.name,  sets: '3',                           reps: '10/leg',                      tempo: lB.unilateral.tempo || '20X1',      note: lB.unilateral.note },
           { name: lB.station1.name,    sets: p.sledSets.toString(),         reps: p.sledLoad,                    tempo: '-',                                note: `${lB.station1.note}${wtrLabel}` },
@@ -4442,7 +4594,8 @@ const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx, 
         ]),
         finisher: lB.finisher,
         phase,
-        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — ${p.coachNote}`,
+        ...getHyroxStretches(t),
+        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — HIGH DAY. ${p.coachNote}`,
       };
     }
     if (t === 'STRENGTH_UPPER') {
@@ -4450,45 +4603,69 @@ const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx, 
       const kb = uB.kb    ? [{ name: uB.kb.name,    sets: '3', reps: '8/side', tempo: uB.kb.tempo || '10X1', note: uB.kb.note }] : [];
       return {
         exercises: progress([
-          { name: uB.press1.name, sets: uB.press1.sets || blockReps.press.split('×')[0], reps: blockReps.press.split('×')[1], tempo: uB.press1.tempo || blockTempo, note: `${uB.press1.note} ${blockNote}` },
+          { name: uB.press1.name, sets: uB.press1.sets || blockReps.press.split('×')[0], reps: blockReps.press.split('×')[1], tempo: uB.press1.tempo || blockTempo, note: `HIGH DAY. ${uB.press1.note} ${blockNote}` },
           ...b2,
           { name: uB.pull1.name,  sets: uB.pull1.sets  || blockReps.pull.split('×')[0],  reps: blockReps.pull.split('×')[1],  tempo: '20X1', note: uB.pull1.note },
           { name: uB.pull2.name,  sets: uB.pull2.sets  || '3',                            reps: '6-8',                         tempo: uB.pull2.tempo || '20X1', note: uB.pull2.note },
           ...kb,
           { name: uB.station1.name, sets: p.skiSets.toString(),      reps: uB.station1.reps,                    tempo: '-', note: `${uB.station1.note}${wtrLabel}` },
           { name: uB.station2.name, sets: p.wallBallSets.toString(),  reps: uB.station2.reps || p.wallBallReps,  tempo: '-', note: uB.station2.note },
-          { name: uB.station3.name, sets: p.burpeeSets.toString(),    reps: uB.station3.reps || p.burpeeReps,    tempo: '-', note: uB.station3.note },
+          { name: uB.station3.name, sets: p.burpeeSets.toString(),    reps: uB.station3.reps || p.burpeeReps,    tempo: '-', note: `${uB.station3.note} — LAST, simulates race-end fatigue.` },
         ]),
         finisher: uB.finisher,
         phase,
-        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — ${p.coachNote}`,
+        ...getHyroxStretches(t),
+        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — HIGH DAY. ${p.coachNote}`,
       };
     }
     if (t === 'RUN_INTERVALS') {
+      // Polarized run type rotates by block week (improvement C)
+      const polarizedRun = {
+        1: { label: 'INTERVALS (20% hard)', reps: p.runIntervals, note: `80/20 polarized — 20% intensity day. Go hard on each rep, fully recover between. Rest ${p.intervalRest}. Log every split.` },
+        2: { label: 'TEMPO (20% hard)', reps: `2 × 10 min at comfortably hard pace (7/10 RPE), 3 min easy jog between`, note: 'Lactate threshold work. "Comfortably hard" — you can say a word, not a sentence. 80/20 hard day.' },
+        3: { label: '4×4 VO2MAX (20% hard)', reps: `4 × 4 min at hard effort (8/10 RPE), 3 min easy between`, note: 'Science-backed VO2max protocol. Best adaptation for HYROX running engine. Go hard on each interval.' },
+        4: { label: 'RACE PACE INTERVALS (20% hard)', reps: p.runIntervals, note: `Race-pace rehearsal. 80/20 hard day. Log every split. Compare to Block 1. Rest ${p.intervalRest}.` },
+      }[weekInBlock] || { label: 'INTERVALS', reps: p.runIntervals, note: `Rest ${p.intervalRest}. Log splits.` };
+
       return {
         exercises: [
-          { name: 'Warm-Up Run',    sets: '1', reps: '10 min easy',  tempo: '-', note: 'HR under 130. Dynamic stretching after.' },
-          { name: 'Run Intervals',  sets: '1', reps: p.runIntervals,  tempo: '-', note: `Rest ${p.intervalRest}. Log each split.` },
-          { name: 'Erg Intervals',  sets: '1', reps: p.ergIntervals,  tempo: '-', note: `Target ${p.ergPace}. Rest ${p.intervalRest}.` },
-          { name: 'Cool-Down',      sets: '1', reps: '10 min easy',   tempo: '-', note: 'HR under 120 before leaving.' },
+          { name: '📋 TODAY: HIGH DAY (20% INTENSITY)', sets: '1', reps: polarizedRun.label, tempo: '-',
+            note: 'HIGH/LOW polarized: this is your 20% hard run day. Go all in on the intervals. Tomorrow must be an easy day — non-negotiable.' },
+          { name: '🏃 Warm-Up Run', sets: '1', reps: '10-15 min easy', tempo: '-', note: 'HR under 130. Build slowly. Dynamic hip/ankle work after.' },
+          { name: `🏃 ${polarizedRun.label}`, sets: '1', reps: polarizedRun.reps, tempo: '-', note: polarizedRun.note },
+          { name: '🚣 Erg Intervals', sets: '1', reps: p.ergIntervals, tempo: '-', note: `Target ${p.ergPace}. Rest ${p.intervalRest}. Ski or row. Log splits.` },
+          { name: '🏃 Cool-Down', sets: '1', reps: '10 min easy jog', tempo: '-', note: 'HR under 120 before stopping. Never stop abruptly after hard intervals.' },
         ],
         finisher: null, phase,
-        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — ${p.coachNote}`,
+        ...getHyroxStretches(t),
+        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — HIGH DAY (${polarizedRun.label}). ${p.coachNote}`,
       };
     }
     if (t === 'Z2_RUN') {
       return {
         exercises: [
-          { name: 'Z2 Long Run', sets: '1', reps: p.z2Dur, tempo: '-', note: `HR 130-150. Conversational pace.${phase.name === 'TAPER' ? ' Keep it short — trust the taper.' : ' If HR drifts above 150, walk.'}` },
-          ...(phase.name !== 'TAPER' ? [{ name: 'Post-Run Row', sets: '1', reps: '5 min easy', tempo: '-', note: 'Practice erg with pre-fatigued legs — race-specific.' }] : []),
+          { name: '📋 TODAY: EASY DAY (LOW — 80%)', sets: '1', reps: 'Zone 2 only', tempo: '-',
+            note: 'HIGH/LOW: This is your 80% easy day. HR stays under 150. Full sentences the whole run. If it feels too easy, that is correct.' },
+          { name: '🏃 Z2 Long Run', sets: '1', reps: p.z2Dur, tempo: '-',
+            note: `HR 130-150. Conversational pace.${phase.name === 'TAPER' ? ' Keep it short — trust the taper.' : ' If HR drifts above 150, walk. Nose-breathing helps.'}` },
+          ...(phase.name !== 'TAPER' ? [{ name: '🚣 Post-Run Erg (easy)', sets: '1', reps: '5 min Zone 1-2', tempo: '-',
+            note: 'Row or ski at 20 spm easy. Practice erg with pre-fatigued legs — race-specific adaptation.' }] : []),
         ],
         finisher: null, phase,
-        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — ${p.coachNote}`,
+        ...getHyroxStretches(t),
+        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — LOW/EASY DAY (80%). ${p.coachNote}`,
       };
     }
     if (t === 'RACE_SIM') {
       const sim = buildRaceSim(phase, p, block, weekInBlock, wtrLabel, HYROX_STATIONS);
-      return { exercises: sim.exercises, finisher: null, phase, isRaceSim: true, programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — ${p.coachNote}` };
+      const roxzoneNote = { name: '⚡ ROXZONE PRACTICE', sets: '1', reps: 'Every transition', tempo: '-',
+        note: 'The Roxzone is the transition area between your run finish and each station. Walk briskly through it — brisk walk beats slow jog. Practice this every sim. Seconds lost here compound over 8 stations.' };
+      return {
+        exercises: [sim.exercises[0], roxzoneNote, ...sim.exercises.slice(1)],
+        finisher: null, phase, isRaceSim: true,
+        ...getHyroxStretches(t),
+        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — ${p.coachNote}`,
+      };
     }
     if (t === 'CARDIO') {
       return { exercises: [{ name: 'Active Recovery', sets: '1', reps: '30-40 min easy', tempo: '-', note: 'Bike, swim, or walk. HR under 120. Flush fatigue.' }], finisher: null, phase };
@@ -4517,32 +4694,59 @@ const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx, 
     if (t === 'STRENGTH_LOWER') {
       return {
         exercises: progress([
-          { name: lB.primary.name,     sets: blockReps.squat.split('×')[0], reps: blockReps.squat.split('×')[1], tempo: lB.primary.tempo || blockTempo,   note: `Saturday legs. ${lB.primary.note} ${blockNote}` },
+          { name: lB.primary.name,     sets: blockReps.squat.split('×')[0], reps: blockReps.squat.split('×')[1], tempo: lB.primary.tempo || blockTempo,   note: `HIGH DAY. Saturday legs. ${lB.primary.note} ${blockNote}` },
           { name: lB.hinge.name,       sets: blockReps.hinge.split('×')[0], reps: blockReps.hinge.split('×')[1], tempo: lB.hinge.tempo || '31X0',          note: lB.hinge.note },
           { name: lB.unilateral.name,  sets: '3',                           reps: '8/leg',                       tempo: lB.unilateral.tempo || '20X1',     note: lB.unilateral.note },
-          { name: 'Single-Leg RDL',    sets: '3',                           reps: '8/leg',                       tempo: '21X1',                            note: 'Balance + posterior chain.' },
-          { name: `KB Goblet Squat (${KB_SIZING.standard.m}/${KB_SIZING.standard.w})`, sets: '3', reps: '10', tempo: '20X1', note: 'Quad finisher volume.' },
+          { name: lB.accessory1.name,  sets: '3',                           reps: '10-12',                       tempo: lB.accessory1.tempo || '21X1',     note: lB.accessory1.note },
+          { name: lB.accessory2.name,  sets: '3',                           reps: '10-12',                       tempo: lB.accessory2.tempo || '21X0',     note: lB.accessory2.note },
+          { name: lB.accessory3.name,  sets: '3',                           reps: '12-15',                       tempo: lB.accessory3.tempo || '20X1',     note: lB.accessory3.note },
           { name: lB.station1.name,    sets: p.sledSets.toString(),         reps: p.sledLoad,                    tempo: '-',                               note: `${lB.station1.note}${wtrLabel}` },
           { name: lB.station2.name,    sets: p.farmSets.toString(),         reps: 'race weight',                 tempo: '-',                               note: p.farmNote },
         ]),
         finisher: phase.name === 'TAPER' ? 'EMOM 5: 8 easy KB swings' : `EMOM 8: ${kbB.emom.includes(':') ? kbB.emom.split(': ').slice(1).join(': ') : kbB.emom}`,
         phase,
-        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — Saturday legs. ${p.coachNote}`,
+        ...getHyroxStretches(t),
+        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — HIGH DAY. Saturday legs. ${p.coachNote}`,
       };
     }
     if (t === 'KB_RUN') {
       const kbSets = kbB.complex.match(/^(\d+)/)?.[1] || '4';
       const kbRepsStr = (kbB.complex.split('×')[1] || '5/side').trim();
+      const isTaper = phase.name === 'TAPER';
+
+      // Build conditioning block from kbB.conditioning (station focus + wall balls last)
+      const condExercises = isTaper
+        ? [{ name: '⛷️ SkiErg (easy)', sets: '2', reps: '500m easy', tempo: '-', note: 'Taper — stay loose. No effort.' },
+           { name: '🏀 Wall Balls (light)', sets: '2', reps: '15', tempo: '-', note: 'Technique only. Stay fresh.' }]
+        : (kbB.conditioning || []).map(s => ({ name: s.name, sets: '1', reps: s.reps, tempo: '-', note: s.note }));
+
       return {
         exercises: [
-          { name: 'KB Complex',      sets: kbSets, reps: kbRepsStr, tempo: '20X1', note: `${kbB.complexNote} ${blockNote}` },
-          { name: 'KB Snatch Test',  sets: '1',    reps: phase.name === 'TAPER' ? '3 min easy' : (kbB.test.split(':')[1]?.trim() || '5 min max reps'), tempo: '-', note: '10/min pace. Log total reps.' },
-          { name: 'Turkish Get-Up',  sets: '3',    reps: phase.name === 'TAPER' ? '2/side' : (kbB.getups.split('×')[1] || '3/side'), tempo: '-', note: 'Slow, deliberate.' },
-          { name: 'Run Intervals',   sets: '1',    reps: p.runIntervals, tempo: '-', note: `Rest ${p.intervalRest}. Log every split.` },
+          // HIGH/LOW structure note
+          { name: '📋 TODAY: CONDITIONING DAY (HIGH)', sets: '1', reps: 'Hard day — follow with an easy day tomorrow', tempo: '-',
+            note: `HIGH/LOW: This is your hard day. KB complex + run intervals + race stations + brick run. Tomorrow must be easy. ${kbB.stationFocusNote || ''}` },
+          // KB work
+          { name: 'KB Complex', sets: kbSets, reps: kbRepsStr, tempo: '20X1',
+            note: `${kbB.complexNote} ${blockNote}` },
+          { name: 'KB Snatch Test', sets: '1',
+            reps: isTaper ? '3 min easy' : (kbB.test.split(':')[1]?.trim() || '5 min max reps'),
+            tempo: '-', note: '10/min pace. Log total reps. Track each block.' },
+          { name: 'Turkish Get-Up', sets: '3',
+            reps: isTaper ? '2/side' : (kbB.getups.split('×')[1] || '3/side'),
+            tempo: '-', note: 'Shoulder stability. Slow and deliberate.' },
+          // Polarized run intervals (C — 80/20 structure, 20% hard day)
+          { name: '🏃 Run Intervals (20% INTENSITY)', sets: '1', reps: kbB.run, tempo: '-',
+            note: `80/20 polarized: this is your 20% hard run. Go all in. Rest fully between efforts. Log every split.` },
+          // Race conditioning block (station focus + wall balls last — D)
+          ...condExercises,
+          // Brick run (B — compromised workout)
+          ...(!isTaper ? [{ name: '🧱 BRICK RUN (compromised)', sets: '1', reps: kbB.brick, tempo: '-',
+            note: 'NO REST before starting. This is the most race-specific training you can do. Every race you run after a station — own this.' }] : []),
         ],
-        finisher: phase.name === 'TAPER' ? 'None — taper week' : kbB.emom,
+        finisher: isTaper ? 'None — taper week' : kbB.emom,
         phase,
-        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — ${p.coachNote}`,
+        ...getHyroxStretches(t),
+        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — HIGH DAY. ${kbB.stationFocus ? 'Station focus: ' + kbB.stationFocus + '. ' : ''}${p.coachNote}`,
       };
     }
     if (t === 'STRENGTH_UPPER') {
@@ -4550,36 +4754,50 @@ const getExercisesForDay = (style, dayType, week, totalWeeks, schedule, dayIdx, 
       const kb = uB.kb    ? [{ name: uB.kb.name,    sets: '3', reps: '8/side', tempo: '10X1', note: uB.kb.note }] : [];
       return {
         exercises: progress([
-          { name: uB.press1.name, sets: uB.press1.sets || blockReps.press.split('×')[0], reps: blockReps.press.split('×')[1], tempo: uB.press1.tempo || blockTempo, note: `${uB.press1.note} ${blockNote}` },
+          { name: uB.press1.name,     sets: uB.press1.sets || blockReps.press.split('×')[0], reps: blockReps.press.split('×')[1], tempo: uB.press1.tempo || blockTempo, note: `${uB.press1.note} ${blockNote}` },
           ...b2,
-          { name: uB.pull1.name,  sets: uB.pull1.sets || blockReps.pull.split('×')[0],  reps: blockReps.pull.split('×')[1],  tempo: '20X1', note: uB.pull1.note },
-          { name: uB.pull2.name,  sets: '3', reps: '8-10', tempo: uB.pull2.tempo || '20X1', note: uB.pull2.note },
+          { name: uB.pull1.name,      sets: uB.pull1.sets || blockReps.pull.split('×')[0],  reps: blockReps.pull.split('×')[1],  tempo: '20X1', note: uB.pull1.note },
+          { name: uB.pull2.name,      sets: '3', reps: '8-10', tempo: uB.pull2.tempo || '20X1', note: uB.pull2.note },
           ...kb,
-          { name: 'Renegade Row',                    sets: '3', reps: '8/side', tempo: '-',    note: 'Core + upper pull integration.' },
-          { name: uB.station1.name, sets: p.skiSets.toString(),     reps: uB.station1.reps,                   tempo: '-', note: `${uB.station1.note}${wtrLabel}` },
-          { name: uB.station2.name, sets: p.wallBallSets.toString(), reps: uB.station2.reps || p.wallBallReps, tempo: '-', note: uB.station2.note },
-          { name: uB.station3.name, sets: p.burpeeSets.toString(),   reps: uB.station3.reps || p.burpeeReps,   tempo: '-', note: uB.station3.note },
-          { name: 'Sandbag Front-Rack Lunge (20m)', sets: '3', reps: '20m', tempo: '-', note: 'Race weight.' },
+          { name: 'Renegade Row',     sets: '3', reps: '8/side', tempo: '-', note: 'Core + upper pull. Plank stable.' },
+          // Accessory isolation — replaces race stations (those moved to KB_RUN day)
+          { name: uB.accessory1.name, sets: uB.accessory1.sets || '3', reps: '12-15', tempo: '20X1', note: uB.accessory1.note },
+          { name: uB.accessory2.name, sets: uB.accessory2.sets || '3', reps: '10-12', tempo: '20X1', note: uB.accessory2.note },
+          { name: uB.accessory3.name, sets: uB.accessory3.sets || '3', reps: '10-12', tempo: '20X1', note: uB.accessory3.note },
         ]),
         finisher: phase.name === 'TAPER' ? '250m easy SkiErg' : uB.finisher,
         phase,
-        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — Tuesday upper. ${p.coachNote}`,
+        ...getHyroxStretches(t),
+        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — HIGH DAY. Strength + accessories. Race stations on KB day.`,
       };
     }
     if (t === 'Z2_RUN') {
       return {
         exercises: [
-          { name: 'Z2 Long Run',          sets: '1', reps: p.z2Dur,                                   tempo: '-', note: `HR 130-150.${phase.name === 'TAPER' ? ' Short — trust the taper.' : ''}` },
-          { name: 'KB Turkish Get-Up',    sets: '3', reps: phase.name === 'TAPER' ? '2/side' : '3/side', tempo: '-', note: 'After run. Shoulder stability.' },
-          { name: 'Wall Ball Technique',  sets: phase.name === 'TAPER' ? '2' : '3', reps: p.wallBallReps, tempo: '-', note: phase.name === 'RACE PREP' ? 'Race weight — own this movement.' : 'Form focus. Light.' },
+          { name: '📋 TODAY: EASY DAY (LOW — 80%)', sets: '1', reps: 'Zone 2 only. Do not push.', tempo: '-',
+            note: 'HIGH/LOW: This is your 80% easy day. If it feels too easy, that is correct. HR stays under 150. Full sentences the whole run.' },
+          { name: '🏃 Z2 Long Run', sets: '1', reps: p.z2Dur, tempo: '-',
+            note: `HR 130-150. Fully conversational.${phase.name === 'TAPER' ? ' Taper: short and easy only.' : ' Nose-breathing is a useful HR limiter. If HR drifts above 150, walk.'}` },
+          { name: 'KB Turkish Get-Up', sets: '3', reps: phase.name === 'TAPER' ? '2/side' : '3/side', tempo: '-', note: 'After run. Shoulder stability. Slow and deliberate.' },
+          { name: '🏀 Wall Ball Technique', sets: phase.name === 'TAPER' ? '2' : '3', reps: p.wallBallReps, tempo: '-',
+            note: phase.name === 'RACE PREP' ? 'Race weight. Technique only — not race pace.' : 'Light. Form focus. Squat depth, ball above line every rep.' },
         ],
         finisher: null, phase,
-        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — ${p.coachNote}`,
+        ...getHyroxStretches(t),
+        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — LOW/EASY DAY (80%). ${p.coachNote}`,
       };
     }
     if (t === 'RACE_SIM') {
       const sim = buildRaceSim(phase, p, block, weekInBlock, wtrLabel, HYROX_STATIONS);
-      return { exercises: sim.exercises, finisher: null, phase, isRaceSim: true, programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — ${p.coachNote}` };
+      // Add Roxzone practice note (improvement A)
+      const roxzoneNote = { name: '⚡ ROXZONE PRACTICE', sets: '1', reps: 'Every transition', tempo: '-',
+        note: 'The Roxzone is the area between your run and each station. Practice walking briskly (not jogging) through it — HYROX rules require moving, not running, in transitions. Bleeds seconds if ignored.' };
+      return {
+        exercises: [sim.exercises[0], roxzoneNote, ...sim.exercises.slice(1)],
+        finisher: null, phase, isRaceSim: true,
+        ...getHyroxStretches(t),
+        programNote: `BLOCK ${block} WK${weekInBlock}${wtrLabel} — ${p.coachNote}`,
+      };
     }
     if (t === 'CARDIO') {
       return { exercises: [{ name: 'Active Recovery', sets: '1', reps: '30-40 min easy', tempo: '-', note: 'Bike, swim, or walk. HR under 120.' }], finisher: null, phase };
