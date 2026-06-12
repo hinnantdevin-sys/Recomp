@@ -11281,9 +11281,12 @@ const Backup = ({ state, setState, onShowSummary }) => {
     setState((p) => ({
       ...p,
       week: targetWeek,
-      weekOverrides: { dates: {} }, // clear skips/moves — new week, clean slate
       undoHistory: [],
-      profile: { ...p.profile, startDate: dateToISO(newStart) },
+      profile: {
+        ...p.profile,
+        startDate: dateToISO(newStart),
+        weekOverrides: { dates: {} }, // lives in profile — clear skips/moves
+      },
     }));
   };
 
@@ -11297,12 +11300,12 @@ const Backup = ({ state, setState, onShowSummary }) => {
     setState((p) => ({
       ...p,
       week: 1,
-      sessions: {},          // clear set logs, done markers
-      weekOverrides: { dates: {} }, // clear skips and moved workouts
-      undoHistory: [],       // clear undo stack
+      sessions: {},
+      undoHistory: [],
       profile: {
         ...p.profile,
         startDate: todayISO(),
+        weekOverrides: { dates: {} }, // lives in profile — clear all skips/moves
       },
     }));
     setConfirmWeekReset(false);
