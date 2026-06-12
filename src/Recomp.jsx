@@ -11275,14 +11275,14 @@ const Backup = ({ state, setState, onShowSummary }) => {
 
   const setWeek = () => {
     const targetWeek = Math.max(1, Math.min(profile.weeks, +setWeekVal || 1));
-    // Adjust startDate so that today falls on targetWeek, day 1
-    // startDate = today - (targetWeek - 1) * 7 days
     const today = isoToDate(todayISO());
     const newStart = new Date(today);
     newStart.setDate(today.getDate() - (targetWeek - 1) * 7);
     setState((p) => ({
       ...p,
       week: targetWeek,
+      weekOverrides: { dates: {} }, // clear skips/moves — new week, clean slate
+      undoHistory: [],
       profile: { ...p.profile, startDate: dateToISO(newStart) },
     }));
   };
@@ -11297,10 +11297,12 @@ const Backup = ({ state, setState, onShowSummary }) => {
     setState((p) => ({
       ...p,
       week: 1,
-      sessions: {},  // clear workout sessions so week 1 starts fresh
+      sessions: {},          // clear set logs, done markers
+      weekOverrides: { dates: {} }, // clear skips and moved workouts
+      undoHistory: [],       // clear undo stack
       profile: {
         ...p.profile,
-        startDate: todayISO(),  // reset start date to today
+        startDate: todayISO(),
       },
     }));
     setConfirmWeekReset(false);
